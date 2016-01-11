@@ -4,8 +4,8 @@ use std::num::Wrapping;
 pub struct Cpu {
     gprs : [u8; 10],
     flag_reg : u8,
-    pc : u32,
-    sp : u32,
+    pc : u16,
+    sp : u16,
 
     memory : Memory,
 }
@@ -40,6 +40,11 @@ impl Cpu {
         let byte1 = self.memory.read_general_8(self.pc as usize + 1);
         ((byte1 as u16) << 8) | (byte0 as u16)
     }
+
+    // ALU utility functions
+    fn add_signed8_to_unsigned16()
+
+    // 8-bit loads
 
     fn load_8_imm(&mut self, reg : usize) -> i32 {
         self.pc += 1;
@@ -182,6 +187,33 @@ impl Cpu {
         return 8;
     }
 
+    // 16-bit loads
+
+    fn mov_16_imm(&mut self, high: usize, low: usize) -> i32 {
+        self.pc += 1;
+        let value = self.peek_16_imm();
+        self.set_combined_regs(high, low, value);
+        self.pc += 2;
+        return 12;
+    }
+
+    fn mov_16_imm_sp(&mut self) -> i32 {
+        self.pc += 1;
+        let value = self.peek_16_imm();
+        self.sp = value;
+        self.pc += 2;
+        return 12;
+    }
+
+    fn mov_hl_to_sp(&mut self) -> i32 {
+        let value = self.combine_regs(REG_H, REG_L);
+        self.sp = value;
+        self.pc += 1;
+        return 8;
+    }
+
+
+
 
 }
 
@@ -297,6 +329,14 @@ impl Cpu {
             0x2A => self.mov_8_a_inc_hl(),
             0x32 => self.store_8_a_dec_hl(),
             0x22 => self.store_8_a_inc_hl(),
+
+            // 16-bit memory operations
+            0x01 => self.mov_16_imm(REG_B, REG_C),
+            0x11 => self.mov_16_imm(REG_D, REG_E),
+            0x21 => self.mov_16_imm(REG_H, REG_L),
+            0x31 => self.mov_16_imm_sp(),
+
+
 
 
 

@@ -2,3 +2,6 @@
 name = "rusty_boy"
 version = "0.1.0"
 authors = ["Ramy El Garawany <ramihg@gmail.com>"]
+
+[dependencies.bitfield]
+git = "https://github.com/dzamlo/rust-bitfield"

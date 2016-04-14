@@ -1,9 +1,11 @@
 use memory::Memory;
+use alu::*;
+
 use std::num::Wrapping;
 
 pub struct Cpu {
     gprs : [u8; 10],
-    flag_reg : u8,
+    flags : FlagRegister,
     pc : u16,
     sp : u16,
 
@@ -35,14 +37,15 @@ impl Cpu {
         self.memory.read_general_8(self.pc as usize)
     }
 
+    fn peek_i8_imm(&self) -> i8 {
+        self.memory.read_general_8(self.pc as usize) as i8
+    }
+
     fn peek_16_imm(&self) -> u16 {
         let byte0 = self.memory.read_general_8(self.pc as usize);
         let byte1 = self.memory.read_general_8(self.pc as usize + 1);
         ((byte1 as u16) << 8) | (byte0 as u16)
     }
-
-    // ALU utility functions
-    fn add_signed8_to_unsigned16()
 
     // 8-bit loads
 
@@ -187,7 +190,7 @@ impl Cpu {
         return 8;
     }
 
-    // 16-bit loads
+    // 16-bit memory ops
 
     fn mov_16_imm(&mut self, high: usize, low: usize) -> i32 {
         self.pc += 1;
@@ -212,7 +215,15 @@ impl Cpu {
         return 8;
     }
 
-
+    fn mov_spn_to_hl(&mut self) -> i32 {
+        self.pc += 1;
+        let offset = self.peek_i8_imm();
+        let (sp, flags) = add_u16_i8(self.sp, offset);
+        self.sp = sp;
+        self.flags = flags;
+        self.pc += 1;
+        return 12;
+    }
 
 
 }

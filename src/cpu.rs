@@ -21,6 +21,14 @@ const REG_F : usize = 5;
 const REG_H : usize = 6;
 const REG_L : usize = 7;
 
+/* 
+ * My references:
+ * http://imrannazar.com/Gameboy-Z80-Opcode-Map
+ * http://clrhome.org/table/
+ * http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
+ * http://gameboy.mongenel.com/asmschool.html
+*/
+
 // Utility functions in Cpu
 impl Cpu {
     /// Combine two 8-bit registers

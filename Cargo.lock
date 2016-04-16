@@ -1,12 +1,4 @@
 [root]
 name = "rusty_boy"
 version = "0.1.0"
-dependencies = [
- "bitfield 0.0.2 (git+https://github.com/dzamlo/rust-bitfield)",
-]
-
-[[package]]
-name = "bitfield"
-version = "0.0.2"
-source = "git+https://github.com/dzamlo/rust-bitfield#a1f2a329c127168cfdea671ce17940e60c24935f"
 

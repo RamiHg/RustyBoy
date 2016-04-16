@@ -233,6 +233,30 @@ impl Cpu {
         return 12;
     }
 
+    fn mov_sp_to_nn(&mut self) -> i32 {
+        self.pc += 1;
+        let address = self.peek_16_imm();
+        self.pc += 2;
+        self.memory.store_general_16(address as usize, self.sp);
+        return 20;
+    }
+
+    fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
+        let value = self.combine_regs(high, low);
+        self.memory.store_general_16(self.sp as usize, value);
+        self.sp -= 2;
+        self.pc += 1;
+        return 16;
+    }
+
+    fn pop_16_reg(&mut self, high: usize, low: usize) -> i32 {
+        let value = self.memory.read_general_16(self.sp as usize);
+        self.set_combined_regs(high, low, value);
+        self.sp += 2;
+        self.pc += 1;
+        return 12;
+    }
+
 
 }
 
@@ -355,8 +379,21 @@ impl Cpu {
             0x21 => self.mov_16_imm(REG_H, REG_L),
             0x31 => self.mov_16_imm_sp(),
 
+            0xF9 => self.mov_hl_to_sp(),
+            0xF8 => self.mov_spn_to_hl(),
+            0x08 => self.mov_sp_to_nn(),
 
+            0xF5 => self.push_16_reg(REG_A, REG_F),
+            0xC5 => self.push_16_reg(REG_B, REG_C),
+            0xD5 => self.push_16_reg(REG_D, REG_E),
+            0xE5 => self.push_16_reg(REG_H, REG_L),
 
+            0xF1 => self.pop_16_reg(REG_A, REG_F),
+            0xC1 => self.pop_16_reg(REG_B, REG_C),
+            0xD1 => self.pop_16_reg(REG_D, REG_E),
+            0xE1 => self.pop_16_reg(REG_H, REG_L),
+
+            
 
 
             _    => panic!("Oops"),

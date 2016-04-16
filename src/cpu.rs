@@ -257,6 +257,34 @@ impl Cpu {
         return 12;
     }
 
+    // 8-bit alu
+    fn add_8_reg_reg(&mut self, dst: usize, src: usize) -> i32 {
+        let (result, flags) = add_u8_u8(self.gprs[dst], self.gprs[src]);
+        self.pc += 1;
+        self.flags = flags;
+        self.gprs[dst] = result;
+        return 4;
+    }
+
+    fn add_hl_to_a(&mut self) -> i32 {
+        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) = add_u8_u8(self.gprs[REG_A], value);
+        self.pc += 1;
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        return 8;
+    }
+
+    fn add_imm_8_to_a(&mut self) -> i32 {
+        self.pc += 1;
+        let value = self.peek_8_imm();
+        self.pc += 1;
+        let (result, flags) = add_u8_u8(self.gprs[REG_A], value);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        return 8;
+    }
+
 
 }
 
@@ -393,7 +421,16 @@ impl Cpu {
             0xD1 => self.pop_16_reg(REG_D, REG_E),
             0xE1 => self.pop_16_reg(REG_H, REG_L),
 
-            
+            // 8-bit ALU
+            0x87 => self.add_8_reg_reg(REG_A, REG_A),
+            0x80 => self.add_8_reg_reg(REG_A, REG_B),
+            0x81 => self.add_8_reg_reg(REG_A, REG_C),
+            0x82 => self.add_8_reg_reg(REG_A, REG_D),
+            0x83 => self.add_8_reg_reg(REG_A, REG_E),
+            0x84 => self.add_8_reg_reg(REG_A, REG_H),
+            0x85 => self.add_8_reg_reg(REG_A, REG_L),
+            0x86 => self.add_hl_to_a(),
+            0xC6 => self.add_imm_8_to_a(),
 
 
             _    => panic!("Oops"),

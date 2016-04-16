@@ -285,6 +285,102 @@ impl Cpu {
         return 8;
     }
 
+    // ADC A, reg
+    fn adc_reg_to_a(&mut self, reg: usize) -> i32 {
+        let (result, flags) = adc_u8_u8(self.gprs[REG_A], self.gprs[reg], 
+            self.flags.get_bit(FlagBits::CARRY));
+
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 4;
+    }
+
+    // ADC A, (HL)
+    fn adc_hl_to_a(&mut self) -> i32 {
+        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) = adc_u8_u8(self.gprs[REG_A], value, 
+            self.flags.get_bit(FlagBits::CARRY));
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
+
+    // ADC A, n
+    fn adc_imm_8_to_a(&mut self) -> i32 {
+        self.pc += 1;
+        let value = self.peek_8_imm();
+        self.pc += 1;
+        let (result, flags) = adc_u8_u8(self.gprs[REG_A], value,
+            self.flags.get_bit(FlagBits::CARRY));
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        return 8;
+    }
+
+    // SUB reg
+    fn sub_reg(&mut self, reg: usize) -> i32 {
+        let (result, flags) = sub_i8_i8(self.gprs[REG_A], self.gprs[reg]);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 4;
+    }
+
+    // SUB (HL)
+    fn sub_hl(&mut self) -> i32 {
+        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) = sub_i8_i8(self.gprs[REG_A], value);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
+
+    // SUB n
+    fn sub_imm_8(&mut self) -> i32 {
+        self.pc += 1;
+        let value = self.peek_8_imm();
+        let (result, flags) = sub_i8_i8(self.gprs[REG_A], value);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
+
+    // SBC A, reg
+    fn sbc_reg(&mut self, reg: usize) -> i32 {
+        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], self.gprs[reg],
+            self.flags.get_bit(FlagBits::CARRY));
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 4;
+    }
+
+    // SBC A, (HL)
+    fn sbc_hl(&mut self) -> i32 {
+        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], value,
+            self.flags.get_bit(FlagBits::CARRY));
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
+
+    // SBC A, n
+    fn sbc_imm_8(&mut self) -> i32 {
+        self.pc += 1;
+        let value = self.peek_8_imm();
+        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], value,
+            self.flags.get_bit(FlagBits::CARRY));
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
 
 }
 
@@ -431,6 +527,36 @@ impl Cpu {
             0x85 => self.add_8_reg_reg(REG_A, REG_L),
             0x86 => self.add_hl_to_a(),
             0xC6 => self.add_imm_8_to_a(),
+
+            0x8F => self.adc_reg_to_a(REG_A),
+            0x88 => self.adc_reg_to_a(REG_B),
+            0x89 => self.adc_reg_to_a(REG_C),
+            0x8A => self.adc_reg_to_a(REG_D),
+            0x8B => self.adc_reg_to_a(REG_E),
+            0x8C => self.adc_reg_to_a(REG_H),
+            0x8D => self.adc_reg_to_a(REG_L),
+            0x8E => self.adc_hl_to_a(),
+            0xCE => self.adc_imm_8_to_a(),
+
+            0x97 => self.sub_reg(REG_A),
+            0x90 => self.sub_reg(REG_B),
+            0x91 => self.sub_reg(REG_C),
+            0x92 => self.sub_reg(REG_D),
+            0x93 => self.sub_reg(REG_E),
+            0x94 => self.sub_reg(REG_H),
+            0x95 => self.sub_reg(REG_L),
+            0x96 => self.sub_hl(),
+            0xD6 => self.sub_imm_8(),
+
+            0x9F => self.sbc_reg(REG_A),
+            0x98 => self.sbc_reg(REG_B),
+            0x99 => self.sbc_reg(REG_C),
+            0x9A => self.sbc_reg(REG_D),
+            0x9B => self.sbc_reg(REG_E),
+            0x9C => self.sbc_reg(REG_H),
+            0x9D => self.sbc_reg(REG_L),
+            0x9E => self.sbc_hl(),
+            0xDE => self.sbc_imm_8(),
 
 
             _    => panic!("Oops"),

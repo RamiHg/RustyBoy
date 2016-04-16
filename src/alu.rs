@@ -22,7 +22,7 @@ impl FlagRegister {
         ret
     }
 
-    pub fn set_bit(&mut self, bit : FlagBits, val : u32) {
+    pub fn set_bit(&mut self, bit: FlagBits, val : u32) {
         if val != 0 {
             self.value |= bit as u8;
         }
@@ -30,10 +30,18 @@ impl FlagRegister {
             self.value &= !(bit as u8);
         }
     }
+
+    pub fn get_bit(&self, bit: FlagBits) -> u8{
+        self.value & (bit as u8)
+    }   
 }
 
-fn get_add_hc(a: i32, b: i32) -> i32{
-    ((a & 0xf) + (b & 0xf)) & 0x10
+fn get_add_hc(a: i32, b: i32) -> i32 {
+    ((a & 0xf) + (b & 0xf)) & 0xF0
+}
+
+fn get_sub_hc(a: i32, b: i32) -> i32 {
+    (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
 }
 
 pub fn add_u16_i8(a: u16, b: i8) -> (u16, FlagRegister) {
@@ -43,7 +51,7 @@ pub fn add_u16_i8(a: u16, b: i8) -> (u16, FlagRegister) {
 
     let hc = get_add_hc(a_i32, b_i32);
     let result = a_i32 + b_i32;
-    let c = result & 0x10000;
+    let c = result & 0xFF0000;
 
     let z = FlagRegister::new(
         c as u32,
@@ -62,24 +70,62 @@ pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 
     let hc = get_add_hc(a_i32, b_i32);
     let result_i32 = a_i32 + b_i32;
-    let c = result_i32 & 0x100;
+    let c = result_i32 & 0xF00;
     let result = (result_i32 & 0xFF) as u8;
 
     let z = FlagRegister::new(
         c as u32,
         hc as u32,
         0,
-        result as u32,
+        result as u32
     );
 
     return (result, z);
 }
 
-pub fn adc_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
+pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
     let a_i32 = a as i32;
-    let b_i32 = b as i32;
+    let carry = if prev_c != 0 { 1 } else { 0 };
+    let b_i32 = b as i32 + carry;
 
     let hc = get_add_hc(a_i32, b_i32);
-    let mut result_i32 = a_i32 + b_i32;
-    let c = (result_i32 & 0x100);
+    let result_i32 = a_i32 + b_i32;
+    let c = result_i32 & 0xF00;
+    let result = (result_i32 & 0xFF) as u8;
+
+    let z = FlagRegister::new(
+        c as u32,
+        hc as u32,
+        0,
+        result as u32
+    );
+
+    return (result, z);
+}
+
+pub fn sub_i8_i8(a: u8, b: u8) -> (u8, FlagRegister) {
+    let a_i32 = (a as i8) as i32;
+    let b_i32 = (b as i8) as i32;
+
+    let hc = get_sub_hc(a_i32, b_i32);
+    let result_i32 = a_i32 - b_i32;
+    let c = result_i32 as u32 & 0xFFFFFF00_u32;
+    let result = (result_i32 & 0xFF) as u8;
+
+    let z = FlagRegister::new(
+        c as u32,
+        hc as u32,
+        1,
+        result as u32
+    );
+
+    return (result, z);
+}
+
+pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
+    let a_i32 = (a as i8) as i32;
+    let carry = if prev_c != 0 { 1 } else { 0 };
+    let b_i32 = (b as i8) as i32 + carry;
+
+    return sub_i8_i8((a_i32 as i8) as u8, (b_i32 as i8) as u8);
 }

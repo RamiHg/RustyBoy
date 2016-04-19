@@ -381,6 +381,90 @@ impl Cpu {
         self.pc += 1;
         return 8;
     }
+    
+    // General helper function that gets called by 
+    // AND, OR, XOR
+    
+    // OP reg
+    fn op_u8_helper_reg<F>(&mut self, reg: usize, op: F) -> i32
+        where F : Fn(u8, u8) -> (u8, FlagRegister) {
+            
+        let (result, flags) = op(self.gprs[REG_A], self.gprs[reg]);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 4;
+    }
+    
+    // OP (HL)
+    fn op_u8_helper_hl<F>(&mut self, op: F) -> i32 
+        where F : Fn(u8, u8) -> (u8, FlagRegister) {
+          
+        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) = op(self.gprs[REG_A], value);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;
+    }
+    
+    // OP n
+    fn op_u8_helper_imm_8<F>(&mut self, op: F) -> i32 
+        where F : Fn(u8, u8) -> (u8, FlagRegister) {
+        
+        self.pc += 1;
+        let value = self.peek_8_imm();
+        let (result, flags) = op(self.gprs[REG_A], value);
+        self.flags = flags;
+        self.gprs[REG_A] = result;
+        self.pc += 1;
+        return 8;  
+    }
+    
+    // AND reg
+    fn and_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(reg, and_u8_u8)
+    }
+    
+    // AND (HL)
+    fn and_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(and_u8_u8)
+    }
+    
+    // AND n
+    fn and_imm_8(&mut self) -> i32 {
+        self.op_u8_helper_imm_8(and_u8_u8)
+    }
+    
+    // OR reg
+    fn or_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(reg, or_u8_u8)
+    }
+    
+    // OR (HL)
+    fn or_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(or_u8_u8)
+    }
+    
+    // OR n
+    fn or_imm_8(&mut self) -> i32 {
+        self.op_u8_helper_imm_8(or_u8_u8)
+    }
+    
+    // XOR reg
+    fn xor_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(reg, xor_u8_u8)
+    }
+    
+    // XOR (HL)
+    fn xor_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(xor_u8_u8)
+    }
+    
+    // XOR n
+    fn xor_imm_8(&mut self) -> i32 {
+        self.op_u8_helper_imm_8(xor_u8_u8)
+    }
 
 }
 
@@ -557,6 +641,36 @@ impl Cpu {
             0x9D => self.sbc_reg(REG_L),
             0x9E => self.sbc_hl(),
             0xDE => self.sbc_imm_8(),
+            
+            0xA7 => self.and_reg(REG_A),
+            0xA0 => self.and_reg(REG_B),
+            0xA1 => self.and_reg(REG_C),
+            0xA2 => self.and_reg(REG_D),
+            0xA3 => self.and_reg(REG_E),
+            0xA4 => self.and_reg(REG_H),
+            0xA5 => self.and_reg(REG_L),
+            0xA6 => self.and_hl(),
+            0xE6 => self.and_imm_8(),
+            
+            0xB7 => self.or_reg(REG_A),
+            0xB0 => self.or_reg(REG_B),
+            0xB1 => self.or_reg(REG_C),
+            0xB2 => self.or_reg(REG_D),
+            0xB3 => self.or_reg(REG_E),
+            0xB4 => self.or_reg(REG_H),
+            0xB5 => self.or_reg(REG_L),
+            0xB6 => self.or_hl(),
+            0xF6 => self.or_imm_8(),
+            
+            0xAF => self.xor_reg(REG_A),
+            0xA8 => self.xor_reg(REG_B),
+            0xA9 => self.xor_reg(REG_C),
+            0xAA => self.xor_reg(REG_D),
+            0xAB => self.xor_reg(REG_E),
+            0xAC => self.xor_reg(REG_H),
+            0xAD => self.xor_reg(REG_L),
+            0xAE => self.xor_hl(),
+            0xEE => self.xor_imm_8(),
 
 
             _    => panic!("Oops"),

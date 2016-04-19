@@ -129,3 +129,29 @@ pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
 
     return sub_i8_i8((a_i32 as i8) as u8, (b_i32 as i8) as u8);
 }
+
+pub fn and_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
+    let result = a & b;
+    
+    let z = FlagRegister::new(
+        0, 1, 0, result as u32
+    );
+    
+    return (result, z);
+}
+
+pub fn or_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
+    let result = a | b;
+    let z = FlagRegister::new(
+        0, 0, 0, result as u32
+    );
+    return (result, z);
+}
+
+pub fn xor_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
+    let result = a ^ b;
+    let z = FlagRegister::new(
+        0, 0, 0, result as u32
+    );
+    return (result, z);
+}

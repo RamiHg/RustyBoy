@@ -31,7 +31,7 @@ impl FlagRegister {
         }
     }
 
-    pub fn get_bit(&self, bit: FlagBits) -> u8{
+    pub fn get_bit(&self, bit: FlagBits) -> u8 {
         self.value & (bit as u8)
     }   
 }
@@ -154,4 +154,25 @@ pub fn xor_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
         0, 0, 0, result as u32
     );
     return (result, z);
+}
+
+pub fn cp_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
+    // This is basically A - n with the result thrown away
+    let (_, flags) = sub_i8_i8(a, b);
+    return (a, flags); 
+}
+
+// Having a useless first parameter to fit with helper functions in cpu
+pub fn inc_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
+    let (result, mut flags) = add_u8_u8(a, 1);
+    // The carry flag is not affected
+    flags.set_bit(FlagBits::CARRY, current_flags.get_bit(FlagBits::CARRY) as u32);
+    return (result, flags);
+}
+
+pub fn dec_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
+    let (result, mut flags) = sub_i8_i8(a, 1);
+    // The carry flag is not affected
+    flags.set_bit(FlagBits::CARRY, current_flags.get_bit(FlagBits::CARRY) as u32);
+    return (result, flags);
 }

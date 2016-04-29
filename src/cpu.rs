@@ -4,7 +4,7 @@ use alu::*;
 use std::num::Wrapping;
 
 pub struct Cpu {
-    gprs : [u8; 10],
+    gprs : [u8; 8],
     flags : FlagRegister,
     pc : u16,
     sp : u16,
@@ -20,6 +20,7 @@ const REG_E : usize = 4;
 const REG_F : usize = 5;
 const REG_H : usize = 6;
 const REG_L : usize = 7;
+const REG_INVALID: usize = 8;
 
 /* 
  * My references:
@@ -381,6 +382,35 @@ impl Cpu {
         self.pc += 1;
         return 8;
     }
+
+    // General helper functions that get called by ADC/SBC/INC/DEC (TODO: Actually use for ADC/SBC)
+
+    fn op_u8_flag_helper_reg<F>(&mut self, reg: usize, result_reg: usize, op: F) -> i32
+        where F : Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister) {
+
+        let (result, flags) = op(self.gprs[REG_A], self.gprs[reg], &self.flags);
+        self.flags = flags;
+        self.gprs[result_reg] = result;
+        self.pc += 1;
+        return 4;
+    }
+
+    fn op_u8_flag_helper_hl<F>(&mut self, result_reg: usize, write_to_hl: bool, op: F) -> i32
+        where F : Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister) {
+
+        let hl_value = self.combine_regs(REG_H, REG_L) as usize;
+        let value = self.memory.read_general_8(hl_value);
+        let (result, flags) = op(self.gprs[REG_A], value, &self.flags);
+        self.flags = flags;
+        if write_to_hl {
+            self.memory.store_general_8(hl_value, result);
+        }
+        else {
+            self.gprs[result_reg] = result;
+        }
+        self.pc += 1;
+        return 12; // WARNING: May or may not match actual instruction cycle count
+    }
     
     // General helper function that gets called by 
     // AND, OR, XOR
@@ -465,6 +495,23 @@ impl Cpu {
     fn xor_imm_8(&mut self) -> i32 {
         self.op_u8_helper_imm_8(xor_u8_u8)
     }
+
+    // CP reg
+    fn cp_reg(&mut self, reg: usize) -> i32 { self.op_u8_helper_reg(reg, cp_u8_u8) }
+    // CP (HL)
+    fn cp_hl(&mut self) -> i32 { self.op_u8_helper_hl(cp_u8_u8) }
+    // CP n
+    fn cp_imm_8(&mut self) -> i32 { self.op_u8_helper_imm_8(cp_u8_u8) }
+
+    // INC reg
+    fn inc_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, inc_u8_u8) }
+    // INC (HL)
+    fn inc_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, inc_u8_u8) }
+
+    // DEC reg
+    fn dec_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, dec_u8_u8) }
+    // DEC (HL)
+    fn dec_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, dec_u8_u8) }
 
 }
 
@@ -671,6 +718,34 @@ impl Cpu {
             0xAD => self.xor_reg(REG_L),
             0xAE => self.xor_hl(),
             0xEE => self.xor_imm_8(),
+
+            0xBF => self.cp_reg(REG_A),
+            0xB8 => self.cp_reg(REG_B),
+            0xB9 => self.cp_reg(REG_C),
+            0xBA => self.cp_reg(REG_D),
+            0xBB => self.cp_reg(REG_E),
+            0xBC => self.cp_reg(REG_H),
+            0xBD => self.cp_reg(REG_L),
+            0xBE => self.cp_hl(),
+            0xFE => self.cp_imm_8(),
+
+            0x3C => self.inc_reg(REG_A),
+            0x04 => self.inc_reg(REG_B),
+            0x0C => self.inc_reg(REG_C),
+            0x14 => self.inc_reg(REG_D),
+            0x1C => self.inc_reg(REG_E),
+            0x24 => self.inc_reg(REG_H),
+            0x2C => self.inc_reg(REG_L),
+            0x34 => self.inc_hl(),
+
+            0x3D => self.dec_reg(REG_A),
+            0x05 => self.dec_reg(REG_B),
+            0x0D => self.dec_reg(REG_C),
+            0x15 => self.dec_reg(REG_D),
+            0x1D => self.dec_reg(REG_E),
+            0x25 => self.dec_reg(REG_H),
+            0x2D => self.dec_reg(REG_L),
+            0x35 => self.dec_hl(),
 
 
             _    => panic!("Oops"),

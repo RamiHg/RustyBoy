@@ -226,7 +226,7 @@ impl Cpu {
 
     fn mov_spn_to_hl(&mut self) -> i32 {
         self.pc += 1;
-        let offset = self.peek_i8_imm();
+        let offset = self.peek_8_imm();
         let (sp, flags) = add_u16_i8(self.sp, offset);
         self.sp = sp;
         self.flags = flags;
@@ -322,7 +322,7 @@ impl Cpu {
 
     // SUB reg
     fn sub_reg(&mut self, reg: usize) -> i32 {
-        let (result, flags) = sub_i8_i8(self.gprs[REG_A], self.gprs[reg]);
+        let (result, flags) = sub_u8_u8(self.gprs[REG_A], self.gprs[reg]);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -332,7 +332,7 @@ impl Cpu {
     // SUB (HL)
     fn sub_hl(&mut self) -> i32 {
         let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
-        let (result, flags) = sub_i8_i8(self.gprs[REG_A], value);
+        let (result, flags) = sub_u8_u8(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -343,7 +343,7 @@ impl Cpu {
     fn sub_imm_8(&mut self) -> i32 {
         self.pc += 1;
         let value = self.peek_8_imm();
-        let (result, flags) = sub_i8_i8(self.gprs[REG_A], value);
+        let (result, flags) = sub_u8_u8(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -512,6 +512,129 @@ impl Cpu {
     fn dec_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, dec_u8_u8) }
     // DEC (HL)
     fn dec_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, dec_u8_u8) }
+
+    // 16-bit ALU
+
+    // ADD HL, reg
+    fn add_16_hl_helper(&mut self, rhs: u16) -> i32 {
+        let hl = self.combine_regs(REG_H, REG_L);
+        let (result, flags) = add_u16_u16(hl, rhs, &self.flags);
+
+        self.set_combined_regs(REG_H, REG_L, result);
+        self.flags = flags;
+        self.pc += 1;
+        return 8;
+    }
+
+    fn add_16_hl_reg(&mut self, high: usize, low: usize) -> i32 {
+        let rhs = self.combine_regs(high, low);
+        self.add_16_hl_helper(rhs)
+    }
+
+    fn add_16_hl_sp(&mut self) -> i32 {
+        // When I'm better at rust, figure out how to do this in a more elegant way
+        // By the time I call self.add_16_hl_helper, it's already borrowed as mutable
+        // and thus I can't borrow self.sp's self as immutable
+        let value = self.sp;
+        self.add_16_hl_helper(value)
+    }
+
+    // ADD SP, n
+    fn add_sp_n(&mut self) -> i32 {
+        self.pc += 1;
+        let n = self.peek_8_imm();
+        let (result, flags) = add_u16_i8(self.sp, n);
+        self.sp = result;
+        self.flags = flags;
+        self.pc += 1;
+        return 16;
+    }
+
+    // INC nn
+    fn inc_nn(&mut self, high: usize, low: usize) -> i32 {
+        let (result, _) = add_u16_i8(self.combine_regs(high, low), 1);
+        self.set_combined_regs(high, low, result);
+        self.pc += 1;
+        return 8;
+    }
+
+    // INC SP
+    fn inc_sp(&mut self) -> i32 {
+        let (result, _) = add_u16_i8(self.sp, 1);
+        self.sp = result;
+        self.pc += 1;
+        return 8;
+    }
+
+    // DEC nn
+    fn dec_nn(&mut self, high: usize, low: usize) -> i32 {
+        let (result, _) = add_u16_i8(self.combine_regs(high, low), 0xFF);
+        self.set_combined_regs(high, low, result);
+        self.pc += 1;
+        return 8;
+    }
+
+    // DEC SP
+    fn dec_sp(&mut self) -> i32 {
+        let (result, _) = add_u16_i8(self.sp, 0xFF);
+        self.sp = result;
+        self.pc += 1;
+        return 8;
+    } 
+
+    // Misc functions
+
+    // SWAP n
+    fn swap_reg(&mut self, reg: usize) -> i32 {
+        let (result, flags) = swap_u8(self.gprs[reg]);
+        self.gprs[reg] = result;
+        self.flags = flags;
+        self.pc += 1;
+        return 8;
+    }
+
+    fn swap_hl(&mut self) -> i32 {
+        let hl = self.combine_regs(REG_H, REG_L) as usize;
+        let (result, flags) = swap_u8(self.memory.read_general_8(hl));
+        self.memory.store_general_8(hl, result);
+        self.flags = flags;
+        self.pc += 1;
+        return 16;
+    }
+
+    fn daa(&mut self) -> i32 {
+        let (result, flags) = daa(self.gprs[REG_A], &self.flags);
+        self.gprs[REG_A] = result;
+        self.flags = flags;
+        self.pc += 1;
+        return 4;
+    }
+
+    fn cpl(&mut self) -> i32 {
+        let (result, flags) = cpl_u8(self.gprs[REG_A], &self.flags);
+        self.gprs[REG_A] = result;
+        self.flags = flags;
+        self.pc += 1;
+        return 4;
+    }
+
+    fn ccf(&mut self) -> i32 {
+        self.flags = ccf_u8(&self.flags);
+        self.pc += 1;
+        return 4;
+    }
+
+    fn scf(&mut self) -> i32 {
+        self.flags = FlagRegister::new(1, 0, 0, self.flags.get_bit(FlagBits::ZERO) as u32);
+        self.pc += 1;
+        return 4;
+    }
+
+    fn nop(&mut self) -> i32 {
+        self.pc += 1;
+        return 4;
+    }
+
 
 }
 
@@ -746,6 +869,53 @@ impl Cpu {
             0x25 => self.dec_reg(REG_H),
             0x2D => self.dec_reg(REG_L),
             0x35 => self.dec_hl(),
+
+            // 16-bit ALU
+            0x09 => self.add_16_hl_reg(REG_B, REG_C),
+            0x19 => self.add_16_hl_reg(REG_D, REG_E),
+            0x29 => self.add_16_hl_reg(REG_H, REG_L),
+            0x39 => self.add_16_hl_sp(),
+
+            0xE8 => self.add_sp_n(),
+
+            0x03 => self.inc_nn(REG_B, REG_C),
+            0x13 => self.inc_nn(REG_D, REG_E),
+            0x23 => self.inc_nn(REG_H, REG_L),
+            0x33 => self.inc_sp(),
+
+            0x0B => self.dec_nn(REG_B, REG_C),
+            0x1B => self.dec_nn(REG_D, REG_E),
+            0x2B => self.dec_nn(REG_H, REG_L),
+            0x3B => self.dec_sp(),
+
+
+            // Misc Functions
+            0x27 => self.daa(),
+            0x2F => self.cpl(),
+            0x3F => self.ccf(),
+            0x37 => self.scf(),
+            0x00 => self.nop(),
+
+
+            // CB-prefix Instructions:
+            0xCB => {
+                self.pc += 1;
+                // Grab the next byte
+                let inst = self.peek_8_imm();
+
+                match inst {
+                    0x37 => self.swap_reg(REG_A),
+                    0x30 => self.swap_reg(REG_B),
+                    0x31 => self.swap_reg(REG_C),
+                    0x32 => self.swap_reg(REG_D),
+                    0x33 => self.swap_reg(REG_E),
+                    0x34 => self.swap_reg(REG_H),
+                    0x35 => self.swap_reg(REG_L),
+                    0x36 => self.swap_hl(),
+
+                    _    => panic!("CB Ooops"),
+                }
+            },
 
 
             _    => panic!("Oops"),

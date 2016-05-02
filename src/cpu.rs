@@ -10,6 +10,12 @@ pub struct Cpu {
     sp : u16,
 
     memory : Memory,
+
+
+    // Various cpu-controls
+    is_halted: bool,
+    is_stopped: bool,
+    is_interrupts_enabled: bool
 }
 
 const REG_A : usize = 0;
@@ -413,10 +419,9 @@ impl Cpu {
     }
     
     // General helper function that gets called by 
-    // AND, OR, XOR
     
-    // OP reg
-    fn op_u8_helper_reg<F>(&mut self, reg: usize, op: F) -> i32
+    // OP A, reg
+    fn op_u8_helper_a_reg<F>(&mut self, reg: usize, op: F) -> i32
         where F : Fn(u8, u8) -> (u8, FlagRegister) {
             
         let (result, flags) = op(self.gprs[REG_A], self.gprs[reg]);
@@ -426,8 +431,8 @@ impl Cpu {
         return 4;
     }
     
-    // OP (HL)
-    fn op_u8_helper_hl<F>(&mut self, op: F) -> i32 
+    // OP A, (HL)
+    fn op_u8_helper_a_hl<F>(&mut self, op: F) -> i32 
         where F : Fn(u8, u8) -> (u8, FlagRegister) {
           
         let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
@@ -438,8 +443,8 @@ impl Cpu {
         return 8;
     }
     
-    // OP n
-    fn op_u8_helper_imm_8<F>(&mut self, op: F) -> i32 
+    // OP A, n
+    fn op_u8_helper_a_imm_8<F>(&mut self, op: F) -> i32 
         where F : Fn(u8, u8) -> (u8, FlagRegister) {
         
         self.pc += 1;
@@ -450,59 +455,82 @@ impl Cpu {
         self.pc += 1;
         return 8;  
     }
+
+    // OP reg
+    fn op_u8_helper_reg<F>(&mut self, op: F, reg: usize) 
+        where F: Fn(u8, &FlagRegister) -> (u8, FlagRegister) {
+
+        let (result, flags) = op(self.gprs[reg], &self.flags);
+        self.gprs[reg] = result;
+        self.flags = flags;
+        self.pc += 1;
+    }
+
+    // OP (HL)
+    fn op_u8_helper_hl<F>(&mut self, op: F)
+        where F: Fn(u8, &FlagRegister) -> (u8, FlagRegister) {
+
+        let hl = self.combine_regs(REG_H, REG_L) as usize;
+        let (result, flags) = op(
+            self.memory.read_general_8(hl), &self.flags);
+        self.memory.store_general_8(hl, result);
+        self.flags = flags;
+        self.pc += 1;
+    }
     
     // AND reg
     fn and_reg(&mut self, reg: usize) -> i32 {
-        self.op_u8_helper_reg(reg, and_u8_u8)
+        self.op_u8_helper_a_reg(reg, and_u8_u8)
     }
     
     // AND (HL)
     fn and_hl(&mut self) -> i32 {
-        self.op_u8_helper_hl(and_u8_u8)
+        self.op_u8_helper_a_hl(and_u8_u8)
     }
     
     // AND n
     fn and_imm_8(&mut self) -> i32 {
-        self.op_u8_helper_imm_8(and_u8_u8)
+        self.op_u8_helper_a_imm_8(and_u8_u8)
     }
     
     // OR reg
     fn or_reg(&mut self, reg: usize) -> i32 {
-        self.op_u8_helper_reg(reg, or_u8_u8)
+        self.op_u8_helper_a_reg(reg, or_u8_u8)
     }
     
     // OR (HL)
     fn or_hl(&mut self) -> i32 {
-        self.op_u8_helper_hl(or_u8_u8)
+        self.op_u8_helper_a_hl(or_u8_u8)
     }
     
     // OR n
     fn or_imm_8(&mut self) -> i32 {
-        self.op_u8_helper_imm_8(or_u8_u8)
+        self.op_u8_helper_a_imm_8(or_u8_u8)
     }
     
     // XOR reg
     fn xor_reg(&mut self, reg: usize) -> i32 {
-        self.op_u8_helper_reg(reg, xor_u8_u8)
+        self.op_u8_helper_a_reg(reg, xor_u8_u8)
     }
     
     // XOR (HL)
     fn xor_hl(&mut self) -> i32 {
-        self.op_u8_helper_hl(xor_u8_u8)
+        self.op_u8_helper_a_hl(xor_u8_u8)
     }
     
     // XOR n
     fn xor_imm_8(&mut self) -> i32 {
-        self.op_u8_helper_imm_8(xor_u8_u8)
+        self.op_u8_helper_a_imm_8(xor_u8_u8)
     }
 
     // CP reg
-    fn cp_reg(&mut self, reg: usize) -> i32 { self.op_u8_helper_reg(reg, cp_u8_u8) }
+    fn cp_reg(&mut self, reg: usize) -> i32 { self.op_u8_helper_a_reg(reg, cp_u8_u8) }
     // CP (HL)
-    fn cp_hl(&mut self) -> i32 { self.op_u8_helper_hl(cp_u8_u8) }
+    fn cp_hl(&mut self) -> i32 { self.op_u8_helper_a_hl(cp_u8_u8) }
     // CP n
-    fn cp_imm_8(&mut self) -> i32 { self.op_u8_helper_imm_8(cp_u8_u8) }
+    fn cp_imm_8(&mut self) -> i32 { self.op_u8_helper_a_imm_8(cp_u8_u8) }
 
+    // TODO: Use the 1-arg helper functions
     // INC reg
     fn inc_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, inc_u8_u8) }
     // INC (HL)
@@ -580,7 +608,59 @@ impl Cpu {
         self.sp = result;
         self.pc += 1;
         return 8;
-    } 
+    }
+
+    // Rotates and shifts
+
+    // RLC<reg>
+    fn rlc_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
+        self.op_u8_helper_reg(rotate_left_high_to_carry_u8, reg);
+        return if is_cb { 8 } else { 4 };
+    }
+
+    // RLC (HL)
+    fn rlc_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(rotate_left_high_to_carry_u8);
+        return 16;
+    }
+
+    // RL<reg>
+    fn rl_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
+        self.op_u8_helper_reg(rotate_left_through_carry_u8, reg);
+        return if is_cb { 8 } else { 4 };
+    }
+
+    // RL (HL)
+    fn rl_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(rotate_left_through_carry_u8);
+        return 16;
+    }
+
+    // RRC<reg>
+    fn rrc_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
+        self.op_u8_helper_reg(rotate_right_low_to_carry_u8, reg);
+        return if is_cb { 8 } else { 4 };
+    }
+
+    // RRC (HL)
+    fn rrc_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(rotate_right_low_to_carry_u8);
+        return 16;
+    }
+
+    // RR<reg>
+    fn rr_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
+        self.op_u8_helper_reg(rotate_right_through_carry_u8, reg);
+        return if is_cb { 8 } else { 4 };
+    }
+
+    // RR (HL)
+    fn rr_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(rotate_right_through_carry_u8);
+        return 16;
+    }
+
+
 
     // Misc functions
 
@@ -631,6 +711,30 @@ impl Cpu {
     }
 
     fn nop(&mut self) -> i32 {
+        self.pc += 1;
+        return 4;
+    }
+
+    fn halt(&mut self) -> i32 {
+        self.is_halted = true;
+        self.pc += 1;
+        return 4;
+    }
+
+    fn stop(&mut self) -> i32 {
+        self.is_halted = true;
+        self.is_stopped = true;
+        self.pc += 1;
+        return 4;
+    }
+
+    fn di(&mut self) -> i32 {
+        self.is_interrupts_enabled = false;
+        self.pc += 1;
+        return 4;
+    }
+    fn ei(&mut self) -> i32 {
+        self.is_interrupts_enabled = true;
         self.pc += 1;
         return 4;
     }
@@ -888,6 +992,13 @@ impl Cpu {
             0x2B => self.dec_nn(REG_H, REG_L),
             0x3B => self.dec_sp(),
 
+            // Rotates and shifts
+            0x07 => self.rlc_reg(REG_A, false),
+            0x17 => self.rl_reg(REG_A, false),
+
+            0x0F => self.rrc_reg(REG_A, false),
+            0x1F => self.rr_reg(REG_A, false),
+
 
             // Misc Functions
             0x27 => self.daa(),
@@ -895,6 +1006,20 @@ impl Cpu {
             0x3F => self.ccf(),
             0x37 => self.scf(),
             0x00 => self.nop(),
+            0x76 => self.halt(),
+            0xF3 => self.di(),
+            0xFB => self.ei(),
+
+            // 10-prefix Instructions:
+            0x10 => {
+                self.pc += 1;
+                let inst = self.peek_8_imm();
+
+                match inst {
+                    0x00 => self.stop(),
+                    _    => panic!("Oops!"),
+                }
+            },
 
 
             // CB-prefix Instructions:
@@ -912,6 +1037,43 @@ impl Cpu {
                     0x34 => self.swap_reg(REG_H),
                     0x35 => self.swap_reg(REG_L),
                     0x36 => self.swap_hl(),
+
+                    // Rotates and shifts
+                    0x07 => self.rlc_reg(REG_A, true),
+                    0x00 => self.rlc_reg(REG_B, true),
+                    0x01 => self.rlc_reg(REG_C, true),
+                    0x02 => self.rlc_reg(REG_D, true),
+                    0x03 => self.rlc_reg(REG_E, true),
+                    0x04 => self.rlc_reg(REG_H, true),
+                    0x05 => self.rlc_reg(REG_L, true),
+                    0x06 => self.rlc_hl(),
+
+                    0x17 => self.rl_reg(REG_A, true),
+                    0x10 => self.rl_reg(REG_B, true),
+                    0x11 => self.rl_reg(REG_C, true),
+                    0x12 => self.rl_reg(REG_D, true),
+                    0x13 => self.rl_reg(REG_E, true),
+                    0x14 => self.rl_reg(REG_H, true),
+                    0x15 => self.rl_reg(REG_L, true),
+                    0x16 => self.rl_hl(),
+
+                    0x0F => self.rrc_reg(REG_A, true),
+                    0x08 => self.rrc_reg(REG_B, true),
+                    0x09 => self.rrc_reg(REG_C, true),
+                    0x0A => self.rrc_reg(REG_D, true),
+                    0x0B => self.rrc_reg(REG_E, true),
+                    0x0C => self.rrc_reg(REG_H, true),
+                    0x0D => self.rrc_reg(REG_L, true),
+                    0x0E => self.rrc_hl(),
+
+                    0x1F => self.rr_reg(REG_A, true),
+                    0x18 => self.rr_reg(REG_B, true),
+                    0x19 => self.rr_reg(REG_C, true),
+                    0x1A => self.rr_reg(REG_D, true),
+                    0x1B => self.rr_reg(REG_E, true),
+                    0x1C => self.rr_reg(REG_H, true),
+                    0x1D => self.rr_reg(REG_L, true),
+                    0x1E => self.rr_hl(),
 
                     _    => panic!("CB Ooops"),
                 }

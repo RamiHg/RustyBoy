@@ -275,3 +275,33 @@ pub fn ccf_u8(current_flags: &FlagRegister) -> (FlagRegister) {
     );
     return flags;
 }
+
+pub fn rotate_left_high_to_carry_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x80;
+    let result: u8 = (a << 1) | (c >> 7);
+    let flags = FlagRegister::new(c as u32, 0, 0, result as u32);
+    return (result, flags);
+}
+
+pub fn rotate_left_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x80;
+    let old_c = if current_flags.has_bit(FlagBits::CARRY) { 1 } else { 0 }; // todo: refactor get_bit 
+    let result: u8 = (a << 1) | old_c;
+    let flags = FlagRegister::new(c as u32, 0, 0, result as u32);
+    return (result, flags);
+}
+
+pub fn rotate_right_low_to_carry_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x1;
+    let result: u8 = (a >> 1) | (c << 7);
+    let flags = FlagRegister::new(c as u32, 0, 0, result as u32);
+    return (result, flags);
+}
+
+pub fn rotate_right_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x1;
+    let old_c = if current_flags.has_bit(FlagBits::CARRY) { 0x80 } else { 0 }; // todo: refactor get_bit 
+    let result: u8 = (a >> 1) | old_c;
+    let flags = FlagRegister::new(c as u32, 0, 0, result as u32);
+    return (result, flags);
+}

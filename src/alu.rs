@@ -305,3 +305,26 @@ pub fn rotate_right_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8
     let flags = FlagRegister::new(c as u32, 0, 0, result as u32);
     return (result, flags);
 }
+
+pub fn shift_left_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x80;
+    let result: u8 = a << 1;
+    return (result, FlagRegister::new(c as u32, 0, 0, result as u32));
+}
+
+pub fn shift_right_preserve_high_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x1;
+    let result: u8 = (a >> 1) | (a & 0x80);
+    return (result, FlagRegister::new(c as u32, 0, 0, result as u32));
+}
+
+pub fn shift_right_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
+    let c = a & 0x1;
+    let result = a >> 1;
+    return (result, FlagRegister::new(c as u32, 0, 0, result as u32));
+}
+
+pub fn bit_test_u8(a: u8, bit: u8, current_flags: &FlagRegister) -> (FlagRegister) {
+    FlagRegister::new(current_flags.get_bit(FlagBits::CARRY) as u32,
+        1, 0, (a & (1 << bit)) as u32)    
+}

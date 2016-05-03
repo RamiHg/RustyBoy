@@ -61,6 +61,16 @@ impl Cpu {
         let byte1 = self.memory.read_general_8(self.pc as usize + 1);
         ((byte1 as u16) << 8) | (byte0 as u16)
     }
+    
+    // Converts from the op-code encoding of registers to our
+    // own internal representation
+    fn reg_from_opcode_index(index: u8) -> usize {
+        match index {
+            0 => REG_B, 1 => REG_C, 2 => REG_D, 3 => REG_E, 4 => REG_H,
+            5 => REG_L, 7 => REG_A,
+            _ => panic!("TODO: ERROR: Unexpected register opcode encoding")
+        }
+    }
 
     // 8-bit loads
 
@@ -659,8 +669,75 @@ impl Cpu {
         self.op_u8_helper_hl(rotate_right_through_carry_u8);
         return 16;
     }
-
-
+    
+    // SLA n / (HL)
+    pub fn sla_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(shift_left_u8, reg);
+        return 8;
+    }
+    pub fn sla_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(shift_left_u8);
+        return 16;
+    }
+    
+    // SRA n / HL
+    pub fn sra_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(shift_right_preserve_high_u8, reg);
+        return 8;
+    }
+    pub fn sra_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(shift_right_preserve_high_u8);
+        return 16;
+    }
+    
+    // SRL n / HL
+    pub fn srl_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_reg(shift_right_u8, reg);
+        return 8;
+    }
+    pub fn srl_hl(&mut self) -> i32 {
+        self.op_u8_helper_hl(shift_right_u8);
+        return 16;
+    }
+    
+    // Bit functions
+    pub fn bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
+        self.flags = bit_test_u8(self.gprs[reg], bit, &self.flags);
+        self.pc += 1;
+        return 8;
+    }
+    pub fn bit_hl(&mut self, bit: u8) -> i32{
+        self.flags = bit_test_u8(self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize),
+            bit, &self.flags);
+        self.pc += 1;
+        return 16;
+    }
+    
+    pub fn set_bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
+        self.gprs[reg] |= 1 << bit;
+        self.pc += 1;
+        return 8;
+    }
+    pub fn set_bit_hl(&mut self, bit: u8) -> i32 {
+        let hl = self.combine_regs(REG_H, REG_L) as usize;
+        let result = self.memory.read_general_8(hl) | (1 << bit);
+        self.memory.store_general_8(hl, result);
+        self.pc += 1;
+        return 16;
+    }
+    
+    pub fn reset_bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
+        self.gprs[reg] &= !(1 << bit);
+        self.pc += 1;
+        return 8;
+    }
+    pub fn reset_bit_hl(&mut self, bit: u8) -> i32 {
+        let hl = self.combine_regs(REG_H, REG_L) as usize;
+        let result = self.memory.read_general_8(hl) & !(1 << bit);
+        self.memory.store_general_8(hl, result);
+        self.pc += 1;
+        return 16;
+    }
 
     // Misc functions
 
@@ -1074,6 +1151,71 @@ impl Cpu {
                     0x1C => self.rr_reg(REG_H, true),
                     0x1D => self.rr_reg(REG_L, true),
                     0x1E => self.rr_hl(),
+                    
+                    0x27 => self.sla_reg(REG_A),
+                    0x20 => self.sla_reg(REG_B),
+                    0x21 => self.sla_reg(REG_C),
+                    0x22 => self.sla_reg(REG_D),
+                    0x23 => self.sla_reg(REG_E),
+                    0x24 => self.sla_reg(REG_H),
+                    0x25 => self.sla_reg(REG_L),
+                    0x26 => self.sla_hl(),
+                    
+                    0x2F => self.sra_reg(REG_A),
+                    0x28 => self.sra_reg(REG_B),
+                    0x29 => self.sra_reg(REG_C),
+                    0x2A => self.sra_reg(REG_D),
+                    0x2B => self.sra_reg(REG_E),
+                    0x2C => self.sra_reg(REG_H),
+                    0x2D => self.sra_reg(REG_L),
+                    0x2E => self.sra_hl(),
+                    
+                    0x3F => self.srl_reg(REG_A),
+                    0x38 => self.srl_reg(REG_B),
+                    0x39 => self.srl_reg(REG_C),
+                    0x3A => self.srl_reg(REG_D),
+                    0x3B => self.srl_reg(REG_E),
+                    0x3C => self.srl_reg(REG_H),
+                    0x3D => self.srl_reg(REG_L),
+                    0x3E => self.srl_hl(),
+                    
+                    // I could expand out all the opcodes for the bit tests - but it's
+                    // a bit tedious, so I'm going to make it dynamic!
+                    // TODO: See what assembly this produces
+                    
+                    // Bit test
+                    byte @ 0x40 ... 0x7F => {
+                        // Extract out the register and bit from the opcode
+                        let register = Cpu::reg_from_opcode_index(byte & 0x07);
+                        let bit = (byte >> 3) & 0x07;
+                        
+                        match register {
+                            0x06 => self.bit_hl(bit),
+                            _ => self.bit_reg(register, bit)
+                        }
+                    }
+                    
+                    // Bit set
+                    byte @ 0xC0 ... 0xFF => {
+                        // Extract out the params same as before
+                        let register = Cpu::reg_from_opcode_index(byte & 0x07);
+                        let bit = (byte >> 3) & 0x07;
+                        match register {
+                            0x06 => self.set_bit_hl(bit),
+                            _ => self.set_bit_reg(register, bit)
+                        }
+                    }
+                    
+                    // Bit reset
+                    byte @ 0x80 ... 0xBF => {
+                        // .. you get the picture
+                        let register = Cpu::reg_from_opcode_index(byte & 0x07);
+                        let bit = (byte >> 3) & 0x07;
+                        match register {
+                            0x06 => self.reset_bit_hl(bit),
+                            _ => self.reset_bit_reg(register, bit)
+                        }
+                    }
 
                     _    => panic!("CB Ooops"),
                 }

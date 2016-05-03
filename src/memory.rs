@@ -16,7 +16,7 @@ impl Memory {
         self.mem[location + 1] = ((value >> 8) & 0xFF) as u8;
     }
 
-    pub fn read_general_16(&mut self, location: usize) -> u16 {
+    pub fn read_general_16(&self, location: usize) -> u16 {
         self.mem[location] as u16 | ((self.mem[location+1] as u16) << 8)
     }
 }

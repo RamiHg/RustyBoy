@@ -260,8 +260,8 @@ impl Cpu {
 
     fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
         let value = self.combine_regs(high, low);
-        self.memory.store_general_16(self.sp as usize, value);
         self.sp -= 2;
+        self.memory.store_general_16(self.sp as usize, value);
         self.pc += 1;
         return 16;
     }
@@ -701,6 +701,7 @@ impl Cpu {
     }
     
     // Bit functions
+    
     pub fn bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
         self.flags = bit_test_u8(self.gprs[reg], bit, &self.flags);
         self.pc += 1;
@@ -816,6 +817,117 @@ impl Cpu {
         return 4;
     }
 
+    // Control flow
+    
+    // JP nn
+    fn jump_imm_16(&mut self) -> i32 {
+        self.pc += 1;
+        let addr = self.peek_16_imm();
+        self.pc = addr;
+        return 12;
+    }
+    
+    // JP (HL)
+    fn jump_hl(&mut self) -> i32 {
+        let addr = self.memory.read_general_16(self.combine_regs(REG_H, REG_L) as usize);
+        self.pc = addr;
+        return 4;
+    }
+    
+    // JP cc, nn
+    fn jump_conditional_imm_16(&mut self, flag: FlagBits, is_set: bool) -> i32 {
+        self.pc += 1;
+        let addr = self.peek_16_imm();
+        
+        if !(is_set ^ self.flags.has_bit(flag)) {
+            self.pc = addr;
+        }
+        else {
+            self.pc += 2;
+        }
+        
+        return 12;
+    }
+    
+    // JR n
+    fn jump_offset(&mut self) -> i32 {
+        self.pc += 1;
+        let offset = self.peek_i8_imm();
+        // Make sure to offset after the current instruction
+        let addr = (self.pc as i16 + 1 + offset as i16) as u16;
+        self.pc = addr;
+        return 8;
+    }
+    
+    // JR cc, n
+    fn jump_offset_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
+        self.pc += 1;
+        let offset = self.peek_i8_imm();
+        let addr = (self.pc as i16 + 1 + offset as i16) as u16;
+        
+        if !(is_set ^ self.flags.has_bit(flag)) {
+            self.pc = addr;
+        }
+        else {
+            self.pc += 1;
+        }
+        
+        return 8;
+    }
+    
+    // CALL nn
+    fn call_imm_16(&mut self) -> i32 {
+        self.pc += 1;
+        let addr = self.peek_16_imm();
+        self.sp -= 2;
+        self.memory.store_general_16(self.sp as usize, self.pc);
+        self.pc = addr;
+        return 12;
+    }
+    
+    // CALL cc, nn
+    fn call_conditional_imm_16(&mut self, flag: FlagBits, is_set: bool) -> i32 {
+        if !(is_set ^ self.flags.has_bit(flag)) {
+            self.call_imm_16();
+        } else {
+            self.pc += 3;
+        }
+        
+        return 12;
+    }
+    
+    // RST n
+    fn restart_offset(&mut self, offset: u8) -> i32 {
+        self.sp -= 2;
+        self.pc += 1;
+        self.memory.store_general_16(self.sp as usize, self.pc);
+        self.pc = offset as u16;
+        return 32;
+    }
+    
+    // RET
+    fn ret(&mut self) -> i32 {
+        let addr = self.memory.read_general_16(self.sp as usize);
+        self.sp += 2;
+        self.pc = addr;
+        return 8;
+    }
+    // RET cc
+    fn ret_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
+        if !(is_set ^ self.flags.has_bit(flag)) {
+            self.ret();
+        } else {
+            self.pc += 1;
+        }
+        return 8;
+    }
+    // RETI
+    fn ret_enable_interrupts(&mut self) -> i32 {
+        self.ret();
+        self.is_interrupts_enabled = true;
+        return 8;
+    }
+    
 
 }
 
@@ -1075,8 +1187,7 @@ impl Cpu {
 
             0x0F => self.rrc_reg(REG_A, false),
             0x1F => self.rr_reg(REG_A, false),
-
-
+            
             // Misc Functions
             0x27 => self.daa(),
             0x2F => self.cpl(),
@@ -1086,6 +1197,42 @@ impl Cpu {
             0x76 => self.halt(),
             0xF3 => self.di(),
             0xFB => self.ei(),
+            
+            // Control-flow
+            0xC3 => self.jump_imm_16(),
+            0xE9 => self.jump_hl(),
+            0xC2 => self.jump_conditional_imm_16(FlagBits::ZERO, false),
+            0xCA => self.jump_conditional_imm_16(FlagBits::ZERO, true),
+            0xD2 => self.jump_conditional_imm_16(FlagBits::CARRY, false),
+            0xDA => self.jump_conditional_imm_16(FlagBits::CARRY, true),
+            
+            0x18 => self.jump_offset(),
+            0x20 => self.jump_offset_conditional(FlagBits::ZERO, false),
+            0x28 => self.jump_offset_conditional(FlagBits::ZERO, true),
+            0x30 => self.jump_offset_conditional(FlagBits::CARRY, false),
+            0x38 => self.jump_offset_conditional(FlagBits::CARRY, true),
+            
+            0xCD => self.call_imm_16(),
+            0xC4 => self.call_conditional_imm_16(FlagBits::ZERO, false),
+            0xCC => self.call_conditional_imm_16(FlagBits::ZERO, true),
+            0xD4 => self.call_conditional_imm_16(FlagBits::CARRY, false),
+            0xDC => self.call_conditional_imm_16(FlagBits::CARRY, true),
+            
+            0xC7 => self.restart_offset(0x00),
+            0xCF => self.restart_offset(0x08),
+            0xD7 => self.restart_offset(0x10),
+            0xDF => self.restart_offset(0x18),
+            0xE7 => self.restart_offset(0x20),
+            0xEF => self.restart_offset(0x28),
+            0xF7 => self.restart_offset(0x30),
+            0xFF => self.restart_offset(0x38),
+            
+            0xC9 => self.ret(),
+            0xC0 => self.ret_conditional(FlagBits::ZERO, false),
+            0xC8 => self.ret_conditional(FlagBits::ZERO, true),
+            0xD0 => self.ret_conditional(FlagBits::CARRY, false),
+            0xD8 => self.ret_conditional(FlagBits::CARRY, true),
+            0xD9 => self.ret_enable_interrupts(),
 
             // 10-prefix Instructions:
             0x10 => {

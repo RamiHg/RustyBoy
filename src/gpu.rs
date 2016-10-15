@@ -45,6 +45,9 @@ pub struct Gpu {
 }
 
 impl Gpu {
+    pub const lcdWidth: u32 = 160;
+    pub const lcdHeight: u32 = 144;
+
     pub fn new() -> Gpu {
         Gpu {
             mode: GpuMode::SclnOAM,
@@ -89,7 +92,7 @@ impl Gpu {
                     self.clock = 0;
                     self.line += 1;
                     
-                    if self.line == 143 {
+                    if self.line == 144 {
                         // Enter VBlank
                         self.mode = GpuMode::VBlank;
                         
@@ -113,6 +116,38 @@ impl Gpu {
                     }
                 }
             }
+        }
+    }
+
+    fn render_scanline(&mut self) {
+        let scroll_x = self.memory.read_general_8(Register::ScrollX) as u32;
+        let scroll_y = self.memory.read_general_8(Register::ScrollY) as u32;
+
+        let tilemap_location = if self.lcdc.bg_map == 0 { 0x9800 } else { 0x9C00 };
+
+        // Loop over every pixel in the scan line
+        for i in 0..self.lcdWidth {
+            // TODO: Rewrite this loop in terms of tiles instead of pixels
+            // Find out which tile we're in
+            let tilemap_index = (scroll_x + i) / 32 + (scroll_y + self.scanline) / 32;
+            assert!(tilemap_index < 1024), "Unexpected tilemap index");
+
+            let tile_index = Wrapping(
+                self.memory.read_general_8(tilemap_location + tilemap_index)) + 
+                Wrapping(if self.lcdc.bg_set == 1 {})
+            
+            let tile_j = (scroll_y + self.scanline) % 8;
+            // Each row of the tile is 2 bytes, for a total of 16 bytes
+            let tile_value = self.memory.read_general_8()
+
+            // Find out the index into the tile
+            let tile_index = (scroll_x + i) % 8 + ((scroll_y + self.scanline) % 8) * 8;
+
+            // 16 bytes per tile, 2 bytes per pixel
+            let tile_value = self.memory.read_general_16(tilemape_location +
+                tilemap_index * 16 + tile_index / 16 );
+
+           
         }
     }
 }

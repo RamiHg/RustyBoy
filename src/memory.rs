@@ -7,10 +7,16 @@ pub enum Register {
 }
 
 pub struct Memory {
-    mem : [u8; 8*1024],
+    mem : [u8; 0x10000],
 }
 
 impl Memory {
+    pub fn new() -> Memory {
+        Memory {
+            mem: [0; 0x10000]
+        }
+    }
+
     pub fn read_general_8(&self, location : usize) -> u8 {
         self.mem[location]
     }

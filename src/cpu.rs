@@ -2,15 +2,15 @@ use memory::Memory;
 use alu::*;
 
 use std::num::Wrapping;
+use std::rc::Rc;
 
 pub struct Cpu {
     gprs : [u8; 8],
     flags : FlagRegister,
-    pc : u16,
+    pub pc : u16,
     sp : u16,
 
-    memory : Memory,
-
+    pub memory: &Memory,
 
     // Various cpu-controls
     is_halted: bool,
@@ -38,6 +38,19 @@ const REG_INVALID: usize = 8;
 
 // Utility functions in Cpu
 impl Cpu {
+    pub fn new(memory: Memory) -> Cpu {
+        Cpu {
+            gprs: [0; 8],
+            flags: FlagRegister::new(0, 0, 0, 0),
+            pc: 0,
+            sp: 0,
+            memory: memory,
+            is_halted: false,
+            is_stopped: false,
+            is_interrupts_enabled: false
+        }
+    }
+
     /// Combine two 8-bit registers
     fn combine_regs(&self, high : usize, low : usize) -> u16 {
         ((self.gprs[high] as u16) << 8) | (self.gprs[low] as u16)
@@ -937,7 +950,7 @@ impl Cpu {
     /// The PC will be incremented to the expected location
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
-    fn execute_instruction(&mut self, opcode : u8) -> i32 {
+    pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
         let ret = match opcode {
             // 8-bit immediate load
             0x3E => self.load_8_imm(REG_A),

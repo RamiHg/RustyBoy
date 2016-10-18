@@ -10,6 +10,12 @@ pub struct Cart {
 }
 
 impl Cart {
+    pub fn new() -> Cart {
+        Cart {
+            mem: Vec::new()
+        }
+    }
+
     pub fn read_file(&mut self, file_name: &str) {
         // TODO: Error handling
         let mut f = File::open(file_name).unwrap();

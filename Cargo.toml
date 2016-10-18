@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Ramy"]
 
 [dependencies]
-glium = "*"
-image = "*"
+glium = { git = "https://github.com/tomaka/glium.git" }
+image = { git = "https://github.com/PistonDevelopers/image.git" }

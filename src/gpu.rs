@@ -96,6 +96,10 @@ impl Gpu {
                     if self.line == 144 {
                         // Enter VBlank
                         self.mode = GpuMode::VBlank;
+
+                        // TODO: When is the interrupt fired? This frame or next?
+                        let old_if = memory.read_reg(Register::InterruptFlag);
+                        memory.store_reg(Register::InterruptFlag, old_if | 0x1);
                         
                         // Upload image to window
                     } else {
@@ -128,13 +132,13 @@ impl Gpu {
         let palette = memory.read_reg(Register::BgPalette);
 
         let tilemap_location: usize = if lcdc.bg_map == 0 { 0x9800 } else { 0x9C00 };
-        let tileset_location: usize = if lcdc.bg_set == 0 { 0x800 } else { 0x8800 };
+        let tileset_location: usize = if lcdc.bg_set == 0 { 0x8800 } else { 0x8000 };
 
         // Loop over every pixel in the scan line
         for i in 0..LCD_WIDTH {
             // TODO: Rewrite this loop in terms of tiles instead of pixels for a significant optimization
             // Find out which tile we're in
-            let tilemap_index: usize = ((scroll_x + i) / 32 + (scroll_y + self.line) / 32) as usize;
+            let tilemap_index: usize = ((scroll_x + i) / 8 + ((scroll_y + self.line) / 8) * 8) as usize;
             assert!(tilemap_index < 1024, "Unexpected tilemap index");
 
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);

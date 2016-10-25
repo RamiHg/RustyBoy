@@ -6,7 +6,7 @@ pub enum CartType {
 }
 
 pub struct Cart {
-    mem : Vec<u8>,
+    pub mem : Vec<u8>,
 }
 
 impl Cart {

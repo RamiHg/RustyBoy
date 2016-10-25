@@ -5,27 +5,25 @@ use cart::*;
 
 use std::rc::Rc;
 
-pub struct System<'a> {
+pub struct System {
     pub gpu: Gpu,
-    memory: Memory,
-    cpu: Cpu<'a>,
-    cart: Cart
+    cpu: Cpu,
 }
 
-impl<'a> System<'a> {
-    pub fn new<'b>() -> System<'b> {
-        let mut memory = Memory::new();
+impl System {
 
+    // Due to a stupid decision to make Cpu own Memory early on in the project
+    // Now I have to use cpu.memory everywhere. Someday I will refactor this
+    pub fn new() -> System {
         System {
-            memory: memory,
             gpu: Gpu::new(),
-            cpu: Cpu::new(memory),
-            cart: Cart::new()
+            cpu: Cpu::new(),
         }
     }
 
     pub fn start_system(&mut self, cart_location: &str) {
-        self.cart.read_file(cart_location);
+        self.cpu.memory.cart.read_file(cart_location); // terrible. just terrible
+        self.cpu.memory.set_starting_sequence();
         self.cpu.pc = 0x100;
     }
 
@@ -34,9 +32,13 @@ impl<'a> System<'a> {
     }
 
     pub fn execute_instruction(&mut self) {
-        let opcode = self.cpu.memory.read_general_8(self.cpu.pc as usize);
-        let num_cycles = self.cpu.execute_instruction(opcode);
-        self.gpu.update(num_cycles as u32, &mut self.cpu.memory);
+        if !self.cpu.is_stopped {
+            let opcode = self.cpu.memory.read_general_8(self.cpu.pc as usize);
+            let num_cycles = self.cpu.execute_instruction(opcode);
+            self.gpu.update(num_cycles as u32, &mut self.cpu.memory);
+        }
+        
+        self.cpu.handle_interrupts();
 
         //println!("Ran in {} cycles", num_cycles);
     }

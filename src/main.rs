@@ -8,6 +8,7 @@ mod alu;
 mod cart;
 mod gpu;
 mod system;
+mod debug;
 
 #[macro_use]
 extern crate glium;
@@ -18,12 +19,14 @@ use glium::glutin;
 
 use system::System;
 use gpu::*;
+use memory::*;
 
 use std::borrow::Cow;
 
 fn main() {
     let mut system = System::new();
-    system.start_system("/Users/ramy/Desktop/opus5.gb");
+    //system.start_system("/Users/ramy/Desktop/opus5.gb");
+    system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
 
     let display = glutin::WindowBuilder::new()
         .build_glium()
@@ -38,7 +41,7 @@ fn main() {
 
     loop 
     {
-        for i in 0..100 {
+        for i in 0..200 {
             system.execute_instruction();
         }
 

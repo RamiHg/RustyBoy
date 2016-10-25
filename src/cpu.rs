@@ -1,5 +1,6 @@
-use memory::Memory;
+use memory::*;
 use alu::*;
+use debug::Debugger;
 
 use std::num::Wrapping;
 use std::rc::Rc;
@@ -10,12 +11,14 @@ pub struct Cpu {
     pub pc : u16,
     sp : u16,
 
-    pub memory: &Memory,
+    pub memory: Memory,
 
     // Various cpu-controls
-    is_halted: bool,
-    is_stopped: bool,
-    is_interrupts_enabled: bool
+    pub is_halted: bool,
+    pub is_stopped: bool,
+    pub is_interrupts_enabled: bool,
+
+    debug: Debugger
 }
 
 const REG_A : usize = 0;
@@ -28,6 +31,10 @@ const REG_H : usize = 6;
 const REG_L : usize = 7;
 const REG_INVALID: usize = 8;
 
+const REG_NAMES: &'static [&'static str] = &[
+    "A", "B", "C", "D", "E", "F", "H", "L"
+];
+
 /* 
  * My references:
  * http://imrannazar.com/Gameboy-Z80-Opcode-Map
@@ -38,16 +45,17 @@ const REG_INVALID: usize = 8;
 
 // Utility functions in Cpu
 impl Cpu {
-    pub fn new(memory: Memory) -> Cpu {
+    pub fn new() -> Cpu {
         Cpu {
-            gprs: [0; 8],
-            flags: FlagRegister::new(0, 0, 0, 0),
+            gprs: [0, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
+            flags: FlagRegister::new(1, 1, 0, 1),
             pc: 0,
-            sp: 0,
-            memory: memory,
+            sp: 0xFFFE,
+            memory: Memory::new(),
             is_halted: false,
             is_stopped: false,
-            is_interrupts_enabled: false
+            is_interrupts_enabled: false,
+            debug: Debugger::new()
         }
     }
 
@@ -92,12 +100,21 @@ impl Cpu {
         let imm = self.peek_8_imm();
         self.gprs[reg] = imm;
         self.pc += 1;
+
+        self.debug.log_instr(
+            format!("LD {}, 0x{:X}", REG_NAMES[reg], imm));
+
         return 8;
     }
 
     fn mov_8(&mut self, dst : usize, src : usize) -> i32 {
         self.gprs[dst] = self.gprs[src];
         self.pc += 1;
+
+        self.debug.log_instr(
+            format!("LD {}, {}", REG_NAMES[dst], REG_NAMES[src])
+        );
+
         return 4;
     }
 
@@ -106,6 +123,11 @@ impl Cpu {
         let mem_value = self.memory.read_general_8(src_addr as usize);
         self.gprs[dst] = mem_value;
         self.pc += 1;
+
+        self.debug.log_instr(
+            format!("LD {}, ({}{})", REG_NAMES[dst], REG_NAMES[src_high], REG_NAMES[src_low])
+        );
+
         return 8;
     }
 
@@ -115,6 +137,11 @@ impl Cpu {
         self.pc += 2;
         let value = self.memory.read_general_8(mem_location as usize);
         self.gprs[dst] = value;
+
+        self.debug.log_instr(
+            format!("LD {}, (0x{:X})", REG_NAMES[dst], mem_location)
+        );
+
         return 16;
     }
 
@@ -203,6 +230,8 @@ impl Cpu {
         let mem_location = offset + imm_offset as u16;
         self.memory.store_general_8(mem_location as usize, self.gprs[src]);
         self.pc += 1;
+        self.debug.log_instr(
+            format!("LD (0x{:X} + 0x{:X}), {}", offset, imm_offset, REG_NAMES[src]));
         return 12;
     }
 
@@ -235,6 +264,7 @@ impl Cpu {
         let value = self.peek_16_imm();
         self.set_combined_regs(high, low, value);
         self.pc += 2;
+        self.debug.log_instr(format!("LD (), {}"))
         return 12;
     }
 
@@ -243,6 +273,7 @@ impl Cpu {
         let value = self.peek_16_imm();
         self.sp = value;
         self.pc += 2;
+        self.debug.log_instr(format!("LD SP, 0x{:X}", value));
         return 12;
     }
 
@@ -273,7 +304,7 @@ impl Cpu {
 
     fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
         let value = self.combine_regs(high, low);
-        self.sp -= 2;
+        self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, value);
         self.pc += 1;
         return 16;
@@ -282,7 +313,7 @@ impl Cpu {
     fn pop_16_reg(&mut self, high: usize, low: usize) -> i32 {
         let value = self.memory.read_general_16(self.sp as usize);
         self.set_combined_regs(high, low, value);
-        self.sp += 2;
+        self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
         self.pc += 1;
         return 12;
     }
@@ -803,30 +834,40 @@ impl Cpu {
 
     fn nop(&mut self) -> i32 {
         self.pc += 1;
+        self.debug.log_instr(format!("NOP"));
         return 4;
     }
 
     fn halt(&mut self) -> i32 {
         self.is_halted = true;
         self.pc += 1;
+
+        // TODO: BUG: If interrupts are not disabled, the next instruction is skipped
+        // However, I'm just incrementing the PC here
+        if !self.is_interrupts_enabled {
+            self.pc += 1;
+        }
+
         return 4;
     }
 
     fn stop(&mut self) -> i32 {
         self.is_halted = true;
         self.is_stopped = true;
-        self.pc += 1;
+        self.pc += 2;
         return 4;
     }
 
     fn di(&mut self) -> i32 {
         self.is_interrupts_enabled = false;
         self.pc += 1;
+        self.debug.log_instr(format!("DI"));
         return 4;
     }
     fn ei(&mut self) -> i32 {
         self.is_interrupts_enabled = true;
         self.pc += 1;
+        self.debug.log_instr(format!("EI"));
         return 4;
     }
 
@@ -837,6 +878,9 @@ impl Cpu {
         self.pc += 1;
         let addr = self.peek_16_imm();
         self.pc = addr;
+        self.debug.log_instr(
+            format!("JP 0x{:X}", addr)
+        );
         return 12;
     }
     
@@ -892,7 +936,7 @@ impl Cpu {
     fn call_imm_16(&mut self) -> i32 {
         self.pc += 1;
         let addr = self.peek_16_imm();
-        self.sp -= 2;
+        self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, self.pc);
         self.pc = addr;
         return 12;
@@ -914,14 +958,14 @@ impl Cpu {
         self.sp -= 2;
         self.pc += 1;
         self.memory.store_general_16(self.sp as usize, self.pc);
-        self.pc = offset as u16;
+        self.pc = self.memory.read_general_16(offset as usize);
         return 32;
     }
     
     // RET
     fn ret(&mut self) -> i32 {
         let addr = self.memory.read_general_16(self.sp as usize);
-        self.sp += 2;
+        self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
         self.pc = addr;
         return 8;
     }
@@ -940,8 +984,6 @@ impl Cpu {
         self.is_interrupts_enabled = true;
         return 8;
     }
-    
-
 }
 
 impl Cpu {
@@ -951,6 +993,8 @@ impl Cpu {
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
     pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
+        println!("Instruction {:X}: ", opcode);
+
         let ret = match opcode {
             // 8-bit immediate load
             0x3E => self.load_8_imm(REG_A),
@@ -1251,13 +1295,13 @@ impl Cpu {
             0x10 => {
                 self.pc += 1;
                 let inst = self.peek_8_imm();
+                //self.stop()
 
                 match inst {
                     0x00 => self.stop(),
-                    _    => panic!("Oops!"),
+                    _    => panic!("Oops at stop 0x{:x}", inst),
                 }
             },
-
 
             // CB-prefix Instructions:
             0xCB => {
@@ -1382,9 +1426,26 @@ impl Cpu {
             },
 
 
-            _    => panic!("Oops"),
+            _    => panic!("Oops: 0x{:x}", opcode),
         };
 
         ret
+    }
+
+    pub fn handle_interrupts(&mut self) {
+        if self.is_interrupts_enabled {
+            let ie = self.memory.read_reg(Register::InterruptEnable);
+            let mut inf = self.memory.read_reg(Register::InterruptFlag);
+            let fired_interrupts = ie & inf;
+
+            if (fired_interrupts & 0x1) != 0 {
+                // VBlank
+                inf &= !0x1;
+                self.memory.store_reg(Register::InterruptFlag, inf);
+                self.is_interrupts_enabled = false;
+
+                self.restart_offset(0x40);
+            }
+        }
     }
 }

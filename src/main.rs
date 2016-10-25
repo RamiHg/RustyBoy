@@ -49,17 +49,15 @@ fn main() {
 
         //if system.gpu.mode == GpuMode::VBlank {
         {
-            let mut data: [u8; 160*144*4] = [0; 160*144*4];
+            let mut data: [u8; 160*144 * 3] = [0; 160*144 * 3];
 
-            for j in 0..144 {
-                for i in 0..160 {
-                    data[(i + j*160) * 3 + 0] =
-                        system.gpu.image.get_pixel(i as u32, j as u32)[0];
-                    data[(i + j*160) * 3 + 1] =
-                        system.gpu.image.get_pixel(i as u32, j as u32)[1];
-                    data[(i + j*160) * 3 + 2] =
-                        system.gpu.image.get_pixel(i as u32, j as u32)[2];
-                    data[(i + j*160) * 3 + 3] = 255;
+            for j in 0..144_usize {
+                for i in 0..160_usize {
+                    let pixel = system.gpu.get_pixel(i as u32, j as u32);
+
+                    data[(i + j*160) * 3 + 0] = pixel.r;
+                    data[(i + j*160) * 3 + 1] = pixel.g;
+                    data[(i + j*160) * 3 + 2] = pixel.b;
                 }
             }
 
@@ -67,7 +65,7 @@ fn main() {
                 data: Cow::Borrowed(&data),
                 width: 160,
                 height: 144,
-                format: glium::texture::ClientFormat::U8U8U8U8,
+                format: glium::texture::ClientFormat::U8U8U8,
             };
             
             let image = glium::Texture2d::with_format(
@@ -77,7 +75,7 @@ fn main() {
                 glium::texture::MipmapsOption::NoMipmap
             ).unwrap();
 
-            image.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Linear);
+            image.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         }
 
         //back_buffer.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Linear);

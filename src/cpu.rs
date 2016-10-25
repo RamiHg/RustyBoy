@@ -73,6 +73,10 @@ impl Cpu {
         self.memory.read_general_8(self.pc as usize)
     }
 
+    fn peek_next_8_imm(&self) -> u8 {
+        self.memory.read_general_8(self.pc as usize + 1)
+    }
+
     fn peek_i8_imm(&self) -> i8 {
         self.memory.read_general_8(self.pc as usize) as i8
     }
@@ -119,14 +123,14 @@ impl Cpu {
     }
 
     fn mov_8_indirect(&mut self, dst : usize, src_high : usize, src_low : usize) -> i32 {
+        self.debug.log_instr(
+            format!("LD {}, ({}{})", REG_NAMES[dst], REG_NAMES[src_high], REG_NAMES[src_low])
+        );
+        
         let src_addr = self.combine_regs(src_high, src_low);
         let mem_value = self.memory.read_general_8(src_addr as usize);
         self.gprs[dst] = mem_value;
         self.pc += 1;
-
-        self.debug.log_instr(
-            format!("LD {}, ({}{})", REG_NAMES[dst], REG_NAMES[src_high], REG_NAMES[src_low])
-        );
 
         return 8;
     }
@@ -134,14 +138,15 @@ impl Cpu {
     fn mov_8_indirect_imm(&mut self, dst : usize) -> i32 {
         self.pc += 1;
         let mem_location = self.peek_16_imm();
-        self.pc += 2;
-        let value = self.memory.read_general_8(mem_location as usize);
-        self.gprs[dst] = value;
 
-        self.debug.log_instr(
+         self.debug.log_instr(
             format!("LD {}, (0x{:X})", REG_NAMES[dst], mem_location)
         );
 
+        self.pc += 2;
+        let value = self.memory.read_general_8(mem_location as usize);
+        self.gprs[dst] = value;
+        
         return 16;
     }
 
@@ -159,6 +164,8 @@ impl Cpu {
         self.pc += 1;
         let imm_offset = self.peek_8_imm();
         let mem_location = offset + imm_offset as u16;
+        self.debug.log_instr(format!("LD {}, (0x{:X} + 0x{:X}", REG_NAMES[dst],
+            offset, imm_offset));
         let value = self.memory.read_general_8(mem_location as usize);
         self.gprs[dst] = value;
         self.pc += 1;
@@ -191,27 +198,35 @@ impl Cpu {
         return 8;
     }
 
+    // LD (regs), reg
     fn store_8(&mut self, dst_high : usize, dst_low : usize, src : usize) -> i32 {
+        self.debug.log_instr(format!("LD ({}{}), {}", REG_NAMES[dst_high],
+            REG_NAMES[dst_low], REG_NAMES[src]));
         let dst_addr = self.combine_regs(dst_high, dst_low);
         self.memory.store_general_8(dst_addr as usize, self.gprs[src]);
         self.pc += 1;
         return 8;
     }
 
+    // LD (regs), imm8
     fn store_8_imm(&mut self, dst_high : usize, dst_low : usize) -> i32 {
         let dst_addr = self.combine_regs(dst_high, dst_low);
         self.pc += 1;
         let imm = self.peek_8_imm();
+        self.debug.log_instr(format!("LD ({}{}), 0x{:X}", REG_NAMES[dst_high],
+            REG_NAMES[dst_low], imm));
         self.memory.store_general_8(dst_addr as usize, imm);
         self.pc += 1;
         return 12;
     }
 
+    // LD (imm16), reg
     fn store_8_immdst(&mut self, src : usize) -> i32 {
         self.pc += 1;
         let mem_location = self.peek_16_imm();
         self.pc += 2;
         self.memory.store_general_8(mem_location as usize, self.gprs[src]);
+        self.debug.log_instr(format!("LD (0x{:X}), {}", mem_location, REG_NAMES[src]));
         return 16;
     }
 
@@ -264,7 +279,8 @@ impl Cpu {
         let value = self.peek_16_imm();
         self.set_combined_regs(high, low, value);
         self.pc += 2;
-        self.debug.log_instr(format!("LD (), {}"))
+        self.debug.log_instr(format!("LD ({}{}), 0x{:X}", REG_NAMES[high],
+            REG_NAMES[low], value));
         return 12;
     }
 
@@ -277,7 +293,9 @@ impl Cpu {
         return 12;
     }
 
+    // LD SP, HL
     fn mov_hl_to_sp(&mut self) -> i32 {
+        self.debug.log_instr(format!("LD SP, HL"));
         let value = self.combine_regs(REG_H, REG_L);
         self.sp = value;
         self.pc += 1;
@@ -310,7 +328,9 @@ impl Cpu {
         return 16;
     }
 
+    // POP regs
     fn pop_16_reg(&mut self, high: usize, low: usize) -> i32 {
+        self.debug.log_instr(format!("POP {}{}", REG_NAMES[high], REG_NAMES[low]));
         let value = self.memory.read_general_16(self.sp as usize);
         self.set_combined_regs(high, low, value);
         self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
@@ -534,6 +554,7 @@ impl Cpu {
     
     // AND reg
     fn and_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("AND {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, and_u8_u8)
     }
     
@@ -544,6 +565,7 @@ impl Cpu {
     
     // AND n
     fn and_imm_8(&mut self) -> i32 {
+        self.debug.log_instr(format!("AND 0x{:X}", self.peek_next_8_imm()));
         self.op_u8_helper_a_imm_8(and_u8_u8)
     }
     
@@ -913,6 +935,7 @@ impl Cpu {
         // Make sure to offset after the current instruction
         let addr = (self.pc as i16 + 1 + offset as i16) as u16;
         self.pc = addr;
+        self.debug.log_instr(format!("JR {}", offset));
         return 8;
     }
     
@@ -936,9 +959,11 @@ impl Cpu {
     fn call_imm_16(&mut self) -> i32 {
         self.pc += 1;
         let addr = self.peek_16_imm();
+        self.pc += 2;
         self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, self.pc);
         self.pc = addr;
+        self.debug.log_instr(format!("CALL 0x{:X}", addr));
         return 12;
     }
     
@@ -955,7 +980,8 @@ impl Cpu {
     
     // RST n
     fn restart_offset(&mut self, offset: u8) -> i32 {
-        self.sp -= 2;
+        self.debug.log_instr(format!("RST 0x{:X}", offset));
+        self.sp = (Wrapping(self.pc) - Wrapping(2_u16)).0;
         self.pc += 1;
         self.memory.store_general_16(self.sp as usize, self.pc);
         self.pc = self.memory.read_general_16(offset as usize);
@@ -967,6 +993,7 @@ impl Cpu {
         let addr = self.memory.read_general_16(self.sp as usize);
         self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
         self.pc = addr;
+        self.debug.log_instr(format!("RET"));
         return 8;
     }
     // RET cc
@@ -993,7 +1020,7 @@ impl Cpu {
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
     pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
-        println!("Instruction {:X}: ", opcode);
+         print!("PC: {:X} - {:X}: ", self.pc, opcode);
 
         let ret = match opcode {
             // 8-bit immediate load

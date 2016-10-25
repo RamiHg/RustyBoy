@@ -39,12 +39,19 @@ pub enum GpuMode {
 const LCD_WIDTH: u32 = 160;
 const LCD_HEIGHT: u32 = 144;
 
+#[derive(Clone, Copy)]
+pub struct Pixel {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
 pub struct Gpu {
     pub mode: GpuMode,
     clock: u32,
     line: u32,
     
-    pub image: image::RgbImage,
+    image: [Pixel; LCD_WIDTH as usize * LCD_HEIGHT as usize],
 }
 
 impl Gpu {
@@ -53,12 +60,24 @@ impl Gpu {
             mode: GpuMode::SclnOAM,
             clock: 0,
             line: 0,
-            image: image::ImageBuffer::new(160, 144),
+            image: [Pixel {r:0, g:0, b:0}; (LCD_WIDTH*LCD_HEIGHT) as usize]
         }
+    }
+
+    pub fn get_pixel(&self, i: u32, j:u32) -> Pixel {
+        self.image[(i + j*LCD_WIDTH) as usize]
     }
     
     pub fn update(&mut self, delta_cycles: u32, memory: &mut Memory) {
+        /*
+         * Various statuses: 
+            HBlank (00): CPU can access display RAM (0x8000 - 0x9FFF)
+            VBlank (01): CPU can access display RAM
+            0AM Used (10): OAM is being used (0xFE00 - 0xFE9F)
+        */
+
         let lcdc = Lcdc::new(memory.read_reg(Register::Lcdc));
+        let mut lcdstatus = memory.read_reg(Register::LcdStatus);
         
         // Technically this can only work during vblank
         if !lcdc.enable_display {
@@ -70,6 +89,8 @@ impl Gpu {
         
         match self.mode.clone() {
             GpuMode::SclnOAM => {
+                lcdstatus = (lcdstatus & 0xFC) | 0b10;
+
                 if self.clock >= 80 {
                     // Enter mode 3 (accessing vram)
                     self.clock = 0;
@@ -78,6 +99,8 @@ impl Gpu {
             },
             
             GpuMode::SclnVram => {
+                lcdstatus = (lcdstatus & 0xFC) | 0b11;
+                
                 if self.clock >= 172 {
                     // Enter HBlank
                     self.mode = GpuMode::HBlank;
@@ -89,6 +112,9 @@ impl Gpu {
             },
             
             GpuMode::HBlank => {
+                // Signify HBlank status
+                lcdstatus = (lcdstatus & 0xFC) | 0b00;
+
                 if self.clock >= 204 {
                     self.clock = 0;
                     self.line += 1;
@@ -100,6 +126,8 @@ impl Gpu {
                         // TODO: When is the interrupt fired? This frame or next?
                         let old_if = memory.read_reg(Register::InterruptFlag);
                         memory.store_reg(Register::InterruptFlag, old_if | 0x1);
+
+                        lcdstatus = (lcdstatus & 0xFC) | 0b01;
                         
                         // Upload image to window
                     } else {
@@ -110,6 +138,9 @@ impl Gpu {
             },
             
             GpuMode::VBlank => {
+                // Signify VBlank status
+                lcdstatus = (lcdstatus & 0xFC) | 0b01;
+
                 if self.clock >= 456 {
                     self.clock = 0;
                     self.line += 1;
@@ -122,6 +153,8 @@ impl Gpu {
                 }
             }
         }
+
+        memory.store_reg(Register::LcdStatus, lcdstatus);
     }
 
     fn render_scanline(&mut self, memory: &Memory) {
@@ -142,8 +175,9 @@ impl Gpu {
             assert!(tilemap_index < 1024, "Unexpected tilemap index");
 
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
+            println!("{}", tile_unsigned_index);
             
-            let tile_index = if lcdc.bg_set == 0 {
+            let tile_index = if lcdc.bg_set == 1 {
                 ((tile_unsigned_index as i8) as i32 + 128) as usize
             } else {
                 tile_unsigned_index as usize
@@ -160,7 +194,7 @@ impl Gpu {
             let pixel_value = (tile_row_value >> tile_i) & 0x1 |
                 (tile_row_value >> (tile_i + 7) & 0x2);
 
-            let color = match (palette >> pixel_value) & 0x3 {
+            let mut color = match (palette >> pixel_value) & 0x3 {
                 0 => [255u8, 255u8, 255u8],
                 1 => [192u8, 192u8, 192u8],
                 2 => [96u8, 96u8, 96u8],
@@ -168,7 +202,8 @@ impl Gpu {
                 _ => panic!()
             };
 
-            self.image.put_pixel(i, self.line, image::Rgb(color));
+            self.image[(i + self.line*LCD_WIDTH) as usize] = Pixel {r: color[0],
+                g: color[1], b: color[2]};
         }
     }
 }

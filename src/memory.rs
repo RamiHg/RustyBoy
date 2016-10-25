@@ -9,6 +9,8 @@ pub enum Register {
 
     InterruptFlag = 0xFF0F,
     InterruptEnable = 0xFFFF,
+
+    LcdStatus = 0xFF41,
 }
 
 pub struct Memory {
@@ -101,11 +103,11 @@ impl Memory {
             }
             0xFF80 ... 0xFFFE => {
                 // Zero page
-                0
+                self.mem[location]
             }
             0xFFFF => {
                 // Interrupt enable flag - not sure how we'll implement this
-                panic!("Interrupt flag?");
+                self.mem[location]
             }
             _ => {
                 panic!("Invalid memory being accessed: 0x{:x}", location);
@@ -155,7 +157,6 @@ impl Memory {
                 // Internal RAM - zero page? what is it?
             }
             0xFFFF => {
-                println!("Setting intterupts enable to: {}", value)
             }
             _ => {}//{ panic!("Location is either unimplemented or not writable 0x{:x}", location) }
         }
@@ -172,8 +173,8 @@ impl Memory {
     }
 
     pub fn store_general_16(&mut self, location: usize, value: u16) {
-        self.mem[location] = (value & 0xFF) as u8;
-        self.mem[location + 1] = ((value >> 8) & 0xFF) as u8;
+        self.store_general_8(location, (value & 0xFF) as u8);
+        self.store_general_8(location + 1, ((value >> 8) & 0xFF) as u8);
     }
 
     pub fn read_general_16(&self, location: usize) -> u16 {

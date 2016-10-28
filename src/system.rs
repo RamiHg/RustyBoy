@@ -23,6 +23,7 @@ impl System {
 
     pub fn start_system(&mut self, cart_location: &str) {
         self.cpu.memory.cart.read_file(cart_location); // terrible. just terrible
+        //self.cpu.memory.cart.cart_type();
         self.cpu.memory.set_starting_sequence();
         self.cpu.pc = 0x100;
     }

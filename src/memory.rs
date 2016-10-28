@@ -123,6 +123,11 @@ impl Memory {
             0x0000 ... 0x00FF => {
                 panic!("Can't set this memory {:x}", location)
             }
+            0x2000 ... 0x3FFF => {
+                // ROM Bank selector
+                panic!("Selecting bank {}", value);
+                return;
+            }
             0x8000 ... 0x97FF => {
                 println!("Writing tilemaps")
             }
@@ -157,7 +162,7 @@ impl Memory {
             }
             _ => { panic!("Location is either unimplemented or not writable 0x{:x}", location) }
         }
-
+        
         self.mem[location] = value;
     }
     

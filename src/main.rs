@@ -25,9 +25,9 @@ use std::borrow::Cow;
 
 fn main() {
     let mut system = System::new();
-    //system.start_system("/Users/ramy/Desktop/opus5.gb");
-    system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
-    //system.start_system("/Users/ramy/Desktop/06-ld r,r.gb");
+    system.start_system("/Users/ramy/Desktop/opus5.gb");
+    //system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
+    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/04-op r,imm.gb");
 
     let display = glutin::WindowBuilder::new()
         .build_glium()

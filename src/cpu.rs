@@ -48,7 +48,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
             gprs: [0, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
-            flags: FlagRegister::new(1, 1, 0, 1),
+            flags: FlagRegister::new(1, 1, 0, true),
             pc: 0,
             sp: 0xFFFE,
             memory: Memory::new(),
@@ -280,7 +280,7 @@ impl Cpu {
         let value = self.peek_16_imm();
         self.set_combined_regs(high, low, value);
         self.pc += 2;
-        self.debug.log_instr(format!("LD ({}{}), 0x{:X}", REG_NAMES[high],
+        self.debug.log_instr(format!("LD {}{}, 0x{:X}", REG_NAMES[high],
             REG_NAMES[low], value));
         return 12;
     }
@@ -396,6 +396,7 @@ impl Cpu {
     fn adc_imm_8_to_a(&mut self) -> i32 {
         self.pc += 1;
         let value = self.peek_8_imm();
+        self.debug.log_instr(format!("ADC A, {}", value));
         self.pc += 1;
         let (result, flags) = adc_u8_u8(self.gprs[REG_A], value,
             self.flags.get_bit(FlagBits::CARRY));
@@ -427,6 +428,7 @@ impl Cpu {
     fn sub_imm_8(&mut self) -> i32 {
         self.pc += 1;
         let value = self.peek_8_imm();
+        self.debug.log_instr(format!("SUB {}", value));
         let (result, flags) = sub_u8_u8(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
@@ -608,7 +610,10 @@ impl Cpu {
     // CP (HL)
     fn cp_hl(&mut self) -> i32 { self.op_u8_helper_a_hl(cp_u8_u8) }
     // CP n
-    fn cp_imm_8(&mut self) -> i32 { self.op_u8_helper_a_imm_8(cp_u8_u8) }
+    fn cp_imm_8(&mut self) -> i32 {
+        self.debug.log_instr(format!("CP 0x{:X}", self.peek_next_8_imm()));
+        self.op_u8_helper_a_imm_8(cp_u8_u8)
+    }
 
     // TODO: Use the 1-arg helper functions
     // INC reg
@@ -620,7 +625,10 @@ impl Cpu {
     fn inc_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, inc_u8_u8) }
 
     // DEC reg
-    fn dec_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, dec_u8_u8) }
+    fn dec_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("DEC {}", REG_NAMES[reg]));
+        self.op_u8_flag_helper_reg(reg, reg, dec_u8_u8)
+    }
     // DEC (HL)
     fn dec_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, dec_u8_u8) }
 
@@ -735,6 +743,7 @@ impl Cpu {
 
     // RR<reg>
     fn rr_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
+        self.debug.log_instr(format!("RR {}", REG_NAMES[reg]));
         self.op_u8_helper_reg(rotate_right_through_carry_u8, reg);
         return if is_cb { 8 } else { 4 };
     }
@@ -767,6 +776,7 @@ impl Cpu {
     
     // SRL n / HL
     pub fn srl_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("SRL {}", REG_NAMES[reg]));
         self.op_u8_helper_reg(shift_right_u8, reg);
         return 8;
     }
@@ -859,7 +869,7 @@ impl Cpu {
     }
 
     fn scf(&mut self) -> i32 {
-        self.flags = FlagRegister::new(1, 0, 0, self.flags.get_bit(FlagBits::ZERO) as u32);
+        self.flags = FlagRegister::new(1, 0, 0, self.flags.has_bit(FlagBits::ZERO));
         self.pc += 1;
         return 4;
     }
@@ -928,7 +938,7 @@ impl Cpu {
         self.pc += 1;
         let addr = self.peek_16_imm();
         
-        if !(is_set ^ self.flags.has_bit(flag)) {
+        if is_set == self.flags.has_bit(flag) {
             self.pc = addr;
         }
         else {
@@ -953,9 +963,14 @@ impl Cpu {
     fn jump_offset_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         self.pc += 1;
         let offset = self.peek_i8_imm();
+        self.debug.log_instr(format!(
+            "JR {}{}, {}", if !is_set { "N" } else { "" },
+            match flag { FlagBits::CARRY => "C", _ => "Z"},
+            offset));
+
         let addr = (self.pc as i32 + 1 + offset as i32) as u16;
         
-        if !(is_set ^ self.flags.has_bit(flag)) {
+        if is_set == self.flags.has_bit(flag) {
             self.pc = addr;
         }
         else {
@@ -979,7 +994,7 @@ impl Cpu {
     
     // CALL cc, nn
     fn call_conditional_imm_16(&mut self, flag: FlagBits, is_set: bool) -> i32 {
-        if !(is_set ^ self.flags.has_bit(flag)) {
+        if is_set == self.flags.has_bit(flag) {
             self.call_imm_16();
         } else {
             self.pc += 3;
@@ -1008,7 +1023,7 @@ impl Cpu {
     }
     // RET cc
     fn ret_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
-        if !(is_set ^ self.flags.has_bit(flag)) {
+        if is_set == self.flags.has_bit(flag) {
             self.ret();
         } else {
             self.pc += 1;
@@ -1024,13 +1039,22 @@ impl Cpu {
 }
 
 impl Cpu {
+    fn print_regs(&self) {
+        for i in 0..REG_INVALID {
+            print!("{}: 0x{:X} ", REG_NAMES[i], self.gprs[i]);
+        }
+        println!("");
+    }
+
     /// Executes an instruction op-code.
     /// 
     /// The PC will be incremented to the expected location
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
     pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
+        self.print_regs();
         print!("PC: {:X} - {:X}: ", self.pc, opcode);
+        
 
         let ret = match opcode {
             // 8-bit immediate load

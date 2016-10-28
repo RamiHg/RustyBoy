@@ -175,7 +175,7 @@ impl Gpu {
             assert!(tilemap_index < 1024, "Unexpected tilemap index");
 
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
-            println!("{}", tile_unsigned_index);
+            //println!("{}", tile_unsigned_index);
             
             let tile_index = if lcdc.bg_set == 1 {
                 ((tile_unsigned_index as i8) as i32 + 128) as usize

@@ -325,6 +325,8 @@ pub fn shift_right_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
 }
 
 pub fn bit_test_u8(a: u8, bit: u8, current_flags: &FlagRegister) -> (FlagRegister) {
+    let is_zero = (a & (1 << bit)) == 0;
+
     FlagRegister::new(current_flags.get_bit(FlagBits::CARRY) as u32,
-        1, 0, (a & (1 << bit)) as u32)    
+        1, 0, if is_zero { 1 } else { 0 })
 }

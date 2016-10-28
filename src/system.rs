@@ -39,7 +39,5 @@ impl System {
         }
         
         self.cpu.handle_interrupts();
-
-        //println!("Ran in {} cycles", num_cycles);
     }
 }

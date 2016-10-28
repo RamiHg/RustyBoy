@@ -124,15 +124,13 @@ impl Memory {
                 panic!("Can't set this memory {:x}", location)
             }
             0x8000 ... 0x97FF => {
-                // Character/Sprite RAM . not implemented yet
-                //panic!("Sprite RAM not yet implemented. Sorry!")
+                println!("Writing tilemaps")
             }
             0x9800 ... 0x9FFF => {
-                // TODO: Check that we can actually write to this address right now
             }
             0xA000 ... 0xBFFF => {
                 // Cartridge RAM
-                //panic!("Cartridge RAM not yet implemented")
+                //panic!("Cartridge RAM not yet implemented");
                 self.cart.mem[location] = value;
                 return;
             }
@@ -150,15 +148,14 @@ impl Memory {
                 panic!("Writing into unusable memory")
             }
             0xFF00 ... 0xFF7F => {
-                // Hardware I/O registers. Not sure
-                
+                // Hardware I/O registers.
             }
             0xFF80 ... 0xFFFE => {
-                // Internal RAM - zero page? what is it?
+                // Zero page
             }
             0xFFFF => {
             }
-            _ => {}//{ panic!("Location is either unimplemented or not writable 0x{:x}", location) }
+            _ => { panic!("Location is either unimplemented or not writable 0x{:x}", location) }
         }
 
         self.mem[location] = value;

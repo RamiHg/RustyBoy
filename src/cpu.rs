@@ -191,6 +191,7 @@ impl Cpu {
 
     // LD A, (HLI)
     fn mov_8_a_inc_hl(&mut self) -> i32 {
+        self.debug.log_instr(format!("LD A, (HL+)"));
         let hl = self.mov_8_a_hl();
         // Increment HL
         self.set_combined_regs(REG_H, REG_L, (Wrapping(hl) + Wrapping(1_u16)).0);
@@ -224,9 +225,9 @@ impl Cpu {
     fn store_8_immdst(&mut self, src : usize) -> i32 {
         self.pc += 1;
         let mem_location = self.peek_16_imm();
+        self.debug.log_instr(format!("LD (0x{:X}), {}", mem_location, REG_NAMES[src]));
         self.pc += 2;
         self.memory.store_general_8(mem_location as usize, self.gprs[src]);
-        self.debug.log_instr(format!("LD (0x{:X}), {}", mem_location, REG_NAMES[src]));
         return 16;
     }
 
@@ -320,7 +321,10 @@ impl Cpu {
         return 20;
     }
 
+    // push regs
     fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
+        self.debug.log_instr(format!("PUSH {}{}", REG_NAMES[high],
+            REG_NAMES[low]));
         let value = self.combine_regs(high, low);
         self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, value);
@@ -608,7 +612,10 @@ impl Cpu {
 
     // TODO: Use the 1-arg helper functions
     // INC reg
-    fn inc_reg(&mut self, reg: usize) -> i32 { self.op_u8_flag_helper_reg(reg, reg, inc_u8_u8) }
+    fn inc_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("INC {}", REG_NAMES[reg]));
+        self.op_u8_flag_helper_reg(reg, reg, inc_u8_u8)
+    }
     // INC (HL)
     fn inc_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, inc_u8_u8) }
 
@@ -656,6 +663,8 @@ impl Cpu {
 
     // INC nn
     fn inc_nn(&mut self, high: usize, low: usize) -> i32 {
+        self.debug.log_instr(format!("INC {}{}", REG_NAMES[high],
+            REG_NAMES[low]));
         let (result, _) = add_u16_i8(self.combine_regs(high, low), 1);
         self.set_combined_regs(high, low, result);
         self.pc += 1;
@@ -769,6 +778,7 @@ impl Cpu {
     // Bit functions
     
     pub fn bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
+        self.debug.log_instr(format!("BIT {}, {}", bit, REG_NAMES[reg]));
         self.flags = bit_test_u8(self.gprs[reg], bit, &self.flags);
         self.pc += 1;
         return 8;
@@ -943,7 +953,7 @@ impl Cpu {
     fn jump_offset_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         self.pc += 1;
         let offset = self.peek_i8_imm();
-        let addr = (self.pc as i16 + 1 + offset as i16) as u16;
+        let addr = (self.pc as i32 + 1 + offset as i32) as u16;
         
         if !(is_set ^ self.flags.has_bit(flag)) {
             self.pc = addr;
@@ -959,11 +969,11 @@ impl Cpu {
     fn call_imm_16(&mut self) -> i32 {
         self.pc += 1;
         let addr = self.peek_16_imm();
+        self.debug.log_instr(format!("CALL 0x{:X}", addr));
         self.pc += 2;
         self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, self.pc);
         self.pc = addr;
-        self.debug.log_instr(format!("CALL 0x{:X}", addr));
         return 12;
     }
     
@@ -981,10 +991,10 @@ impl Cpu {
     // RST n
     fn restart_offset(&mut self, offset: u8) -> i32 {
         self.debug.log_instr(format!("RST 0x{:X}", offset));
-        self.sp = (Wrapping(self.pc) - Wrapping(2_u16)).0;
+        self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.pc += 1;
         self.memory.store_general_16(self.sp as usize, self.pc);
-        self.pc = self.memory.read_general_16(offset as usize);
+        self.pc = offset as u16;
         return 32;
     }
     
@@ -1020,7 +1030,7 @@ impl Cpu {
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
     pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
-         print!("PC: {:X} - {:X}: ", self.pc, opcode);
+        print!("PC: {:X} - {:X}: ", self.pc, opcode);
 
         let ret = match opcode {
             // 8-bit immediate load
@@ -1335,6 +1345,8 @@ impl Cpu {
                 self.pc += 1;
                 // Grab the next byte
                 let inst = self.peek_8_imm();
+
+                print!("{:X} - ", inst);
 
                 match inst {
                     0x37 => self.swap_reg(REG_A),

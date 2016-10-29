@@ -1,4 +1,5 @@
 use cart::Cart;
+use std::char;
 
 pub enum Register {
     Lcdc = 0xFF40,
@@ -118,6 +119,11 @@ impl Memory {
     pub fn store_general_8(&mut self, location : usize, value : u8) {
         assert!(location <= 0xFFFF);
         //assert!(location != Register::InterruptFlag as usize);
+        assert!(location != Register::CurScln as usize);
+
+        if location == 0xff01 || location == 0xff02 {
+            print!("{}", char::from_u32(value as u32).unwrap());
+        }
         
         match location as u16 {
             0x0000 ... 0x00FF => {
@@ -129,7 +135,7 @@ impl Memory {
                 return;
             }
             0x8000 ... 0x97FF => {
-                println!("Writing tilemaps")
+                //println!("Writing tilemaps")
             }
             0x9800 ... 0x9FFF => {
             }

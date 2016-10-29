@@ -7,7 +7,7 @@ pub enum FlagBits {
 }
 
 pub struct FlagRegister {
-    value : u8,
+    pub value : u8,
 }
 
 impl FlagRegister {
@@ -72,10 +72,10 @@ pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
     let a_i32 = a as i32;
     let carry = if prev_c != 0 { 1 } else { 0 };
-    let b_i32 = b as i32 + carry;
+    let b_i32 = b as i32;
 
-    let hc = get_add_hc(a_i32, b_i32);
-    let result_i32 = a_i32 + b_i32;
+    let hc = ((a_i32 & 0xF) + (b_i32 & 0xF) + carry) & 0xF0;
+    let result_i32 = a_i32 + b_i32 +carry;
     let c = result_i32 & 0xF00;
     let result = (result_i32 & 0xFF) as u8;
 
@@ -111,10 +111,10 @@ pub fn sub_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
     let a_i32 = a as i32;
     let carry = if prev_c != 0 { 1 } else { 0 };
-    let b_i32 = (b as i32) + carry;
+    let b_i32 = b as i32;
 
-    let hc = get_sub_hc(a_i32, b_i32);
-    let result = a_i32 - b_i32;
+    let hc = ((a_i32 & 0xF) - (b_i32 & 0xF) - carry) & !0xF;
+    let result = a_i32 - b_i32 - carry;
     let c = result & !0xFF;
 
     let z = FlagRegister::new(
@@ -223,7 +223,7 @@ pub fn daa(a_u8: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
 
     let mut a = a_u8 as i32;
 
-    if current_flags.has_bit(FlagBits::SUB) {
+    if !current_flags.has_bit(FlagBits::SUB) {
         if current_flags.has_bit(FlagBits::H_CARRY) || (a & 0xF) > 9 {
             a += 0x06;
         }

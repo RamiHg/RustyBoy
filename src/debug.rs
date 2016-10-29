@@ -13,6 +13,6 @@ impl Debugger {
     }
 
     pub fn log_instr(&self, message: String) {
-        println!("{}", message);
+        //println!("{}", message);
     }
 }

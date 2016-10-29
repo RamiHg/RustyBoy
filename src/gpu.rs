@@ -153,7 +153,7 @@ impl Gpu {
                 }
             }
         }
-
+        memory.store_reg(Register::CurScln, self.line as u8);
         memory.store_reg(Register::LcdStatus, lcdstatus);
     }
 
@@ -177,7 +177,7 @@ impl Gpu {
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
             //println!("{}", tile_unsigned_index);
             
-            let tile_index = if lcdc.bg_set == 1 {
+            let tile_index = if lcdc.bg_set == 0 {
                 ((tile_unsigned_index as i8) as i32 + 128) as usize
             } else {
                 tile_unsigned_index as usize

@@ -26,7 +26,6 @@ const REG_B : usize = 1;
 const REG_C : usize = 2;
 const REG_D : usize = 3;
 const REG_E : usize = 4;
-const REG_F : usize = 5;
 const REG_H : usize = 6;
 const REG_L : usize = 7;
 const REG_INVALID: usize = 8;
@@ -48,7 +47,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
             gprs: [0, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
-            flags: FlagRegister::new(1, 1, 0, true),
+            flags: FlagRegister::new(0, 0, 0, true),
             pc: 0,
             sp: 0xFFFE,
             memory: Memory::new(),
@@ -264,6 +263,7 @@ impl Cpu {
 
     // LD (HLI), A
     fn store_8_a_inc_hl(&mut self) -> i32 {
+        self.debug.log_instr(format!("LD (HL+), A"));
         let hl : u16 = self.combine_regs(REG_H, REG_L);
         self.memory.store_general_8(hl as usize, self.gprs[REG_A]);
         self.pc += 1;
@@ -321,6 +321,19 @@ impl Cpu {
         return 20;
     }
 
+    // I had no idea F was actually the flags register. So I have to hack this 
+    // in instead of refactoring flags
+    // PUSH AF
+    fn push_af(&mut self) -> i32 {
+        self.debug.log_instr(format!("PUSH AF"));
+        let f = self.flags.value as u16;
+        let value = ((self.gprs[REG_A] as u16) << 8) | f;
+        self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
+        self.memory.store_general_16(self.sp as usize, value);
+        self.pc += 1;
+        return 16;
+    }
+
     // push regs
     fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
         self.debug.log_instr(format!("PUSH {}{}", REG_NAMES[high],
@@ -330,6 +343,17 @@ impl Cpu {
         self.memory.store_general_16(self.sp as usize, value);
         self.pc += 1;
         return 16;
+    }
+
+    // POP AF
+    fn pop_af(&mut self) -> i32 {
+        self.debug.log_instr(format!("POP AF"));
+        let value = self.memory.read_general_16(self.sp as usize) & 0xFFF0;
+        self.gprs[REG_A] = (value >> 8) as u8;
+        self.flags = FlagRegister {value: (value & 0xFF) as u8};
+        self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
+        self.pc += 1;
+        return 12;
     }
 
     // POP regs
@@ -577,6 +601,7 @@ impl Cpu {
     
     // OR reg
     fn or_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("OR {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, or_u8_u8)
     }
     
@@ -592,6 +617,7 @@ impl Cpu {
     
     // XOR reg
     fn xor_reg(&mut self, reg: usize) -> i32 {
+        self.debug.log_instr(format!("XOR {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, xor_u8_u8)
     }
     
@@ -646,6 +672,8 @@ impl Cpu {
     }
 
     fn add_16_hl_reg(&mut self, high: usize, low: usize) -> i32 {
+        self.debug.log_instr(format!("ADD HL, {}{}",
+            REG_NAMES[high], REG_NAMES[low]));
         let rhs = self.combine_regs(high, low);
         self.add_16_hl_helper(rhs)
     }
@@ -682,7 +710,8 @@ impl Cpu {
     // INC SP
     fn inc_sp(&mut self) -> i32 {
         let (result, _) = add_u16_i8(self.sp, 1);
-        self.sp = result;
+        //println!("BEFORE: {} AFTER {}", self.sp, result);
+        self.sp = (Wrapping(self.sp) + Wrapping(1_u16)).0;
         self.pc += 1;
         return 8;
     }
@@ -698,7 +727,7 @@ impl Cpu {
     // DEC SP
     fn dec_sp(&mut self) -> i32 {
         let (result, _) = add_u16_i8(self.sp, 0xFF);
-        self.sp = result;
+        self.sp = (Wrapping(self.sp) - Wrapping(1_u16)).0;
         self.pc += 1;
         return 8;
     }
@@ -928,8 +957,8 @@ impl Cpu {
     
     // JP (HL)
     fn jump_hl(&mut self) -> i32 {
-        let addr = self.memory.read_general_16(self.combine_regs(REG_H, REG_L) as usize);
-        self.pc = addr;
+        self.debug.log_instr(format!("JP (HL)"));
+        self.pc = self.combine_regs(REG_H, REG_L);
         return 4;
     }
     
@@ -1023,6 +1052,10 @@ impl Cpu {
     }
     // RET cc
     fn ret_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
+        self.debug.log_instr(format!(
+            "RET {}{}", if !is_set { "N" } else { "" },
+            match flag { FlagBits::CARRY => "C", _ => "Z"}));
+
         if is_set == self.flags.has_bit(flag) {
             self.ret();
         } else {
@@ -1052,8 +1085,8 @@ impl Cpu {
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
     pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
-        self.print_regs();
-        print!("PC: {:X} - {:X}: ", self.pc, opcode);
+        //self.print_regs();
+        //print!("PC: {:X} - {:X}: ", self.pc, opcode);
         
 
         let ret = match opcode {
@@ -1172,12 +1205,12 @@ impl Cpu {
             0xF8 => self.mov_spn_to_hl(),
             0x08 => self.mov_sp_to_nn(),
 
-            0xF5 => self.push_16_reg(REG_A, REG_F),
+            0xF5 => self.push_af(),
             0xC5 => self.push_16_reg(REG_B, REG_C),
             0xD5 => self.push_16_reg(REG_D, REG_E),
             0xE5 => self.push_16_reg(REG_H, REG_L),
 
-            0xF1 => self.pop_16_reg(REG_A, REG_F),
+            0xF1 => self.pop_af(),
             0xC1 => self.pop_16_reg(REG_B, REG_C),
             0xD1 => self.pop_16_reg(REG_D, REG_E),
             0xE1 => self.pop_16_reg(REG_H, REG_L),
@@ -1370,7 +1403,7 @@ impl Cpu {
                 // Grab the next byte
                 let inst = self.peek_8_imm();
 
-                print!("{:X} - ", inst);
+                //print!("{:X} - ", inst);
 
                 match inst {
                     0x37 => self.swap_reg(REG_A),

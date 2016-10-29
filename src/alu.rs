@@ -198,9 +198,10 @@ pub fn add_u16_i8(a: u16, b: u8) -> (u16, FlagRegister) {
     let a32 = a as i32;
     let b32 = (b as i8) as i32;
 
-    let hc = ((a32 & 0xF) + (b32 & 0xF)) & !0xF;
-    let c = ((a32 & 0xFF) + b32) & !0xFF;
     let result = (a32 + b32) as u16;
+    let result32 = a32 + b32;
+    let hc = (a32 ^ b32 ^ result32) & 0x10;
+    let c = (a32 ^ b32 ^ result32) & 0x100;
 
     let z = FlagRegister::new(
         c as u32, hc as u32, 0, false);

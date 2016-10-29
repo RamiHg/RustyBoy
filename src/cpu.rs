@@ -91,8 +91,8 @@ impl Cpu {
     fn reg_from_opcode_index(index: u8) -> usize {
         match index {
             0 => REG_B, 1 => REG_C, 2 => REG_D, 3 => REG_E, 4 => REG_H,
-            5 => REG_L, 7 => REG_A,
-            _ => panic!("TODO: ERROR: Unexpected register opcode encoding")
+            5 => REG_L, 6 => REG_INVALID, 7 => REG_A,
+            _ => panic!("TODO: ERROR: Unexpected register opcode encoding {}", index)
         }
     }
 
@@ -307,7 +307,7 @@ impl Cpu {
         self.pc += 1;
         let offset = self.peek_8_imm();
         let (sp, flags) = add_u16_i8(self.sp, offset);
-        self.sp = sp;
+        self.set_combined_regs(REG_H, REG_L, sp);
         self.flags = flags;
         self.pc += 1;
         return 12;
@@ -701,7 +701,7 @@ impl Cpu {
     fn inc_nn(&mut self, high: usize, low: usize) -> i32 {
         self.debug.log_instr(format!("INC {}{}", REG_NAMES[high],
             REG_NAMES[low]));
-        let (result, _) = add_u16_i8(self.combine_regs(high, low), 1);
+        let result = (Wrapping(self.combine_regs(high, low)) + Wrapping(1_u16)).0;
         self.set_combined_regs(high, low, result);
         self.pc += 1;
         return 8;
@@ -709,8 +709,6 @@ impl Cpu {
 
     // INC SP
     fn inc_sp(&mut self) -> i32 {
-        let (result, _) = add_u16_i8(self.sp, 1);
-        //println!("BEFORE: {} AFTER {}", self.sp, result);
         self.sp = (Wrapping(self.sp) + Wrapping(1_u16)).0;
         self.pc += 1;
         return 8;
@@ -718,7 +716,7 @@ impl Cpu {
 
     // DEC nn
     fn dec_nn(&mut self, high: usize, low: usize) -> i32 {
-        let (result, _) = add_u16_i8(self.combine_regs(high, low), 0xFF);
+        let result = (Wrapping(self.combine_regs(high, low)) - Wrapping(1_u16)).0;
         self.set_combined_regs(high, low, result);
         self.pc += 1;
         return 8;
@@ -726,7 +724,6 @@ impl Cpu {
 
     // DEC SP
     fn dec_sp(&mut self) -> i32 {
-        let (result, _) = add_u16_i8(self.sp, 0xFF);
         self.sp = (Wrapping(self.sp) - Wrapping(1_u16)).0;
         self.pc += 1;
         return 8;
@@ -1423,7 +1420,7 @@ impl Cpu {
                 // Grab the next byte
                 let inst = self.peek_8_imm();
 
-                //print!("{:X} - ", inst);
+                //println!("{:X} - ", inst);
 
                 match inst {
                     0x37 => self.swap_reg(REG_A),
@@ -1509,7 +1506,7 @@ impl Cpu {
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
                         
-                        match register {
+                        match byte & 0x07 {
                             0x06 => self.bit_hl(bit),
                             _ => self.bit_reg(register, bit)
                         }
@@ -1520,7 +1517,7 @@ impl Cpu {
                         // Extract out the params same as before
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
-                        match register {
+                        match byte & 0x07 {
                             0x06 => self.set_bit_hl(bit),
                             _ => self.set_bit_reg(register, bit)
                         }
@@ -1531,7 +1528,7 @@ impl Cpu {
                         // .. you get the picture
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
-                        match register {
+                        match byte & 0x07 {
                             0x06 => self.reset_bit_hl(bit),
                             _ => self.reset_bit_reg(register, bit)
                         }

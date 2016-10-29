@@ -171,11 +171,11 @@ impl Gpu {
         for i in 0..LCD_WIDTH {
             // TODO: Rewrite this loop in terms of tiles instead of pixels for a significant optimization
             // Find out which tile we're in
-            let tilemap_index: usize = ((scroll_x + i) / 8 + ((scroll_y + self.line) / 8) * 8) as usize;
-            assert!(tilemap_index < 1024, "Unexpected tilemap index");
-
+            let tilemap_x = ((scroll_x + i) / 8) % 32;
+            let tilemap_y = ((scroll_y + self.line) / 8) % 32;
+            let tilemap_index = (tilemap_x + tilemap_y * 32) as usize;
+          
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
-            //println!("{}", tile_unsigned_index);
             
             let tile_index = if lcdc.bg_set == 0 {
                 ((tile_unsigned_index as i8) as i32 + 128) as usize
@@ -189,12 +189,12 @@ impl Gpu {
             let tile_row_value = memory.read_general_16(
                 tileset_location + tile_index * 16 + tile_j as usize * 2);
 
-            let tile_i = (scroll_x + i) % 8;
+            let tile_i = 7 - (scroll_x + i) % 8;
 
-            let pixel_value = (tile_row_value >> tile_i) & 0x1 |
-                (tile_row_value >> (tile_i + 7) & 0x2);
+            let pixel_value = ((tile_row_value >> tile_i) & 0x1) |
+                ((tile_row_value >> (7 + tile_i)) & 0x2);
 
-            let mut color = match (palette >> pixel_value) & 0x3 {
+            let color = match (palette >> pixel_value) & 0x3 {
                 0 => [255u8, 255u8, 255u8],
                 1 => [192u8, 192u8, 192u8],
                 2 => [96u8, 96u8, 96u8],

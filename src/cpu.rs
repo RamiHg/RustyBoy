@@ -737,6 +737,11 @@ impl Cpu {
     // RLC<reg>
     fn rlc_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
         self.op_u8_helper_reg(rotate_left_high_to_carry_u8, reg);
+        // RLCA actually unsets Z unconditionally. Why? No clue.
+        if !is_cb {
+            assert!(reg == REG_A);
+            self.flags.set_bit(FlagBits::ZERO, 0);
+        }
         return if is_cb { 8 } else { 4 };
     }
 
@@ -749,6 +754,11 @@ impl Cpu {
     // RL<reg>
     fn rl_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
         self.op_u8_helper_reg(rotate_left_through_carry_u8, reg);
+        // Like RLCA, RLA actually unsets Z unconditionally. Why? No clue.
+        if !is_cb {
+            assert!(reg == REG_A);
+            self.flags.set_bit(FlagBits::ZERO, 0);
+        }
         return if is_cb { 8 } else { 4 };
     }
 
@@ -761,6 +771,11 @@ impl Cpu {
     // RRC<reg>
     fn rrc_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
         self.op_u8_helper_reg(rotate_right_low_to_carry_u8, reg);
+        // Like RLCA, RRCA actually unsets Z unconditionally. Why? No clue.
+        if !is_cb {
+            assert!(reg == REG_A);
+            self.flags.set_bit(FlagBits::ZERO, 0);
+        }
         return if is_cb { 8 } else { 4 };
     }
 
@@ -774,6 +789,11 @@ impl Cpu {
     fn rr_reg(&mut self, reg: usize, is_cb: bool) -> i32 {
         self.debug.log_instr(format!("RR {}", REG_NAMES[reg]));
         self.op_u8_helper_reg(rotate_right_through_carry_u8, reg);
+        // Like RRCA, RRA actually unsets Z unconditionally. Why? No clue.
+        if !is_cb {
+            assert!(reg == REG_A);
+            self.flags.set_bit(FlagBits::ZERO, 0);
+        }
         return if is_cb { 8 } else { 4 };
     }
 
@@ -1151,7 +1171,7 @@ impl Cpu {
             0x67 => self.mov_8(REG_H, REG_A),
             0x60 => self.mov_8(REG_H, REG_B),
             0x61 => self.mov_8(REG_H, REG_C),
-            0x62 => self.mov_8(REG_E, REG_D),
+            0x62 => self.mov_8(REG_H, REG_D),
             0x63 => self.mov_8(REG_H, REG_E),
             0x64 => self.mov_8(REG_H, REG_H),
             0x65 => self.mov_8(REG_H, REG_L),

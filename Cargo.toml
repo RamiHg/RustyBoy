@@ -6,3 +6,6 @@ authors = ["Ramy"]
 [dependencies]
 glium = { git = "https://github.com/tomaka/glium.git" }
 image = { git = "https://github.com/PistonDevelopers/image.git" }
+bitfield = "*"
+num-derive = "*"
+num-traits = "*"

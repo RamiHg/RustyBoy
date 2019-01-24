@@ -1,25 +1,31 @@
-
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
 #![allow(dead_code)]
 
-mod cpu;
-mod memory;
 mod alu;
 mod cart;
-mod gpu;
-mod system;
+mod cpu;
 mod debug;
+mod gpu;
+mod memory;
+mod registers;
+mod system;
 
 #[macro_use]
 extern crate glium;
 extern crate image;
 
-use glium::{DisplayBuild, Surface};
-use glium::glutin;
+#[macro_use]
+extern crate bitfield;
+#[macro_use]
+extern crate num_derive;
+extern crate num_traits;
 
-use system::System;
+use glium::glutin;
+use glium::{DisplayBuild, Surface};
+
 use gpu::*;
 use memory::*;
+use system::System;
 
 use std::borrow::Cow;
 
@@ -39,19 +45,19 @@ fn main() {
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/11-op a,(hl).gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/01-special.gb");
 
-    let display = glutin::WindowBuilder::new()
-        .build_glium()
-        .unwrap();
-        
+    let display = glutin::WindowBuilder::new().build_glium().unwrap();
+
     let back_buffer = glium::Texture2d::empty_with_format(
         &display,
         glium::texture::UncompressedFloatFormat::U8U8U8U8,
         glium::texture::MipmapsOption::NoMipmap,
-        160, 144).unwrap();
+        160,
+        144,
+    )
+    .unwrap();
     back_buffer.as_surface().clear_color(1.0, 0.0, 0.0, 1.0);
 
-    loop 
-    {
+    loop {
         for i in 0..2000 {
             system.execute_instruction();
         }
@@ -60,15 +66,15 @@ fn main() {
 
         //if system.gpu.mode == GpuMode::VBlank {
         {
-            let mut data: [u8; 160*144 * 3] = [0; 160*144 * 3];
+            let mut data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
 
             for j in 0..144_usize {
                 for i in 0..160_usize {
                     let pixel = system.gpu.get_pixel(i as u32, j as u32);
 
-                    data[(i + j*160) * 3 + 0] = pixel.r;
-                    data[(i + j*160) * 3 + 1] = pixel.g;
-                    data[(i + j*160) * 3 + 2] = pixel.b;
+                    data[(i + j * 160) * 3 + 0] = pixel.r;
+                    data[(i + j * 160) * 3 + 1] = pixel.g;
+                    data[(i + j * 160) * 3 + 2] = pixel.b;
                 }
             }
 
@@ -78,24 +84,27 @@ fn main() {
                 height: 144,
                 format: glium::texture::ClientFormat::U8U8U8,
             };
-            
+
             let image = glium::Texture2d::with_format(
                 &display,
                 raw_image,
                 glium::texture::UncompressedFloatFormat::U8U8U8U8,
-                glium::texture::MipmapsOption::NoMipmap
-            ).unwrap();
+                glium::texture::MipmapsOption::NoMipmap,
+            )
+            .unwrap();
 
-            image.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
+            image
+                .as_surface()
+                .fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         }
 
         //back_buffer.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Linear);
         target.finish().unwrap();
-        
+
         for event in display.poll_events() {
             match event {
                 glutin::Event::Closed => break,
-                _ => ()
+                _ => (),
             }
         }
     }

@@ -1,15 +1,15 @@
-use memory::*;
 use alu::*;
 use debug::Debugger;
+use memory::*;
 
 use std::num::Wrapping;
 use std::rc::Rc;
 
 pub struct Cpu {
-    gprs : [u8; 8],
-    flags : FlagRegister,
-    pub pc : u16,
-    sp : u16,
+    gprs: [u8; 8],
+    flags: FlagRegister,
+    pub pc: u16,
+    sp: u16,
 
     pub memory: Memory,
 
@@ -18,23 +18,21 @@ pub struct Cpu {
     pub is_stopped: bool,
     pub is_interrupts_enabled: bool,
 
-    debug: Debugger
+    debug: Debugger,
 }
 
-const REG_A : usize = 0;
-const REG_B : usize = 1;
-const REG_C : usize = 2;
-const REG_D : usize = 3;
-const REG_E : usize = 4;
-const REG_H : usize = 6;
-const REG_L : usize = 7;
+const REG_A: usize = 0;
+const REG_B: usize = 1;
+const REG_C: usize = 2;
+const REG_D: usize = 3;
+const REG_E: usize = 4;
+const REG_H: usize = 6;
+const REG_L: usize = 7;
 const REG_INVALID: usize = 8;
 
-const REG_NAMES: &'static [&'static str] = &[
-    "A", "B", "C", "D", "E", "F", "H", "L"
-];
+const REG_NAMES: &'static [&'static str] = &["A", "B", "C", "D", "E", "F", "H", "L"];
 
-/* 
+/*
  * My references:
  * http://imrannazar.com/Gameboy-Z80-Opcode-Map
  * http://clrhome.org/table/
@@ -54,16 +52,16 @@ impl Cpu {
             is_halted: false,
             is_stopped: false,
             is_interrupts_enabled: false,
-            debug: Debugger::new()
+            debug: Debugger::new(),
         }
     }
 
     /// Combine two 8-bit registers
-    fn combine_regs(&self, high : usize, low : usize) -> u16 {
+    fn combine_regs(&self, high: usize, low: usize) -> u16 {
         ((self.gprs[high] as u16) << 8) | (self.gprs[low] as u16)
     }
 
-    fn set_combined_regs(&mut self, high : usize, low : usize, val : u16) {
+    fn set_combined_regs(&mut self, high: usize, low: usize, val: u16) {
         self.gprs[low] = (val & 0xFF) as u8;
         self.gprs[high] = (val >> 8) as u8;
     }
@@ -85,47 +83,53 @@ impl Cpu {
         let byte1 = self.memory.read_general_8(self.pc as usize + 1);
         ((byte1 as u16) << 8) | (byte0 as u16)
     }
-    
+
     // Converts from the op-code encoding of registers to our
     // own internal representation
     fn reg_from_opcode_index(index: u8) -> usize {
         match index {
-            0 => REG_B, 1 => REG_C, 2 => REG_D, 3 => REG_E, 4 => REG_H,
-            5 => REG_L, 6 => REG_INVALID, 7 => REG_A,
-            _ => panic!("TODO: ERROR: Unexpected register opcode encoding {}", index)
+            0 => REG_B,
+            1 => REG_C,
+            2 => REG_D,
+            3 => REG_E,
+            4 => REG_H,
+            5 => REG_L,
+            6 => REG_INVALID,
+            7 => REG_A,
+            _ => panic!("TODO: ERROR: Unexpected register opcode encoding {}", index),
         }
     }
 
     // 8-bit loads
 
-    fn load_8_imm(&mut self, reg : usize) -> i32 {
+    fn load_8_imm(&mut self, reg: usize) -> i32 {
         self.pc += 1;
         let imm = self.peek_8_imm();
         self.gprs[reg] = imm;
         self.pc += 1;
 
-        self.debug.log_instr(
-            format!("LD {}, 0x{:X}", REG_NAMES[reg], imm));
+        self.debug
+            .log_instr(format!("LD {}, 0x{:X}", REG_NAMES[reg], imm));
 
         return 8;
     }
 
-    fn mov_8(&mut self, dst : usize, src : usize) -> i32 {
+    fn mov_8(&mut self, dst: usize, src: usize) -> i32 {
         self.gprs[dst] = self.gprs[src];
         self.pc += 1;
 
-        self.debug.log_instr(
-            format!("LD {}, {}", REG_NAMES[dst], REG_NAMES[src])
-        );
+        self.debug
+            .log_instr(format!("LD {}, {}", REG_NAMES[dst], REG_NAMES[src]));
 
         return 4;
     }
 
-    fn mov_8_indirect(&mut self, dst : usize, src_high : usize, src_low : usize) -> i32 {
-        self.debug.log_instr(
-            format!("LD {}, ({}{})", REG_NAMES[dst], REG_NAMES[src_high], REG_NAMES[src_low])
-        );
-        
+    fn mov_8_indirect(&mut self, dst: usize, src_high: usize, src_low: usize) -> i32 {
+        self.debug.log_instr(format!(
+            "LD {}, ({}{})",
+            REG_NAMES[dst], REG_NAMES[src_high], REG_NAMES[src_low]
+        ));
+
         let src_addr = self.combine_regs(src_high, src_low);
         let mem_value = self.memory.read_general_8(src_addr as usize);
         self.gprs[dst] = mem_value;
@@ -134,23 +138,22 @@ impl Cpu {
         return 8;
     }
 
-    fn mov_8_indirect_imm(&mut self, dst : usize) -> i32 {
+    fn mov_8_indirect_imm(&mut self, dst: usize) -> i32 {
         self.pc += 1;
         let mem_location = self.peek_16_imm();
 
-         self.debug.log_instr(
-            format!("LD {}, (0x{:X})", REG_NAMES[dst], mem_location)
-        );
+        self.debug
+            .log_instr(format!("LD {}, (0x{:X})", REG_NAMES[dst], mem_location));
 
         self.pc += 2;
         let value = self.memory.read_general_8(mem_location as usize);
         self.gprs[dst] = value;
-        
+
         return 16;
     }
 
     /// LD dst, ($offset + src)
-    fn mov_8_offseted_indirect(&mut self, dst : usize, offset : u16, src : usize) -> i32 {
+    fn mov_8_offseted_indirect(&mut self, dst: usize, offset: u16, src: usize) -> i32 {
         let mem_location = self.gprs[src] as u16 + offset;
         let value = self.memory.read_general_8(mem_location as usize);
         self.gprs[dst] = value;
@@ -159,12 +162,14 @@ impl Cpu {
     }
 
     // LD dst, ($offset + imm_offset)
-    fn mov_8_offseted_imm(&mut self, dst : usize, offset : u16) -> i32 {
+    fn mov_8_offseted_imm(&mut self, dst: usize, offset: u16) -> i32 {
         self.pc += 1;
         let imm_offset = self.peek_8_imm();
         let mem_location = offset + imm_offset as u16;
-        self.debug.log_instr(format!("LD {}, (0x{:X} + 0x{:X}", REG_NAMES[dst],
-            offset, imm_offset));
+        self.debug.log_instr(format!(
+            "LD {}, (0x{:X} + 0x{:X}",
+            REG_NAMES[dst], offset, imm_offset
+        ));
         let value = self.memory.read_general_8(mem_location as usize);
         self.gprs[dst] = value;
         self.pc += 1;
@@ -173,7 +178,7 @@ impl Cpu {
 
     // TODO: Super hacky to return hl. refactor
     fn mov_8_a_hl(&mut self) -> u16 {
-        let hl : u16 = self.combine_regs(REG_H, REG_L);
+        let hl: u16 = self.combine_regs(REG_H, REG_L);
         let value = self.memory.read_general_8(hl as usize);
         self.gprs[REG_A] = value;
         return hl;
@@ -199,60 +204,71 @@ impl Cpu {
     }
 
     // LD (regs), reg
-    fn store_8(&mut self, dst_high : usize, dst_low : usize, src : usize) -> i32 {
-        self.debug.log_instr(format!("LD ({}{}), {}", REG_NAMES[dst_high],
-            REG_NAMES[dst_low], REG_NAMES[src]));
+    fn store_8(&mut self, dst_high: usize, dst_low: usize, src: usize) -> i32 {
+        self.debug.log_instr(format!(
+            "LD ({}{}), {}",
+            REG_NAMES[dst_high], REG_NAMES[dst_low], REG_NAMES[src]
+        ));
         let dst_addr = self.combine_regs(dst_high, dst_low);
-        self.memory.store_general_8(dst_addr as usize, self.gprs[src]);
+        self.memory
+            .store_general_8(dst_addr as usize, self.gprs[src]);
         self.pc += 1;
         return 8;
     }
 
     // LD (regs), imm8
-    fn store_8_imm(&mut self, dst_high : usize, dst_low : usize) -> i32 {
+    fn store_8_imm(&mut self, dst_high: usize, dst_low: usize) -> i32 {
         let dst_addr = self.combine_regs(dst_high, dst_low);
         self.pc += 1;
         let imm = self.peek_8_imm();
-        self.debug.log_instr(format!("LD ({}{}), 0x{:X}", REG_NAMES[dst_high],
-            REG_NAMES[dst_low], imm));
+        self.debug.log_instr(format!(
+            "LD ({}{}), 0x{:X}",
+            REG_NAMES[dst_high], REG_NAMES[dst_low], imm
+        ));
         self.memory.store_general_8(dst_addr as usize, imm);
         self.pc += 1;
         return 12;
     }
 
     // LD (imm16), reg
-    fn store_8_immdst(&mut self, src : usize) -> i32 {
+    fn store_8_immdst(&mut self, src: usize) -> i32 {
         self.pc += 1;
         let mem_location = self.peek_16_imm();
-        self.debug.log_instr(format!("LD (0x{:X}), {}", mem_location, REG_NAMES[src]));
+        self.debug
+            .log_instr(format!("LD (0x{:X}), {}", mem_location, REG_NAMES[src]));
         self.pc += 2;
-        self.memory.store_general_8(mem_location as usize, self.gprs[src]);
+        self.memory
+            .store_general_8(mem_location as usize, self.gprs[src]);
         return 16;
     }
 
     // LD ($offset + dst), src
-    fn store_8_offseted(&mut self, offset : u16, dst : usize, src : usize) -> i32 {
+    fn store_8_offseted(&mut self, offset: u16, dst: usize, src: usize) -> i32 {
         let mem_location = self.gprs[dst] as u16 + offset;
-        self.memory.store_general_8(mem_location as usize, self.gprs[src]);
+        self.memory
+            .store_general_8(mem_location as usize, self.gprs[src]);
         self.pc += 1;
         return 8;
     }
 
     // LD ($offset + imm_offset), src
-    fn store_8_offseted_imm(&mut self, offset : u16, src : usize) -> i32 {
+    fn store_8_offseted_imm(&mut self, offset: u16, src: usize) -> i32 {
         self.pc += 1;
         let imm_offset = self.peek_8_imm();
         let mem_location = offset + imm_offset as u16;
-        self.memory.store_general_8(mem_location as usize, self.gprs[src]);
+        self.memory
+            .store_general_8(mem_location as usize, self.gprs[src]);
         self.pc += 1;
-        self.debug.log_instr(
-            format!("LD (0x{:X} + 0x{:X}), {}", offset, imm_offset, REG_NAMES[src]));
+        self.debug.log_instr(format!(
+            "LD (0x{:X} + 0x{:X}), {}",
+            offset, imm_offset, REG_NAMES[src]
+        ));
         return 12;
     }
 
     // LD (HLD), A
     fn store_8_a_dec_hl(&mut self) -> i32 {
-        let hl : u16 = self.combine_regs(REG_H, REG_L);
+        let hl: u16 = self.combine_regs(REG_H, REG_L);
         self.memory.store_general_8(hl as usize, self.gprs[REG_A]);
         self.pc += 1;
 
@@ -264,7 +280,7 @@ impl Cpu {
     // LD (HLI), A
     fn store_8_a_inc_hl(&mut self) -> i32 {
         self.debug.log_instr(format!("LD (HL+), A"));
-        let hl : u16 = self.combine_regs(REG_H, REG_L);
+        let hl: u16 = self.combine_regs(REG_H, REG_L);
         self.memory.store_general_8(hl as usize, self.gprs[REG_A]);
         self.pc += 1;
 
@@ -280,8 +296,10 @@ impl Cpu {
         let value = self.peek_16_imm();
         self.set_combined_regs(high, low, value);
         self.pc += 2;
-        self.debug.log_instr(format!("LD {}{}, 0x{:X}", REG_NAMES[high],
-            REG_NAMES[low], value));
+        self.debug.log_instr(format!(
+            "LD {}{}, 0x{:X}",
+            REG_NAMES[high], REG_NAMES[low], value
+        ));
         return 12;
     }
 
@@ -321,7 +339,7 @@ impl Cpu {
         return 20;
     }
 
-    // I had no idea F was actually the flags register. So I have to hack this 
+    // I had no idea F was actually the flags register. So I have to hack this
     // in instead of refactoring flags
     // PUSH AF
     fn push_af(&mut self) -> i32 {
@@ -336,8 +354,8 @@ impl Cpu {
 
     // push regs
     fn push_16_reg(&mut self, high: usize, low: usize) -> i32 {
-        self.debug.log_instr(format!("PUSH {}{}", REG_NAMES[high],
-            REG_NAMES[low]));
+        self.debug
+            .log_instr(format!("PUSH {}{}", REG_NAMES[high], REG_NAMES[low]));
         let value = self.combine_regs(high, low);
         self.sp = (Wrapping(self.sp) - Wrapping(2_u16)).0;
         self.memory.store_general_16(self.sp as usize, value);
@@ -350,7 +368,9 @@ impl Cpu {
         self.debug.log_instr(format!("POP AF"));
         let value = self.memory.read_general_16(self.sp as usize) & 0xFFF0;
         self.gprs[REG_A] = (value >> 8) as u8;
-        self.flags = FlagRegister {value: (value & 0xFF) as u8};
+        self.flags = FlagRegister {
+            value: (value & 0xFF) as u8,
+        };
         self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
         self.pc += 1;
         return 12;
@@ -358,7 +378,8 @@ impl Cpu {
 
     // POP regs
     fn pop_16_reg(&mut self, high: usize, low: usize) -> i32 {
-        self.debug.log_instr(format!("POP {}{}", REG_NAMES[high], REG_NAMES[low]));
+        self.debug
+            .log_instr(format!("POP {}{}", REG_NAMES[high], REG_NAMES[low]));
         let value = self.memory.read_general_16(self.sp as usize);
         self.set_combined_regs(high, low, value);
         self.sp = (Wrapping(self.sp) + Wrapping(2_u16)).0;
@@ -376,7 +397,9 @@ impl Cpu {
     }
 
     fn add_hl_to_a(&mut self) -> i32 {
-        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let value = self
+            .memory
+            .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
         let (result, flags) = add_u8_u8(self.gprs[REG_A], value);
         self.pc += 1;
         self.flags = flags;
@@ -396,8 +419,11 @@ impl Cpu {
 
     // ADC A, reg
     fn adc_reg_to_a(&mut self, reg: usize) -> i32 {
-        let (result, flags) = adc_u8_u8(self.gprs[REG_A], self.gprs[reg], 
-            self.flags.get_bit(FlagBits::CARRY));
+        let (result, flags) = adc_u8_u8(
+            self.gprs[REG_A],
+            self.gprs[reg],
+            self.flags.get_bit(FlagBits::CARRY),
+        );
 
         self.flags = flags;
         self.gprs[REG_A] = result;
@@ -407,9 +433,11 @@ impl Cpu {
 
     // ADC A, (HL)
     fn adc_hl_to_a(&mut self) -> i32 {
-        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
-        let (result, flags) = adc_u8_u8(self.gprs[REG_A], value, 
-            self.flags.get_bit(FlagBits::CARRY));
+        let value = self
+            .memory
+            .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) =
+            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -422,8 +450,8 @@ impl Cpu {
         let value = self.peek_8_imm();
         self.debug.log_instr(format!("ADC A, {}", value));
         self.pc += 1;
-        let (result, flags) = adc_u8_u8(self.gprs[REG_A], value,
-            self.flags.get_bit(FlagBits::CARRY));
+        let (result, flags) =
+            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
         self.flags = flags;
         self.gprs[REG_A] = result;
         return 8;
@@ -440,7 +468,9 @@ impl Cpu {
 
     // SUB (HL)
     fn sub_hl(&mut self) -> i32 {
-        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let value = self
+            .memory
+            .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
         let (result, flags) = sub_u8_u8(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
@@ -462,8 +492,11 @@ impl Cpu {
 
     // SBC A, reg
     fn sbc_reg(&mut self, reg: usize) -> i32 {
-        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], self.gprs[reg],
-            self.flags.get_bit(FlagBits::CARRY));
+        let (result, flags) = sbc_i8_i8(
+            self.gprs[REG_A],
+            self.gprs[reg],
+            self.flags.get_bit(FlagBits::CARRY),
+        );
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -472,9 +505,11 @@ impl Cpu {
 
     // SBC A, (HL)
     fn sbc_hl(&mut self) -> i32 {
-        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
-        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], value,
-            self.flags.get_bit(FlagBits::CARRY));
+        let value = self
+            .memory
+            .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+        let (result, flags) =
+            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -485,8 +520,8 @@ impl Cpu {
     fn sbc_imm_8(&mut self) -> i32 {
         self.pc += 1;
         let value = self.peek_8_imm();
-        let (result, flags) = sbc_i8_i8(self.gprs[REG_A], value,
-            self.flags.get_bit(FlagBits::CARRY));
+        let (result, flags) =
+            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -496,8 +531,9 @@ impl Cpu {
     // General helper functions that get called by ADC/SBC/INC/DEC (TODO: Actually use for ADC/SBC)
 
     fn op_u8_flag_helper_reg<F>(&mut self, reg: usize, result_reg: usize, op: F) -> i32
-        where F : Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister) {
-
+    where
+        F: Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister),
+    {
         let (result, flags) = op(self.gprs[REG_A], self.gprs[reg], &self.flags);
         self.flags = flags;
         self.gprs[result_reg] = result;
@@ -506,64 +542,70 @@ impl Cpu {
     }
 
     fn op_u8_flag_helper_hl<F>(&mut self, result_reg: usize, write_to_hl: bool, op: F) -> i32
-        where F : Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister) {
-
+    where
+        F: Fn(u8, u8, &FlagRegister) -> (u8, FlagRegister),
+    {
         let hl_value = self.combine_regs(REG_H, REG_L) as usize;
         let value = self.memory.read_general_8(hl_value);
         let (result, flags) = op(self.gprs[REG_A], value, &self.flags);
         self.flags = flags;
         if write_to_hl {
             self.memory.store_general_8(hl_value, result);
-        }
-        else {
+        } else {
             self.gprs[result_reg] = result;
         }
         self.pc += 1;
         return 12; // WARNING: May or may not match actual instruction cycle count
     }
-    
-    // General helper function that gets called by 
-    
+
+    // General helper function that gets called by
+
     // OP A, reg
     fn op_u8_helper_a_reg<F>(&mut self, reg: usize, op: F) -> i32
-        where F : Fn(u8, u8) -> (u8, FlagRegister) {
-            
+    where
+        F: Fn(u8, u8) -> (u8, FlagRegister),
+    {
         let (result, flags) = op(self.gprs[REG_A], self.gprs[reg]);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
         return 4;
     }
-    
+
     // OP A, (HL)
-    fn op_u8_helper_a_hl<F>(&mut self, op: F) -> i32 
-        where F : Fn(u8, u8) -> (u8, FlagRegister) {
-          
-        let value = self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize);
+    fn op_u8_helper_a_hl<F>(&mut self, op: F) -> i32
+    where
+        F: Fn(u8, u8) -> (u8, FlagRegister),
+    {
+        let value = self
+            .memory
+            .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
         let (result, flags) = op(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
         return 8;
     }
-    
+
     // OP A, n
-    fn op_u8_helper_a_imm_8<F>(&mut self, op: F) -> i32 
-        where F : Fn(u8, u8) -> (u8, FlagRegister) {
-        
+    fn op_u8_helper_a_imm_8<F>(&mut self, op: F) -> i32
+    where
+        F: Fn(u8, u8) -> (u8, FlagRegister),
+    {
         self.pc += 1;
         let value = self.peek_8_imm();
         let (result, flags) = op(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
-        return 8;  
+        return 8;
     }
 
     // OP reg
-    fn op_u8_helper_reg<F>(&mut self, op: F, reg: usize) 
-        where F: Fn(u8, &FlagRegister) -> (u8, FlagRegister) {
-
+    fn op_u8_helper_reg<F>(&mut self, op: F, reg: usize)
+    where
+        F: Fn(u8, &FlagRegister) -> (u8, FlagRegister),
+    {
         let (result, flags) = op(self.gprs[reg], &self.flags);
         self.gprs[reg] = result;
         self.flags = flags;
@@ -572,72 +614,78 @@ impl Cpu {
 
     // OP (HL)
     fn op_u8_helper_hl<F>(&mut self, op: F)
-        where F: Fn(u8, &FlagRegister) -> (u8, FlagRegister) {
-
+    where
+        F: Fn(u8, &FlagRegister) -> (u8, FlagRegister),
+    {
         let hl = self.combine_regs(REG_H, REG_L) as usize;
-        let (result, flags) = op(
-            self.memory.read_general_8(hl), &self.flags);
+        let (result, flags) = op(self.memory.read_general_8(hl), &self.flags);
         self.memory.store_general_8(hl, result);
         self.flags = flags;
         self.pc += 1;
     }
-    
+
     // AND reg
     fn and_reg(&mut self, reg: usize) -> i32 {
         self.debug.log_instr(format!("AND {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, and_u8_u8)
     }
-    
+
     // AND (HL)
     fn and_hl(&mut self) -> i32 {
         self.op_u8_helper_a_hl(and_u8_u8)
     }
-    
+
     // AND n
     fn and_imm_8(&mut self) -> i32 {
-        self.debug.log_instr(format!("AND 0x{:X}", self.peek_next_8_imm()));
+        self.debug
+            .log_instr(format!("AND 0x{:X}", self.peek_next_8_imm()));
         self.op_u8_helper_a_imm_8(and_u8_u8)
     }
-    
+
     // OR reg
     fn or_reg(&mut self, reg: usize) -> i32 {
         self.debug.log_instr(format!("OR {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, or_u8_u8)
     }
-    
+
     // OR (HL)
     fn or_hl(&mut self) -> i32 {
         self.op_u8_helper_a_hl(or_u8_u8)
     }
-    
+
     // OR n
     fn or_imm_8(&mut self) -> i32 {
         self.op_u8_helper_a_imm_8(or_u8_u8)
     }
-    
+
     // XOR reg
     fn xor_reg(&mut self, reg: usize) -> i32 {
         self.debug.log_instr(format!("XOR {}", REG_NAMES[reg]));
         self.op_u8_helper_a_reg(reg, xor_u8_u8)
     }
-    
+
     // XOR (HL)
     fn xor_hl(&mut self) -> i32 {
         self.op_u8_helper_a_hl(xor_u8_u8)
     }
-    
+
     // XOR n
     fn xor_imm_8(&mut self) -> i32 {
         self.op_u8_helper_a_imm_8(xor_u8_u8)
     }
 
     // CP reg
-    fn cp_reg(&mut self, reg: usize) -> i32 { self.op_u8_helper_a_reg(reg, cp_u8_u8) }
+    fn cp_reg(&mut self, reg: usize) -> i32 {
+        self.op_u8_helper_a_reg(reg, cp_u8_u8)
+    }
     // CP (HL)
-    fn cp_hl(&mut self) -> i32 { self.op_u8_helper_a_hl(cp_u8_u8) }
+    fn cp_hl(&mut self) -> i32 {
+        self.op_u8_helper_a_hl(cp_u8_u8)
+    }
     // CP n
     fn cp_imm_8(&mut self) -> i32 {
-        self.debug.log_instr(format!("CP 0x{:X}", self.peek_next_8_imm()));
+        self.debug
+            .log_instr(format!("CP 0x{:X}", self.peek_next_8_imm()));
         self.op_u8_helper_a_imm_8(cp_u8_u8)
     }
 
@@ -648,7 +696,9 @@ impl Cpu {
         self.op_u8_flag_helper_reg(reg, reg, inc_u8_u8)
     }
     // INC (HL)
-    fn inc_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, inc_u8_u8) }
+    fn inc_hl(&mut self) -> i32 {
+        self.op_u8_flag_helper_hl(REG_INVALID, true, inc_u8_u8)
+    }
 
     // DEC reg
     fn dec_reg(&mut self, reg: usize) -> i32 {
@@ -656,7 +706,9 @@ impl Cpu {
         self.op_u8_flag_helper_reg(reg, reg, dec_u8_u8)
     }
     // DEC (HL)
-    fn dec_hl(&mut self) -> i32 { self.op_u8_flag_helper_hl(REG_INVALID, true, dec_u8_u8) }
+    fn dec_hl(&mut self) -> i32 {
+        self.op_u8_flag_helper_hl(REG_INVALID, true, dec_u8_u8)
+    }
 
     // 16-bit ALU
 
@@ -672,8 +724,8 @@ impl Cpu {
     }
 
     fn add_16_hl_reg(&mut self, high: usize, low: usize) -> i32 {
-        self.debug.log_instr(format!("ADD HL, {}{}",
-            REG_NAMES[high], REG_NAMES[low]));
+        self.debug
+            .log_instr(format!("ADD HL, {}{}", REG_NAMES[high], REG_NAMES[low]));
         let rhs = self.combine_regs(high, low);
         self.add_16_hl_helper(rhs)
     }
@@ -699,8 +751,8 @@ impl Cpu {
 
     // INC nn
     fn inc_nn(&mut self, high: usize, low: usize) -> i32 {
-        self.debug.log_instr(format!("INC {}{}", REG_NAMES[high],
-            REG_NAMES[low]));
+        self.debug
+            .log_instr(format!("INC {}{}", REG_NAMES[high], REG_NAMES[low]));
         let result = (Wrapping(self.combine_regs(high, low)) + Wrapping(1_u16)).0;
         self.set_combined_regs(high, low, result);
         self.pc += 1;
@@ -799,7 +851,7 @@ impl Cpu {
         self.op_u8_helper_hl(rotate_right_through_carry_u8);
         return 16;
     }
-    
+
     // SLA n / (HL)
     pub fn sla_reg(&mut self, reg: usize) -> i32 {
         self.op_u8_helper_reg(shift_left_u8, reg);
@@ -809,7 +861,7 @@ impl Cpu {
         self.op_u8_helper_hl(shift_left_u8);
         return 16;
     }
-    
+
     // SRA n / HL
     pub fn sra_reg(&mut self, reg: usize) -> i32 {
         self.op_u8_helper_reg(shift_right_preserve_high_u8, reg);
@@ -819,7 +871,7 @@ impl Cpu {
         self.op_u8_helper_hl(shift_right_preserve_high_u8);
         return 16;
     }
-    
+
     // SRL n / HL
     pub fn srl_reg(&mut self, reg: usize) -> i32 {
         self.debug.log_instr(format!("SRL {}", REG_NAMES[reg]));
@@ -830,22 +882,27 @@ impl Cpu {
         self.op_u8_helper_hl(shift_right_u8);
         return 16;
     }
-    
+
     // Bit functions
-    
+
     pub fn bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
-        self.debug.log_instr(format!("BIT {}, {}", bit, REG_NAMES[reg]));
+        self.debug
+            .log_instr(format!("BIT {}, {}", bit, REG_NAMES[reg]));
         self.flags = bit_test_u8(self.gprs[reg], bit, &self.flags);
         self.pc += 1;
         return 8;
     }
-    pub fn bit_hl(&mut self, bit: u8) -> i32{
-        self.flags = bit_test_u8(self.memory.read_general_8(self.combine_regs(REG_H, REG_L) as usize),
-            bit, &self.flags);
+    pub fn bit_hl(&mut self, bit: u8) -> i32 {
+        self.flags = bit_test_u8(
+            self.memory
+                .read_general_8(self.combine_regs(REG_H, REG_L) as usize),
+            bit,
+            &self.flags,
+        );
         self.pc += 1;
         return 16;
     }
-    
+
     pub fn set_bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
         self.gprs[reg] |= 1 << bit;
         self.pc += 1;
@@ -858,7 +915,7 @@ impl Cpu {
         self.pc += 1;
         return 16;
     }
-    
+
     pub fn reset_bit_reg(&mut self, reg: usize, bit: u8) -> i32 {
         self.gprs[reg] &= !(1 << bit);
         self.pc += 1;
@@ -960,40 +1017,37 @@ impl Cpu {
     }
 
     // Control flow
-    
+
     // JP nn
     fn jump_imm_16(&mut self) -> i32 {
         self.pc += 1;
         let addr = self.peek_16_imm();
         self.pc = addr;
-        self.debug.log_instr(
-            format!("JP 0x{:X}", addr)
-        );
+        self.debug.log_instr(format!("JP 0x{:X}", addr));
         return 12;
     }
-    
+
     // JP (HL)
     fn jump_hl(&mut self) -> i32 {
         self.debug.log_instr(format!("JP (HL)"));
         self.pc = self.combine_regs(REG_H, REG_L);
         return 4;
     }
-    
+
     // JP cc, nn
     fn jump_conditional_imm_16(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         self.pc += 1;
         let addr = self.peek_16_imm();
-        
+
         if is_set == self.flags.has_bit(flag) {
             self.pc = addr;
-        }
-        else {
+        } else {
             self.pc += 2;
         }
-        
+
         return 12;
     }
-    
+
     // JR n
     fn jump_offset(&mut self) -> i32 {
         self.pc += 1;
@@ -1004,28 +1058,32 @@ impl Cpu {
         self.debug.log_instr(format!("JR {}", offset));
         return 8;
     }
-    
+
     // JR cc, n
     fn jump_offset_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         self.pc += 1;
         let offset = self.peek_i8_imm();
         self.debug.log_instr(format!(
-            "JR {}{}, {}", if !is_set { "N" } else { "" },
-            match flag { FlagBits::CARRY => "C", _ => "Z"},
-            offset));
+            "JR {}{}, {}",
+            if !is_set { "N" } else { "" },
+            match flag {
+                FlagBits::CARRY => "C",
+                _ => "Z",
+            },
+            offset
+        ));
 
         let addr = (self.pc as i32 + 1 + offset as i32) as u16;
-        
+
         if is_set == self.flags.has_bit(flag) {
             self.pc = addr;
-        }
-        else {
+        } else {
             self.pc += 1;
         }
-        
+
         return 8;
     }
-    
+
     // CALL nn
     fn call_imm_16(&mut self) -> i32 {
         self.pc += 1;
@@ -1037,7 +1095,7 @@ impl Cpu {
         self.pc = addr;
         return 12;
     }
-    
+
     // CALL cc, nn
     fn call_conditional_imm_16(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         if is_set == self.flags.has_bit(flag) {
@@ -1045,10 +1103,10 @@ impl Cpu {
         } else {
             self.pc += 3;
         }
-        
+
         return 12;
     }
-    
+
     // RST n
     fn restart_offset(&mut self, offset: u8) -> i32 {
         self.debug.log_instr(format!("RST 0x{:X}", offset));
@@ -1058,7 +1116,7 @@ impl Cpu {
         self.pc = offset as u16;
         return 32;
     }
-    
+
     // RET
     fn ret(&mut self) -> i32 {
         let addr = self.memory.read_general_16(self.sp as usize);
@@ -1070,8 +1128,13 @@ impl Cpu {
     // RET cc
     fn ret_conditional(&mut self, flag: FlagBits, is_set: bool) -> i32 {
         self.debug.log_instr(format!(
-            "RET {}{}", if !is_set { "N" } else { "" },
-            match flag { FlagBits::CARRY => "C", _ => "Z"}));
+            "RET {}{}",
+            if !is_set { "N" } else { "" },
+            match flag {
+                FlagBits::CARRY => "C",
+                _ => "Z",
+            }
+        ));
 
         if is_set == self.flags.has_bit(flag) {
             self.ret();
@@ -1097,14 +1160,13 @@ impl Cpu {
     }
 
     /// Executes an instruction op-code.
-    /// 
+    ///
     /// The PC will be incremented to the expected location
     /// after the command is executed.
     /// Returns the number of cycles spent for the instruction
-    pub fn execute_instruction(&mut self, opcode : u8) -> i32 {
+    pub fn execute_instruction(&mut self, opcode: u8) -> i32 {
         //self.print_regs();
         //print!("PC: {:X} - {:X}: ", self.pc, opcode);
-        
 
         let ret = match opcode {
             // 8-bit immediate load
@@ -1272,7 +1334,7 @@ impl Cpu {
             0x9D => self.sbc_reg(REG_L),
             0x9E => self.sbc_hl(),
             0xDE => self.sbc_imm_8(),
-            
+
             0xA7 => self.and_reg(REG_A),
             0xA0 => self.and_reg(REG_B),
             0xA1 => self.and_reg(REG_C),
@@ -1282,7 +1344,7 @@ impl Cpu {
             0xA5 => self.and_reg(REG_L),
             0xA6 => self.and_hl(),
             0xE6 => self.and_imm_8(),
-            
+
             0xB7 => self.or_reg(REG_A),
             0xB0 => self.or_reg(REG_B),
             0xB1 => self.or_reg(REG_C),
@@ -1292,7 +1354,7 @@ impl Cpu {
             0xB5 => self.or_reg(REG_L),
             0xB6 => self.or_hl(),
             0xF6 => self.or_imm_8(),
-            
+
             0xAF => self.xor_reg(REG_A),
             0xA8 => self.xor_reg(REG_B),
             0xA9 => self.xor_reg(REG_C),
@@ -1355,7 +1417,7 @@ impl Cpu {
 
             0x0F => self.rrc_reg(REG_A, false),
             0x1F => self.rr_reg(REG_A, false),
-            
+
             // Misc Functions
             0x27 => self.daa(),
             0x2F => self.cpl(),
@@ -1365,7 +1427,7 @@ impl Cpu {
             0x76 => self.halt(),
             0xF3 => self.di(),
             0xFB => self.ei(),
-            
+
             // Control-flow
             0xC3 => self.jump_imm_16(),
             0xE9 => self.jump_hl(),
@@ -1373,19 +1435,19 @@ impl Cpu {
             0xCA => self.jump_conditional_imm_16(FlagBits::ZERO, true),
             0xD2 => self.jump_conditional_imm_16(FlagBits::CARRY, false),
             0xDA => self.jump_conditional_imm_16(FlagBits::CARRY, true),
-            
+
             0x18 => self.jump_offset(),
             0x20 => self.jump_offset_conditional(FlagBits::ZERO, false),
             0x28 => self.jump_offset_conditional(FlagBits::ZERO, true),
             0x30 => self.jump_offset_conditional(FlagBits::CARRY, false),
             0x38 => self.jump_offset_conditional(FlagBits::CARRY, true),
-            
+
             0xCD => self.call_imm_16(),
             0xC4 => self.call_conditional_imm_16(FlagBits::ZERO, false),
             0xCC => self.call_conditional_imm_16(FlagBits::ZERO, true),
             0xD4 => self.call_conditional_imm_16(FlagBits::CARRY, false),
             0xDC => self.call_conditional_imm_16(FlagBits::CARRY, true),
-            
+
             0xC7 => self.restart_offset(0x00),
             0xCF => self.restart_offset(0x08),
             0xD7 => self.restart_offset(0x10),
@@ -1394,7 +1456,7 @@ impl Cpu {
             0xEF => self.restart_offset(0x28),
             0xF7 => self.restart_offset(0x30),
             0xFF => self.restart_offset(0x38),
-            
+
             0xC9 => self.ret(),
             0xC0 => self.ret_conditional(FlagBits::ZERO, false),
             0xC8 => self.ret_conditional(FlagBits::ZERO, true),
@@ -1410,9 +1472,9 @@ impl Cpu {
 
                 match inst {
                     0x00 => self.stop(),
-                    _    => panic!("Oops at stop 0x{:x}", inst),
+                    _ => panic!("Oops at stop 0x{:x}", inst),
                 }
-            },
+            }
 
             // CB-prefix Instructions:
             0xCB => {
@@ -1468,7 +1530,7 @@ impl Cpu {
                     0x1C => self.rr_reg(REG_H, true),
                     0x1D => self.rr_reg(REG_L, true),
                     0x1E => self.rr_hl(),
-                    
+
                     0x27 => self.sla_reg(REG_A),
                     0x20 => self.sla_reg(REG_B),
                     0x21 => self.sla_reg(REG_C),
@@ -1477,7 +1539,7 @@ impl Cpu {
                     0x24 => self.sla_reg(REG_H),
                     0x25 => self.sla_reg(REG_L),
                     0x26 => self.sla_hl(),
-                    
+
                     0x2F => self.sra_reg(REG_A),
                     0x28 => self.sra_reg(REG_B),
                     0x29 => self.sra_reg(REG_C),
@@ -1486,7 +1548,7 @@ impl Cpu {
                     0x2C => self.sra_reg(REG_H),
                     0x2D => self.sra_reg(REG_L),
                     0x2E => self.sra_hl(),
-                    
+
                     0x3F => self.srl_reg(REG_A),
                     0x38 => self.srl_reg(REG_B),
                     0x39 => self.srl_reg(REG_C),
@@ -1495,51 +1557,50 @@ impl Cpu {
                     0x3C => self.srl_reg(REG_H),
                     0x3D => self.srl_reg(REG_L),
                     0x3E => self.srl_hl(),
-                    
+
                     // I could expand out all the opcodes for the bit tests - but it's
                     // a bit tedious, so I'm going to make it dynamic!
                     // TODO: See what assembly this produces
-                    
+
                     // Bit test
-                    byte @ 0x40 ... 0x7F => {
+                    byte @ 0x40...0x7F => {
                         // Extract out the register and bit from the opcode
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
-                        
+
                         match byte & 0x07 {
                             0x06 => self.bit_hl(bit),
-                            _ => self.bit_reg(register, bit)
+                            _ => self.bit_reg(register, bit),
                         }
                     }
-                    
+
                     // Bit set
-                    byte @ 0xC0 ... 0xFF => {
+                    byte @ 0xC0...0xFF => {
                         // Extract out the params same as before
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
                         match byte & 0x07 {
                             0x06 => self.set_bit_hl(bit),
-                            _ => self.set_bit_reg(register, bit)
+                            _ => self.set_bit_reg(register, bit),
                         }
                     }
-                    
+
                     // Bit reset
-                    byte @ 0x80 ... 0xBF => {
+                    byte @ 0x80...0xBF => {
                         // .. you get the picture
                         let register = Cpu::reg_from_opcode_index(byte & 0x07);
                         let bit = (byte >> 3) & 0x07;
                         match byte & 0x07 {
                             0x06 => self.reset_bit_hl(bit),
-                            _ => self.reset_bit_reg(register, bit)
+                            _ => self.reset_bit_reg(register, bit),
                         }
                     }
 
-                    _    => panic!("CB Ooops"),
+                    _ => panic!("CB Ooops"),
                 }
-            },
+            }
 
-
-            _    => panic!("Oops: 0x{:x}", opcode),
+            _ => panic!("Oops: 0x{:x}", opcode),
         };
 
         ret

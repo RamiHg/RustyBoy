@@ -15,6 +15,9 @@ mod system;
 
 use system::System;
 
+// Helpful links:
+// Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+
 /// Helpful macro to run a GL command and make sure no errors are generated.
 macro_rules! GL {
     ($x:stmt) => {
@@ -123,7 +126,7 @@ fn main() {
     let mut system = System::new();
     // http://gbdev.gg8.se/wiki/articles/Test_ROMs
     //system.start_system("/Users/ramy/Desktop/opus5.gb");
-    //system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
+    system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/02-interrupts.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/03-op sp,hl.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/04-op r,imm.gb");

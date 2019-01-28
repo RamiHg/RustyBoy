@@ -1,7 +1,5 @@
-use memory::*;
-use registers::{LcdControl, LcdStatus, LcdcModeFlag};
-
-use image;
+use crate::memory::*;
+use crate::registers::{InterruptFlag, LcdControl, LcdStatus, LcdcModeFlag};
 
 const LCD_WIDTH: u32 = 160;
 const LCD_HEIGHT: u32 = 144;
@@ -40,93 +38,107 @@ impl Gpu {
             VBlank (01): CPU can access display RAM
             0AM Used (10): OAM is being used (0xFE00 - 0xFE9F)
         */
+        let mut should_render_scanline = false;
 
-        let lcd_control = memory.read_register(LcdControl);
-        let mut lcd_status = memory.read_register(LcdStatus);
+        {
+            let lcd_control = memory.read_register(LcdControl);
+            let mut lcd_status = memory.get_mut_register(LcdStatus);
+            let mut interrupt_flag = memory.get_mut_register(InterruptFlag);
 
-        let mode = lcd_status.mode();
+            let mode = lcd_status.mode();
 
-        // Technically this can only work during vblank
-        if !lcd_control.enable_display() {
-            assert!(mode == LcdcModeFlag::VBlank);
-            return;
-        }
-
-        self.clock += delta_cycles;
-
-        match mode {
-            LcdcModeFlag::ReadingOAM => {
-                lcd_status.set_mode(LcdcModeFlag::ReadingOAM as u8);
-
-                if self.clock >= 80 {
-                    // Enter mode 3 (accessing vram).
-                    self.clock = 0;
-                    lcd_status.set_mode(LcdcModeFlag::TransferingToLCD as u8);
-                }
+            // Technically this can only work during vblank
+            if !lcd_control.enable_display() {
+                //assert!(mode == LcdcModeFlag::VBlank);
+                //return;
             }
 
-            LcdcModeFlag::TransferingToLCD => {
-                if self.clock >= 172 {
-                    // Enter HBlank.
-                    self.clock = 0;
-                    lcd_status.set_mode(LcdcModeFlag::HBlank as u8);
-                    // Render a scanline
-                    self.render_scanline(memory);
+            self.clock += delta_cycles;
+
+            match mode {
+                // First part of processing the scanline. Read 0AM.
+                LcdcModeFlag::ReadingOAM => {
+                    lcd_status.set_mode(LcdcModeFlag::ReadingOAM as u8);
+
+                    if self.clock >= 80 {
+                        // Enter mode 3 (accessing vram).
+                        self.clock = 0;
+                        lcd_status.set_mode(LcdcModeFlag::TransferingToLCD as u8);
+                    }
                 }
-            }
 
-            LcdcModeFlag::HBlank => {
-                if self.clock >= 204 {
-                    self.clock = 0;
-                    self.line += 1;
+                // Second part of processing the scanline. Read VRAM and transfer to LCD.
+                LcdcModeFlag::TransferingToLCD => {
+                    if self.clock >= 172 {
+                        // Done with this scanline. Enter HBlank.
+                        self.clock = 0;
+                        lcd_status.set_mode(LcdcModeFlag::HBlank as u8);
+                        // Render a scanline
+                        should_render_scanline = true;
+                    }
+                }
 
-                    if self.line == 144 {
-                        // Enter VBlank
-                        lcd_status.set_mode(LcdcModeFlag::VBlank as u8);
+                // HBlank after a scanline is complete.
+                LcdcModeFlag::HBlank => {
+                    // HBlank is complete after 204 cycles.
+                    if self.clock >= 204 {
+                        self.clock = 0;
+                        self.line += 1;
+                        // If this is the last line, enter VBlank!
+                        if self.line == 144 {
+                            // Enter VBlank
+                            lcd_status.set_mode(LcdcModeFlag::VBlank as u8);
 
-                        // TODO: When is the interrupt fired? This frame or next?
-                        let old_if = memory.read_reg(Register::InterruptFlag);
-                        memory.store_reg(Register::InterruptFlag, old_if | 0x1);
+                            // TODO: When is the interrupt fired? This frame or next?
+                            interrupt_flag.set_v_blank(true);
 
-                        lcdstatus = (lcdstatus & 0xFC) | 0b01;
+                        // TODO: Upload image to window here.
+                        } else {
+                            // Move on to the next scanline.
+                            lcd_status.set_mode(LcdcModeFlag::ReadingOAM as u8);
+                        }
+                    }
+                }
 
-                    // Upload image to window
-                    } else {
-                        // Render a new line
-                        self.mode = GpuMode::SclnOAM;
+                LcdcModeFlag::VBlank => {
+                    // VBLank lasts 456*10 cycles.
+                    if self.clock >= 456 {
+                        self.clock = 0;
+                        self.line += 1;
+                        // 154 is 10 lines after 144.
+                        if self.line >= 154 {
+                            // Move on to the first scanline!
+                            lcd_status.set_mode(LcdcModeFlag::ReadingOAM as u8);
+                            self.line = 0;
+                        }
                     }
                 }
             }
-
-            GpuMode::VBlank => {
-                // Signify VBlank status
-                lcdstatus = (lcdstatus & 0xFC) | 0b01;
-
-                if self.clock >= 456 {
-                    self.clock = 0;
-                    self.line += 1;
-
-                    // It takes 10 lines for VBlank
-                    if self.line > 153 {
-                        self.mode = GpuMode::SclnOAM;
-                        self.line = 0;
-                    }
-                }
-            }
         }
-        memory.store_reg(Register::CurScln, self.line as u8);
-        memory.store_reg(Register::LcdStatus, lcdstatus);
+        memory.store_reg(RegisterAddr::CurScln, self.line as u8);
+        if should_render_scanline {
+            println!("Rendering");
+            self.render_scanline(memory);
+        }
     }
 
     fn render_scanline(&mut self, memory: &Memory) {
-        let scroll_x = memory.read_reg(Register::ScrollX) as u32;
-        let scroll_y = memory.read_reg(Register::ScrollY) as u32;
+        let scroll_x = memory.read_reg(RegisterAddr::ScrollX) as u32;
+        let scroll_y = memory.read_reg(RegisterAddr::ScrollY) as u32;
 
-        let lcdc = Lcdc::new(memory.read_reg(Register::Lcdc));
-        let palette = memory.read_reg(Register::BgPalette);
+        let lcdc = memory.read_register(LcdControl);
+        let palette = memory.read_reg(RegisterAddr::BgPalette);
 
-        let tilemap_location: usize = if lcdc.bg_map == 0 { 0x9800 } else { 0x9C00 };
-        let tileset_location: usize = if lcdc.bg_set == 0 { 0x8800 } else { 0x8000 };
+        let tilemap_location: usize = if lcdc.bg_map_select() as u8 == 0 {
+            0x9800
+        } else {
+            0x9C00
+        };
+        let tileset_location: usize = if lcdc.bg_set_select() as u8 == 0 {
+            0x8800
+        } else {
+            0x8000
+        };
 
         // Loop over every pixel in the scan line
         for i in 0..LCD_WIDTH {
@@ -138,7 +150,7 @@ impl Gpu {
 
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
 
-            let tile_index = if lcdc.bg_set == 0 {
+            let tile_index = if lcdc.bg_set_select() as u8 == 0 {
                 ((tile_unsigned_index as i8) as i32 + 128) as usize
             } else {
                 tile_unsigned_index as usize

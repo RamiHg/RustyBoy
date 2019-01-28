@@ -1,9 +1,9 @@
-use alu::*;
-use debug::Debugger;
-use memory::*;
+use crate::alu::*;
+use crate::debug::Debugger;
+use crate::memory::*;
+use crate::registers;
 
-use std::num::Wrapping;
-use std::rc::Rc;
+use core::num::Wrapping;
 
 pub struct Cpu {
     gprs: [u8; 8],
@@ -422,7 +422,7 @@ impl Cpu {
         let (result, flags) = adc_u8_u8(
             self.gprs[REG_A],
             self.gprs[reg],
-            self.flags.get_bit(FlagBits::CARRY),
+            self.flags.get_bit(FlagBits::Carry),
         );
 
         self.flags = flags;
@@ -437,7 +437,7 @@ impl Cpu {
             .memory
             .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
         let (result, flags) =
-            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
+            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::Carry));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -451,13 +451,13 @@ impl Cpu {
         self.debug.log_instr(format!("ADC A, {}", value));
         self.pc += 1;
         let (result, flags) =
-            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
+            adc_u8_u8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::Carry));
         self.flags = flags;
         self.gprs[REG_A] = result;
         return 8;
     }
 
-    // SUB reg
+    // Sub reg
     fn sub_reg(&mut self, reg: usize) -> i32 {
         let (result, flags) = sub_u8_u8(self.gprs[REG_A], self.gprs[reg]);
         self.flags = flags;
@@ -466,7 +466,7 @@ impl Cpu {
         return 4;
     }
 
-    // SUB (HL)
+    // Sub (HL)
     fn sub_hl(&mut self) -> i32 {
         let value = self
             .memory
@@ -478,11 +478,11 @@ impl Cpu {
         return 8;
     }
 
-    // SUB n
+    // Sub n
     fn sub_imm_8(&mut self) -> i32 {
         self.pc += 1;
         let value = self.peek_8_imm();
-        self.debug.log_instr(format!("SUB {}", value));
+        self.debug.log_instr(format!("Sub {}", value));
         let (result, flags) = sub_u8_u8(self.gprs[REG_A], value);
         self.flags = flags;
         self.gprs[REG_A] = result;
@@ -495,7 +495,7 @@ impl Cpu {
         let (result, flags) = sbc_i8_i8(
             self.gprs[REG_A],
             self.gprs[reg],
-            self.flags.get_bit(FlagBits::CARRY),
+            self.flags.get_bit(FlagBits::Carry),
         );
         self.flags = flags;
         self.gprs[REG_A] = result;
@@ -509,7 +509,7 @@ impl Cpu {
             .memory
             .read_general_8(self.combine_regs(REG_H, REG_L) as usize);
         let (result, flags) =
-            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
+            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::Carry));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -521,7 +521,7 @@ impl Cpu {
         self.pc += 1;
         let value = self.peek_8_imm();
         let (result, flags) =
-            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::CARRY));
+            sbc_i8_i8(self.gprs[REG_A], value, self.flags.get_bit(FlagBits::Carry));
         self.flags = flags;
         self.gprs[REG_A] = result;
         self.pc += 1;
@@ -789,7 +789,7 @@ impl Cpu {
         // RLCA actually unsets Z unconditionally. Why? No clue.
         if !is_cb {
             assert!(reg == REG_A);
-            self.flags.set_bit(FlagBits::ZERO, 0);
+            self.flags.set_bit(FlagBits::Zero, 0);
         }
         return if is_cb { 8 } else { 4 };
     }
@@ -806,7 +806,7 @@ impl Cpu {
         // Like RLCA, RLA actually unsets Z unconditionally. Why? No clue.
         if !is_cb {
             assert!(reg == REG_A);
-            self.flags.set_bit(FlagBits::ZERO, 0);
+            self.flags.set_bit(FlagBits::Zero, 0);
         }
         return if is_cb { 8 } else { 4 };
     }
@@ -823,7 +823,7 @@ impl Cpu {
         // Like RLCA, RRCA actually unsets Z unconditionally. Why? No clue.
         if !is_cb {
             assert!(reg == REG_A);
-            self.flags.set_bit(FlagBits::ZERO, 0);
+            self.flags.set_bit(FlagBits::Zero, 0);
         }
         return if is_cb { 8 } else { 4 };
     }
@@ -841,7 +841,7 @@ impl Cpu {
         // Like RRCA, RRA actually unsets Z unconditionally. Why? No clue.
         if !is_cb {
             assert!(reg == REG_A);
-            self.flags.set_bit(FlagBits::ZERO, 0);
+            self.flags.set_bit(FlagBits::Zero, 0);
         }
         return if is_cb { 8 } else { 4 };
     }
@@ -972,7 +972,7 @@ impl Cpu {
     }
 
     fn scf(&mut self) -> i32 {
-        self.flags = FlagRegister::new(1, 0, 0, self.flags.has_bit(FlagBits::ZERO));
+        self.flags = FlagRegister::new(1, 0, 0, self.flags.has_bit(FlagBits::Zero));
         self.pc += 1;
         return 4;
     }
@@ -1067,7 +1067,7 @@ impl Cpu {
             "JR {}{}, {}",
             if !is_set { "N" } else { "" },
             match flag {
-                FlagBits::CARRY => "C",
+                FlagBits::Carry => "C",
                 _ => "Z",
             },
             offset
@@ -1131,7 +1131,7 @@ impl Cpu {
             "RET {}{}",
             if !is_set { "N" } else { "" },
             match flag {
-                FlagBits::CARRY => "C",
+                FlagBits::Carry => "C",
                 _ => "Z",
             }
         ));
@@ -1431,22 +1431,22 @@ impl Cpu {
             // Control-flow
             0xC3 => self.jump_imm_16(),
             0xE9 => self.jump_hl(),
-            0xC2 => self.jump_conditional_imm_16(FlagBits::ZERO, false),
-            0xCA => self.jump_conditional_imm_16(FlagBits::ZERO, true),
-            0xD2 => self.jump_conditional_imm_16(FlagBits::CARRY, false),
-            0xDA => self.jump_conditional_imm_16(FlagBits::CARRY, true),
+            0xC2 => self.jump_conditional_imm_16(FlagBits::Zero, false),
+            0xCA => self.jump_conditional_imm_16(FlagBits::Zero, true),
+            0xD2 => self.jump_conditional_imm_16(FlagBits::Carry, false),
+            0xDA => self.jump_conditional_imm_16(FlagBits::Carry, true),
 
             0x18 => self.jump_offset(),
-            0x20 => self.jump_offset_conditional(FlagBits::ZERO, false),
-            0x28 => self.jump_offset_conditional(FlagBits::ZERO, true),
-            0x30 => self.jump_offset_conditional(FlagBits::CARRY, false),
-            0x38 => self.jump_offset_conditional(FlagBits::CARRY, true),
+            0x20 => self.jump_offset_conditional(FlagBits::Zero, false),
+            0x28 => self.jump_offset_conditional(FlagBits::Zero, true),
+            0x30 => self.jump_offset_conditional(FlagBits::Carry, false),
+            0x38 => self.jump_offset_conditional(FlagBits::Carry, true),
 
             0xCD => self.call_imm_16(),
-            0xC4 => self.call_conditional_imm_16(FlagBits::ZERO, false),
-            0xCC => self.call_conditional_imm_16(FlagBits::ZERO, true),
-            0xD4 => self.call_conditional_imm_16(FlagBits::CARRY, false),
-            0xDC => self.call_conditional_imm_16(FlagBits::CARRY, true),
+            0xC4 => self.call_conditional_imm_16(FlagBits::Zero, false),
+            0xCC => self.call_conditional_imm_16(FlagBits::Zero, true),
+            0xD4 => self.call_conditional_imm_16(FlagBits::Carry, false),
+            0xDC => self.call_conditional_imm_16(FlagBits::Carry, true),
 
             0xC7 => self.restart_offset(0x00),
             0xCF => self.restart_offset(0x08),
@@ -1458,10 +1458,10 @@ impl Cpu {
             0xFF => self.restart_offset(0x38),
 
             0xC9 => self.ret(),
-            0xC0 => self.ret_conditional(FlagBits::ZERO, false),
-            0xC8 => self.ret_conditional(FlagBits::ZERO, true),
-            0xD0 => self.ret_conditional(FlagBits::CARRY, false),
-            0xD8 => self.ret_conditional(FlagBits::CARRY, true),
+            0xC0 => self.ret_conditional(FlagBits::Zero, false),
+            0xC8 => self.ret_conditional(FlagBits::Zero, true),
+            0xD0 => self.ret_conditional(FlagBits::Carry, false),
+            0xD8 => self.ret_conditional(FlagBits::Carry, true),
             0xD9 => self.ret_enable_interrupts(),
 
             // 10-prefix Instructions:
@@ -1607,19 +1607,20 @@ impl Cpu {
     }
 
     pub fn handle_interrupts(&mut self) {
+        let mut restart_offset: i32 = -1;
         if self.is_interrupts_enabled {
-            let ie = self.memory.read_reg(Register::InterruptEnable);
-            let mut inf = self.memory.read_reg(Register::InterruptFlag);
-            let fired_interrupts = ie & inf;
+            let ie = self.memory.read_reg(RegisterAddr::InterruptEnable);
+            let mut interrupt_flag = self.memory.get_mut_register(registers::InterruptFlag);
 
-            if (fired_interrupts & 0x1) != 0 {
+            if interrupt_flag.has_v_blank() && (ie & 0x1) == 1 {
                 // VBlank
-                inf &= !0x1;
-                self.memory.store_reg(Register::InterruptFlag, inf);
+                interrupt_flag.set_v_blank(false);
                 self.is_interrupts_enabled = false;
-
-                self.restart_offset(0x40);
+                restart_offset = 0x40;
             }
+        }
+        if restart_offset != -1 {
+            self.restart_offset(restart_offset as u8);
         }
     }
 }

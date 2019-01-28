@@ -1,9 +1,7 @@
-use gpu::Gpu;
-use cpu::Cpu;
-use memory::Memory;
-use cart::*;
-
-use std::rc::Rc;
+// use crate::cart::*;
+use crate::cpu::Cpu;
+use crate::gpu::Gpu;
+// use crate::memory::Memory;
 
 pub struct System {
     pub gpu: Gpu,
@@ -11,7 +9,6 @@ pub struct System {
 }
 
 impl System {
-
     // Due to a stupid decision to make Cpu own Memory early on in the project
     // Now I have to use cpu.memory everywhere. Someday I will refactor this
     pub fn new() -> System {
@@ -23,14 +20,12 @@ impl System {
 
     pub fn start_system(&mut self, cart_location: &str) {
         self.cpu.memory.cart.read_file(cart_location); // terrible. just terrible
-        //self.cpu.memory.cart.cart_type();
+                                                       //self.cpu.memory.cart.cart_type();
         self.cpu.memory.set_starting_sequence();
         self.cpu.pc = 0x100;
     }
 
-    pub fn update_frame(&mut self) {
-
-    }
+    pub fn update_frame(&mut self) {}
 
     pub fn execute_instruction(&mut self) {
         if !self.cpu.is_stopped {
@@ -38,7 +33,7 @@ impl System {
             let num_cycles = self.cpu.execute_instruction(opcode);
             self.gpu.update(num_cycles as u32, &mut self.cpu.memory);
         }
-        
+
         self.cpu.handle_interrupts();
     }
 }

@@ -3,16 +3,14 @@
  * Instruction trace, instruction stepping, register view, etc
 */
 
-pub struct Debugger {
-
-}
+pub struct Debugger {}
 
 impl Debugger {
     pub fn new() -> Debugger {
         Debugger {}
     }
 
-    pub fn log_instr(&self, message: String) {
+    pub fn log_instr(&self, _message: String) {
         //println!("{}", message);
     }
 }

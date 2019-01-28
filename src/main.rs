@@ -1,5 +1,10 @@
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
 #![allow(dead_code)]
+#![deny(warnings)]
+
+use gl;
+use glutin;
+//use std::borrow::Cow;
 
 mod alu;
 mod cart;
@@ -10,26 +15,12 @@ mod memory;
 mod registers;
 mod system;
 
-#[macro_use]
-extern crate glium;
-extern crate image;
-
-#[macro_use]
-extern crate bitfield;
-#[macro_use]
-extern crate num_derive;
-extern crate num_traits;
-
-use glium::glutin;
-use glium::{DisplayBuild, Surface};
-
-use gpu::*;
-use memory::*;
 use system::System;
 
-use std::borrow::Cow;
-
 fn main() {
+    //use gl::types::*;
+    use glutin::GlContext;
+
     let mut system = System::new();
     system.start_system("/Users/ramy/Desktop/opus5.gb");
     //system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
@@ -45,24 +36,38 @@ fn main() {
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/11-op a,(hl).gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/01-special.gb");
 
-    let display = glutin::WindowBuilder::new().build_glium().unwrap();
+    let mut events_loop = glutin::EventsLoop::new();
+    let window = glutin::WindowBuilder::new();
+    let context = glutin::ContextBuilder::new()
+        .with_vsync(true)
+        .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)));
+    let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
 
-    let back_buffer = glium::Texture2d::empty_with_format(
-        &display,
-        glium::texture::UncompressedFloatFormat::U8U8U8U8,
-        glium::texture::MipmapsOption::NoMipmap,
-        160,
-        144,
-    )
-    .unwrap();
-    back_buffer.as_surface().clear_color(1.0, 0.0, 0.0, 1.0);
+    unsafe {
+        gl_window.make_current().unwrap();
+        gl::load_with(|s| gl_window.get_proc_address(s) as *const _);
+    }
+    gl::load_with(|s| gl_window.get_proc_address(s) as *const _);
+
+    // Create our GPU target image.
+    //gl::
+
+    // let back_buffer = glium::Texture2d::empty_with_format(
+    //     &display,
+    //     glium::texture::UncompressedFloatFormat::U8U8U8U8,
+    //     glium::texture::MipmapsOption::NoMipmap,
+    //     160,
+    //     144,
+    // )
+    // .unwrap();
+    // back_buffer.as_surface().clear_color(1.0, 0.0, 0.0, 1.0);
 
     loop {
-        for i in 0..2000 {
+        for _ in 0..2000 {
             system.execute_instruction();
         }
 
-        let target = display.draw();
+        //let target = display.draw();
 
         //if system.gpu.mode == GpuMode::VBlank {
         {
@@ -78,34 +83,39 @@ fn main() {
                 }
             }
 
-            let raw_image = glium::texture::RawImage2d {
-                data: Cow::Borrowed(&data),
-                width: 160,
-                height: 144,
-                format: glium::texture::ClientFormat::U8U8U8,
-            };
+            // let raw_image = glium::texture::RawImage2d {
+            //     data: Cow::Borrowed(&data),
+            //     width: 160,
+            //     height: 144,
+            //     format: glium::texture::ClientFormat::U8U8U8,
+            // };
 
-            let image = glium::Texture2d::with_format(
-                &display,
-                raw_image,
-                glium::texture::UncompressedFloatFormat::U8U8U8U8,
-                glium::texture::MipmapsOption::NoMipmap,
-            )
-            .unwrap();
+            // let image = glium::Texture2d::with_format(
+            //     &display,
+            //     raw_image,
+            //     glium::texture::UncompressedFloatFormat::U8U8U8U8,
+            //     glium::texture::MipmapsOption::NoMipmap,
+            // )
+            // .unwrap();
 
-            image
-                .as_surface()
-                .fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
+            // image
+            //     .as_surface()
+            //     .fill(&target, glium::uniforms::MagnifySamplerFilter::Nearest);
         }
 
         //back_buffer.as_surface().fill(&target, glium::uniforms::MagnifySamplerFilter::Linear);
-        target.finish().unwrap();
+        //target.finish().unwrap();
 
-        for event in display.poll_events() {
-            match event {
-                glutin::Event::Closed => break,
+        let mut running = true;
+        events_loop.poll_events(|event| match event {
+            glutin::Event::WindowEvent { event, .. } => match event {
+                glutin::WindowEvent::CloseRequested => running = false,
                 _ => (),
-            }
+            },
+            _ => (),
+        });
+        if !running {
+            break;
         }
     }
 }

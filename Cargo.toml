@@ -2,10 +2,11 @@
 name = "rusty_boy"
 version = "0.1.0"
 authors = ["Ramy"]
+edition = "2018"
 
 [dependencies]
-glium = { git = "https://github.com/tomaka/glium.git" }
-image = { git = "https://github.com/PistonDevelopers/image.git" }
+gl = "0.11.0"
+glutin = "0.19.0"
 bitfield = "*"
 num-derive = "*"
 num-traits = "*"

@@ -1,7 +1,8 @@
-use std::char;
+use crate::cart::Cart;
+use crate::registers::Register;
 
-use cart::Cart;
-use registers::Register;
+// Useful tidbits:
+// https://retrocomputing.stackexchange.com/questions/1178/what-is-this-unused-memory-range-in-the-game-boys-memory-map
 
 pub enum RegisterAddr {
     Lcdc = 0xFF40,
@@ -10,15 +11,51 @@ pub enum RegisterAddr {
     CurScln = 0xFF44,
     BgPalette = 0xFF47,
 
-    InterruptFlag = 0xFF0F,
     InterruptEnable = 0xFFFF,
-
-    LcdcStatus = 0xFF41,
 }
 
 pub struct Memory {
     mem: [u8; 0x10000],
     pub cart: Cart,
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryError {
+    location: usize,
+    reason: &'static str,
+}
+type Result<T> = core::result::Result<T, MemoryError>;
+
+impl core::fmt::Display for MemoryError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "(0x{:X?}): {}.", self.location, self.reason)
+    }
+}
+impl std::error::Error for MemoryError {}
+
+enum WriteableLocation {
+    // 8000 to A000. Video RAM.
+    VRam,
+    // A000 to C000. Switchable RAM bank.
+    SwitchableVRam,
+    // C000 to E000 (and echo implicitly handled). Internal RAM.
+    InternalRam,
+    // FE00 to FEA0. Sprite Attrib Memory.
+    OAM,
+    // FF00 to FF4C. Also covers FFFF (IE register).
+    Registers,
+    // FF80 to FFFF. Internal (High) RAM.
+    HighRam,
+}
+
+struct WriteableAddress(WriteableLocation, usize);
+
+enum ReadableAddress {
+    // 0x0000 to 0x4000. ROM Bank #0.
+    RomBank0(usize),
+    // 0x4000 to 0x8000. Switchable ROM bank.
+    SwitchableRom(usize),
+    WriteableAddress(WriteableAddress),
 }
 
 impl Memory {
@@ -63,120 +100,89 @@ impl Memory {
         self.mem[0xFFFF] = 0x00;
     }
 
-    pub fn read_general_8(&self, location: usize) -> u8 {
-        match location as u16 {
-            0x0000...0x3FFF => {
-                // Cartridge ROM - Bank 0
-                self.cart.mem[location]
-            }
-            0x4000...0x7FFF => {
-                // Cartridge switchable banks - not supported yet
-                //panic!("not supported");
-                //self.cart.mem[location - 0x0150]
-                self.cart.mem[location]
-            }
-            0x8000...0x9FFF => {
-                // Character RAM, BG map data 1/2
-                self.mem[location]
-            }
-            0xA000...0xBFFF => {
-                // Cartridge RAM - not supported yet
-                // panic!("Don't support cartridge ram")
-                self.cart.mem[location]
-            }
-            0xC000...0xDFFF => {
-                // Internal RAM bank 0 and 1
-                self.mem[location]
-            }
-            0xE000...0xFDFF => {
-                // RAM echo
-                self.mem[location - 0x2000]
-            }
-            0xFE00...0xFE9F => {
-                // Object Attribute Memory
-                self.mem[location]
-            }
-            0xFEA0...0xFEFF => {
-                self.mem[location]
-                //panic!("unusable memory 0x{:x}", location);
-            }
-            0xFF00...0xFF7F => {
-                // Hardware I/O registers. Not sure what to do here yet
-                self.mem[location]
-            }
-            0xFF80...0xFFFE => {
-                // Zero page
-                self.mem[location]
-            }
-            0xFFFF => {
-                // Interrupt enable flag - not sure how we'll implement this
-                self.mem[location]
-            }
-            _ => {
-                panic!("Invalid memory being accessed: 0x{:x}", location);
-            }
+    /// Creates a WriteableAddress object from a given address.
+    ///
+    /// Verifies that an address is writeable, then finds the type of memory location
+    /// that it corresponds to. Returns an Error if the raw address given is not writeable.
+    fn translate_writeable_address(&self, raw: usize) -> Result<WriteableAddress> {
+        use self::WriteableLocation::*;
+        match raw {
+            0x8000...0x9FFF => Ok(WriteableAddress(VRam, raw)),
+            0xA000...0xBFFF => Ok(WriteableAddress(SwitchableVRam, raw)),
+            0xC000...0xDFFF => Ok(WriteableAddress(InternalRam, raw)),
+            0xE000...0xFDFF => Ok(WriteableAddress(InternalRam, raw - 0x2000)),
+            0xFE00...0xFE9F => Ok(WriteableAddress(OAM, raw)),
+            0xFF00...0xFF4B | 0xFFFF => Ok(WriteableAddress(Registers, raw)),
+            0xFF80...0xFFFE => Ok(WriteableAddress(HighRam, raw)),
+            _ => Err(MemoryError {
+                location: raw,
+                reason: "Address not writeable.",
+            }),
         }
     }
 
-    pub fn store_general_8(&mut self, location: usize, value: u8) {
-        assert!(location <= 0xFFFF);
-        //assert!(location != Register::InterruptFlag as usize);
-        assert!(location != Register::CurScln as usize);
-
-        if location == 0xff01 || location == 0xff02 {
-            print!("{}", char::from_u32(value as u32).unwrap());
+    /// Creates a ReadableAddress from a given address.
+    fn translate_readable_address(&self, raw: usize) -> Result<ReadableAddress> {
+        match raw {
+            0x0000...0x3FFF => Ok(ReadableAddress::RomBank0(raw)),
+            0x4000...0x7FFF => Ok(ReadableAddress::SwitchableRom(raw)),
+            // If not ROM, then check to see if writeable address.
+            _ => match self.translate_writeable_address(raw) {
+                Ok(val) => Ok(ReadableAddress::WriteableAddress(val)),
+                Err(_) => Err(MemoryError {
+                    location: raw,
+                    reason: "Address not readable.",
+                }),
+            },
         }
+    }
 
-        match location as u16 {
-            0x0000...0x00FF => panic!("Can't set this memory {:x}", location),
-            0x2000...0x3FFF => {
-                // ROM Bank selector
-                panic!("Selecting bank {}", value);
-                return;
-            }
-            0x8000...0x97FF => {
-                //println!("Writing tilemaps")
-            }
-            0x9800...0x9FFF => {}
-            0xA000...0xBFFF => {
-                // Cartridge RAM
-                //panic!("Cartridge RAM not yet implemented");
-                self.cart.mem[location] = value;
-                return;
-            }
-            0xC000...0xDFFF => {
-                // Internal RAM (Switchable in CGB)
-            }
-            0xE000...0xFDFF => {
-                // Echo RAM. Are we allowed to write here?
-                //panic!("Echo RAM?")
-            }
-            0xFE00...0xFE9F => {
-                // Object Attribute Map
-            }
-            0xFEA0...0xFEFF => panic!("Writing into unusable memory"),
-            0xFF00...0xFF7F => {
-                // Hardware I/O registers.
-            }
-            0xFF80...0xFFFE => {
-                // Zero page
-            }
-            0xFFFF => {}
-            _ => panic!(
-                "Location is either unimplemented or not writable 0x{:x}",
-                location
-            ),
+    pub fn read_ref_8(&self, location: usize) -> &u8 {
+        match self.translate_readable_address(location).unwrap() {
+            ReadableAddress::RomBank0(addr) => &self.cart.mem[addr],
+            ReadableAddress::SwitchableRom(addr) => &self.cart.mem[addr], //panic!("Unsupported."),
+            ReadableAddress::WriteableAddress(WriteableAddress(_, addr)) => &self.mem[addr],
         }
+    }
 
-        self.mem[location] = value;
+    pub fn read_general_8(&self, location: usize) -> u8 {
+        *self.read_ref_8(location)
+    }
+
+    fn get_mut_8(&mut self, location: usize) -> &mut u8 {
+        let WriteableAddress(_, addr) = self.translate_writeable_address(location).unwrap();
+        &mut self.mem[addr]
+    }
+
+    pub fn store_general_8(&mut self, raw: usize, value: u8) {
+        let WriteableAddress(location, addr) = self.translate_writeable_address(raw).unwrap();
+        match location {
+            WriteableLocation::SwitchableVRam => panic!("Not supported."),
+            _ => self.mem[addr] = value,
+        }
     }
 
     pub fn read_reg(&self, reg: RegisterAddr) -> u8 {
         self.read_general_8(reg as usize)
     }
 
-    pub fn read_register<T: std::ops::Fn(u8) -> A, A: Register>(&self, ctr: T) -> A {
-        ctr(self.read_general_8(A::address))
+    pub fn read_register<'a, A, T>(&'a self, cons: T) -> A
+    where
+        A: Register,
+        T: core::ops::FnOnce([u8; 1]) -> A,
+    {
+        cons([self.read_general_8(A::ADDRESS)])
+    }
+
+    pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
+    where
+        A: Register,
+        T: core::ops::FnOnce(&'a mut [u8]) -> A,
+    {
+        // I need to be able to return multiple mutable references to different registers when I
+        // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
+        // Let me know if you can think of a better way!
+        cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
     }
 
     pub fn store_reg(&mut self, reg: RegisterAddr, value: u8) {

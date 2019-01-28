@@ -117,7 +117,6 @@ impl Gpu {
         }
         memory.store_reg(RegisterAddr::CurScln, self.line as u8);
         if should_render_scanline {
-            println!("Rendering");
             self.render_scanline(memory);
         }
     }

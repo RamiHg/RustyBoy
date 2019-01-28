@@ -1,4 +1,4 @@
-use crate::cart::Cart;
+use crate::cart::{Cart, CartType};
 use crate::registers::Register;
 
 // Useful tidbits:
@@ -34,6 +34,9 @@ impl core::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 enum WriteableLocation {
+    // Writing to ROM has no effect (until I implement memory bank support).
+    // 0x2000 to 0x3FFF.
+    RomBankSelect,
     // 8000 to A000. Video RAM.
     VRam,
     // A000 to C000. Switchable RAM bank.
@@ -107,6 +110,7 @@ impl Memory {
     fn translate_writeable_address(&self, raw: usize) -> Result<WriteableAddress> {
         use self::WriteableLocation::*;
         match raw {
+            0x2000...0x3FFF => Ok(WriteableAddress(RomBankSelect, raw)),
             0x8000...0x9FFF => Ok(WriteableAddress(VRam, raw)),
             0xA000...0xBFFF => Ok(WriteableAddress(SwitchableVRam, raw)),
             0xC000...0xDFFF => Ok(WriteableAddress(InternalRam, raw)),
@@ -158,6 +162,10 @@ impl Memory {
         let WriteableAddress(location, addr) = self.translate_writeable_address(raw).unwrap();
         match location {
             WriteableLocation::SwitchableVRam => panic!("Not supported."),
+            WriteableLocation::RomBankSelect => match self.cart.cart_type() {
+                // Do nothing. It seems that in most cartriges, the write pins are simply disabled.
+                CartType::Rom => (),
+            },
             _ => self.mem[addr] = value,
         }
     }

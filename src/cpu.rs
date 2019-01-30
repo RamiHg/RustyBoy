@@ -42,13 +42,13 @@ const REG_NAMES: &'static [&'static str] = &["A", "B", "C", "D", "E", "F", "H", 
 
 // Utility functions in Cpu
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new(memory: Memory) -> Cpu {
         Cpu {
             gprs: [0, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
             flags: FlagRegister::new(0, 0, 0, true),
             pc: 0,
             sp: 0xFFFE,
-            memory: Memory::new(),
+            memory: memory,
             is_halted: false,
             is_stopped: false,
             is_interrupts_enabled: false,

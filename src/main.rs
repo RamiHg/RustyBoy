@@ -119,16 +119,18 @@ fn load_all_shaders() -> GLuint {
 }
 
 fn main() {
-    //use gl::types::*;
-
     use glutin::GlContext;
 
-    let mut system = System::new();
     // http://gbdev.gg8.se/wiki/articles/Test_ROMs
-    //system.start_system("/Users/ramy/Desktop/opus5.gb");
-    system.start_system("/Users/ramy/Desktop/cpu_instrs.gb");
+    //let cart = "/Users/ramy/Desktop/opus5.gb";
+    //let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/cpu_instrs.gb";
+    let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/03-op sp,hl.gb";
+    //let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/04-op r,imm.gb";
+
+    let mut system = System::new(cart);
+    //system.start_system();
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/02-interrupts.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/03-op sp,hl.gb");
+    //system.start_system("");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/04-op r,imm.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/05-op rp.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/06-ld r,r.gb");
@@ -138,6 +140,8 @@ fn main() {
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/10-bit ops.gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/11-op a,(hl).gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/01-special.gb");
+
+    system.start_system();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
@@ -183,7 +187,7 @@ fn main() {
     }
 
     loop {
-        for _ in 0..200 {
+        for _ in 0..2000 {
             system.execute_instruction();
         }
 

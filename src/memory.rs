@@ -1,4 +1,4 @@
-use crate::cart::{Cart, CartType};
+use crate::cart::Cart;
 use crate::registers::Register;
 
 // Useful tidbits:
@@ -16,37 +16,44 @@ pub enum RegisterAddr {
 
 pub struct Memory {
     mem: [u8; 0x10000],
-    pub cart: Cart,
+    pub cart: Box<Cart>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MemoryError {
-    location: usize,
-    reason: &'static str,
+    pub location: usize,
+    pub reason: &'static str,
 }
-type Result<T> = core::result::Result<T, MemoryError>;
+pub type Result<T> = core::result::Result<T, MemoryError>;
 
 impl core::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "(0x{:X?}): {}.", self.location, self.reason)
     }
 }
+impl core::fmt::Debug for MemoryError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "(0x{:X?}): {}.", self.location, self.reason)
+    }
+}
 impl std::error::Error for MemoryError {}
 
+#[derive(Debug)]
 enum WriteableLocation {
-    // Writing to ROM has no effect (until I implement memory bank support).
-    // 0x2000 to 0x3FFF.
-    RomBankSelect,
+    // 0000 to 8000 or 0xA000 to C000. MBC.
+    Mbc,
     // 8000 to A000. Video RAM.
     VRam,
-    // A000 to C000. Switchable RAM bank.
-    SwitchableVRam,
     // C000 to E000 (and echo implicitly handled). Internal RAM.
     InternalRam,
     // FE00 to FEA0. Sprite Attrib Memory.
     OAM,
+    // FEA0 to FF00. Unused OAM memory.
+    UnusedOAM,
     // FF00 to FF4C. Also covers FFFF (IE register).
     Registers,
+    // FF4C to FF80. Unknown registers.
+    UnknownRegisters,
     // FF80 to FFFF. Internal (High) RAM.
     HighRam,
 }
@@ -54,18 +61,14 @@ enum WriteableLocation {
 struct WriteableAddress(WriteableLocation, usize);
 
 enum ReadableAddress {
-    // 0x0000 to 0x4000. ROM Bank #0.
-    RomBank0(usize),
-    // 0x4000 to 0x8000. Switchable ROM bank.
-    SwitchableRom(usize),
     WriteableAddress(WriteableAddress),
 }
 
 impl Memory {
-    pub fn new() -> Memory {
+    pub fn new(cart: Box<dyn Cart>) -> Memory {
         Memory {
             mem: [0; 0x10000],
-            cart: Cart::new(),
+            cart,
         }
     }
 
@@ -110,13 +113,14 @@ impl Memory {
     fn translate_writeable_address(&self, raw: usize) -> Result<WriteableAddress> {
         use self::WriteableLocation::*;
         match raw {
-            0x2000...0x3FFF => Ok(WriteableAddress(RomBankSelect, raw)),
+            0x0000...0x7FFF | 0xA000...0xBFFF => Ok(WriteableAddress(Mbc, raw)),
             0x8000...0x9FFF => Ok(WriteableAddress(VRam, raw)),
-            0xA000...0xBFFF => Ok(WriteableAddress(SwitchableVRam, raw)),
             0xC000...0xDFFF => Ok(WriteableAddress(InternalRam, raw)),
             0xE000...0xFDFF => Ok(WriteableAddress(InternalRam, raw - 0x2000)),
             0xFE00...0xFE9F => Ok(WriteableAddress(OAM, raw)),
-            0xFF00...0xFF4B | 0xFFFF => Ok(WriteableAddress(Registers, raw)),
+            0xFEA0...0xFEFF => Ok(WriteableAddress(UnusedOAM, raw)),
+            (0xFF00...0xFF4B) | 0xFFFF => Ok(WriteableAddress(Registers, raw)),
+            0xFF4C...0xFF7F => Ok(WriteableAddress(UnknownRegisters, raw)),
             0xFF80...0xFFFE => Ok(WriteableAddress(HighRam, raw)),
             _ => Err(MemoryError {
                 location: raw,
@@ -128,9 +132,6 @@ impl Memory {
     /// Creates a ReadableAddress from a given address.
     fn translate_readable_address(&self, raw: usize) -> Result<ReadableAddress> {
         match raw {
-            0x0000...0x3FFF => Ok(ReadableAddress::RomBank0(raw)),
-            0x4000...0x7FFF => Ok(ReadableAddress::SwitchableRom(raw)),
-            // If not ROM, then check to see if writeable address.
             _ => match self.translate_writeable_address(raw) {
                 Ok(val) => Ok(ReadableAddress::WriteableAddress(val)),
                 Err(_) => Err(MemoryError {
@@ -141,16 +142,21 @@ impl Memory {
         }
     }
 
-    pub fn read_ref_8(&self, location: usize) -> &u8 {
-        match self.translate_readable_address(location).unwrap() {
-            ReadableAddress::RomBank0(addr) => &self.cart.mem[addr],
-            ReadableAddress::SwitchableRom(addr) => &self.cart.mem[addr], //panic!("Unsupported."),
-            ReadableAddress::WriteableAddress(WriteableAddress(_, addr)) => &self.mem[addr],
+    pub fn read_general_8(&self, raw_address: usize) -> u8 {
+        match self.translate_readable_address(raw_address).unwrap() {
+            ReadableAddress::WriteableAddress(WriteableAddress(location @ _, addr)) => {
+                match location {
+                    WriteableLocation::Mbc => self.cart.read(addr).unwrap(),
+                    WriteableLocation::UnusedOAM => {
+                        // TODO: Manual says this location is restricted to when OAM is not being
+                        // accessed by hardware. Enforce this somehow.
+                        0
+                    }
+                    WriteableLocation::UnknownRegisters => 0xFF,
+                    _ => self.mem[addr],
+                }
+            }
         }
-    }
-
-    pub fn read_general_8(&self, location: usize) -> u8 {
-        *self.read_ref_8(location)
     }
 
     fn get_mut_8(&mut self, location: usize) -> &mut u8 {
@@ -161,11 +167,7 @@ impl Memory {
     pub fn store_general_8(&mut self, raw: usize, value: u8) {
         let WriteableAddress(location, addr) = self.translate_writeable_address(raw).unwrap();
         match location {
-            WriteableLocation::SwitchableVRam => panic!("Not supported."),
-            WriteableLocation::RomBankSelect => match self.cart.cart_type() {
-                // Do nothing. It seems that in most cartriges, the write pins are simply disabled.
-                CartType::Rom => (),
-            },
+            WriteableLocation::Mbc => self.cart.write(raw, value).unwrap(),
             _ => self.mem[addr] = value,
         }
     }

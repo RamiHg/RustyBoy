@@ -2,6 +2,7 @@
 use crate::cpu::Cpu;
 use crate::gpu::Gpu;
 // use crate::memory::Memory;
+use crate::cart;
 
 pub struct System {
     pub gpu: Gpu,
@@ -11,16 +12,16 @@ pub struct System {
 impl System {
     // Due to a stupid decision to make Cpu own Memory early on in the project
     // Now I have to use cpu.memory everywhere. Someday I will refactor this
-    pub fn new() -> System {
+    pub fn new(cart_location: &str) -> System {
+        let cart = cart::from_file(cart_location);
+        let memory = crate::memory::Memory::new(cart);
         System {
             gpu: Gpu::new(),
-            cpu: Cpu::new(),
+            cpu: Cpu::new(memory),
         }
     }
 
-    pub fn start_system(&mut self, cart_location: &str) {
-        self.cpu.memory.cart.read_file(cart_location); // terrible. just terrible
-                                                       //self.cpu.memory.cart.cart_type();
+    pub fn start_system(&mut self) {
         self.cpu.memory.set_starting_sequence();
         self.cpu.pc = 0x100;
     }

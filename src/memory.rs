@@ -166,6 +166,9 @@ impl Memory {
 
     pub fn store_general_8(&mut self, raw: usize, value: u8) {
         let WriteableAddress(location, addr) = self.translate_writeable_address(raw).unwrap();
+        if addr == 0xFF01 {
+            print!("{}", value as char);
+        }
         match location {
             WriteableLocation::Mbc => self.cart.write(raw, value).unwrap(),
             _ => self.mem[addr] = value,

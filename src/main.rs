@@ -17,6 +17,7 @@ use system::System;
 
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+// https://github.com/gbdev/awesome-gbdev#emulator-development
 
 /// Helpful macro to run a GL command and make sure no errors are generated.
 macro_rules! GL {

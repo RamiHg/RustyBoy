@@ -44,9 +44,9 @@ const REG_NAMES: &'static [&'static str] = &["A", "B", "C", "D", "E", "F", "H", 
 impl Cpu {
     pub fn new(memory: Memory) -> Cpu {
         Cpu {
-            gprs: [0, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
+            gprs: [0x01, 0, 0x13, 0, 0xD8, 1, 0x01, 0x4D],
             flags: FlagRegister::new(0, 0, 0, true),
-            pc: 0,
+            pc: 0x0100,
             sp: 0xFFFE,
             memory: memory,
             is_halted: false,
@@ -1010,6 +1010,7 @@ impl Cpu {
         return 4;
     }
     fn ei(&mut self) -> i32 {
+        // TODO: EI enables interrupts the FOLLOWING cycle.
         self.is_interrupts_enabled = true;
         self.pc += 1;
         self.debug.log_instr(format!("EI"));

@@ -24,6 +24,7 @@ impl InstructionType {
     }
 }
 
+#[derive(PartialEq)]
 pub enum InstrResult {
     None,
     Write(mmu::Write),
@@ -84,6 +85,18 @@ impl Instruction for IndirectLoad {
         // MEMORY.
         let source_value = memory.read(cpu.registers.get(self.source));
         cpu.registers.set(self.destination.into(), source_value);
+        // Increment or decrement HL if needed.
+        match self.hl_op {
+            HLOp::Inc => cpu.registers.set(
+                Register::HL,
+                (cpu.registers.get(Register::HL) as u16).wrapping_add(1) as i32,
+            ),
+            HLOp::Dec => cpu.registers.set(
+                Register::HL,
+                (cpu.registers.get(Register::HL) as u16).wrapping_sub(1) as i32,
+            ),
+            HLOp::None => (),
+        }
         Ok(InstrResult::Done)
     }
 }

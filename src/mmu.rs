@@ -1,3 +1,2 @@
-pub struct Write {
-    
-}
+#[derive(PartialEq)]
+pub struct Write {}

@@ -87,6 +87,10 @@ impl Cpu {
 
         let err = Error::InvalidOpcode(opcode);
 
+        // Validating for documentation things that are tautologies.
+        debug_assert!(op_p <= 3);
+
+        //#[allow(unreachable_patterns)]
         match op_x {
             // x = 0
             0 => match op_z {
@@ -96,7 +100,10 @@ impl Cpu {
                     1 => match op_p {
                         0 => Ok(IndirectLoad::new(SingleTable::A, Register::BC, HLOp::None).into()),
                         1 => Ok(IndirectLoad::new(SingleTable::A, Register::DE, HLOp::None).into()),
-                        _ => Err(err),
+                        2 => Ok(IndirectLoad::new(SingleTable::A, Register::HL, HLOp::Inc).into()),
+                        3 | _ => {
+                            Ok(IndirectLoad::new(SingleTable::A, Register::HL, HLOp::Dec).into())
+                        }
                     },
                     _ => Err(err),
                 },

@@ -6,6 +6,8 @@ use crate::util::*;
 
 mod test_instructions;
 
+use instructions::InstrResult;
+
 pub struct TestContext(State);
 
 pub struct State {
@@ -44,7 +46,10 @@ impl TestContext {
         // Copy over the instructions into internal RAM.
         self.0.memory.mem()[0xC000..0xC000 + instructions.len()].copy_from_slice(instructions);
         self.0.cpu.registers.set(Register::PC, 0xC000);
-        while self.0.cpu.registers.get(Register::PC) < 0xC000 + instructions.len() as i32 {
+        let mut result: Result<InstrResult> = Ok(InstrResult::None);
+        while self.0.cpu.registers.get(Register::PC) < 0xC000 + instructions.len() as i32
+            && (!result.is_ok() || result.unwrap() != InstrResult::Done)
+        {
             self.0.cpu.execute_machine_cycle(&self.0.memory).unwrap();
         }
         self

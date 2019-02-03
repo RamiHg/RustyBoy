@@ -1,15 +1,35 @@
+use core::fmt;
+
+use num_traits::FromPrimitive;
+
 use crate::cpu::instructions::*;
 use crate::cpu::register;
 use crate::memory::{Memory, MemoryError};
 
 use register::{Register, SingleTable};
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub enum Error {
     InvalidOperation(String),
     InvalidOpcode(i32),
     Memory(MemoryError),
 }
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        <Error as fmt::Display>::fmt(self, f)
+    }
+}
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            Error::InvalidOpcode(op) => write!(f, "Invalid opcode: 0x{:X?}.", op),
+            _ => write!(f, "Buzz off"),
+        }
+    }
+}
+
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub struct Cpu {
@@ -32,7 +52,7 @@ impl Cpu {
     /// Optionally returns a data bus write request.
     pub fn execute_machine_cycle(&mut self, memory: &Memory) -> Result<InstrResult> {
         // Decode an instruction if we need to.
-        if let None = self.instruction {
+        if self.instruction.is_none() {
             self.instruction = Some(self.decode_instruction(memory)?);
             self.instruction_mcycle = 0;
         }
@@ -47,6 +67,7 @@ impl Cpu {
             _ => {
                 // The instruction is not done yet. Move it back into the cpu.
                 self.instruction = instruction.into();
+                self.instruction_mcycle += 1;
             }
         }
         Ok(result)
@@ -78,6 +99,19 @@ impl Cpu {
                         _ => Err(err),
                     },
                     _ => Err(err),
+                },
+                _ => Err(err),
+            },
+            // x = 1
+            1 => match op_z {
+                6 => match op_y {
+                    6 => Err(err),
+                    dest_reg => Ok(IndirectLoad::new(
+                        SingleTable::from_i32(dest_reg).unwrap(),
+                        Register::HL,
+                        HLOp::None,
+                    )
+                    .into()),
                 },
                 _ => Err(err),
             },

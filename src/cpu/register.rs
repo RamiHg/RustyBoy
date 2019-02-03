@@ -29,7 +29,7 @@ pub enum Register {
 }
 
 impl Register {
-    pub fn is_pair(&self) -> bool {
+    pub fn is_pair(self) -> bool {
         use Register::*;
         match self {
             BC | DE | HL => true,
@@ -37,7 +37,7 @@ impl Register {
         }
     }
 
-    fn is_16bit(&self) -> bool {
+    fn is_16bit(self) -> bool {
         use Register::*;
         match self {
             BC | DE | HL | SP | PC => true,
@@ -47,7 +47,7 @@ impl Register {
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.
-#[derive(PartialEq, Clone, Copy)]
+#[derive(FromPrimitive, PartialEq, Clone, Copy)]
 pub enum SingleTable {
     B,
     C,

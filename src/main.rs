@@ -3,6 +3,9 @@
 #![deny(warnings)]
 #![deny(clippy::all)]
 #![allow(clippy::unreadable_literal)]
+#![allow(clippy::cast_lossless)]
+// Annoying, and wrong, clippy warning regarding FromPrimitive.
+#![allow(clippy::useless_attribute)]
 
 use gl::types::GLuint;
 
@@ -206,7 +209,7 @@ fn main() {
                 for i in 0..160_usize {
                     let pixel = system.gpu.get_pixel(i as u32, j as u32);
 
-                    data[(i + j * 160) * 3 + 0] = pixel.r;
+                    data[(i + j * 160) * 3] = pixel.r;
                     data[(i + j * 160) * 3 + 1] = pixel.g;
                     data[(i + j * 160) * 3 + 2] = pixel.b;
                 }
@@ -235,6 +238,7 @@ fn main() {
         }
 
         let mut running = true;
+        #[allow(clippy::single_match)]
         events_loop.poll_events(|event| match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::CloseRequested => running = false,

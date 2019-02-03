@@ -8,8 +8,7 @@
             "cargo": {
                 "args": [
                     "test",
-                    "--no-run",
-                    "--lib"
+                    "--no-run"
                 ]
             },
             "program": "${cargo:program}",

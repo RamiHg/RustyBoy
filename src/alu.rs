@@ -1,3 +1,5 @@
+#![allow(clippy::verbose_bit_mask)]
+
 #[derive(Copy, Clone)]
 pub enum FlagBits {
     Carry = 1 << 4,
@@ -60,7 +62,7 @@ pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 
     let z = FlagRegister::new(c as u32, hc as u32, 0, result == 0);
 
-    return (result, z);
+    (result, z)
 }
 
 pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
@@ -75,7 +77,7 @@ pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
 
     let z = FlagRegister::new(c as u32, hc as u32, 0, result == 0);
 
-    return (result, z);
+    (result, z)
 }
 
 pub fn sub_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
@@ -89,7 +91,7 @@ pub fn sub_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 
     let z = FlagRegister::new(c as u32, hc as u32, 1, result == 0);
 
-    return (result, z);
+    (result, z)
 }
 
 pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
@@ -103,7 +105,7 @@ pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
 
     let z = FlagRegister::new(c as u32, hc as u32, 1, (result & 0xFF) == 0);
 
-    return ((result & 0xFF) as u8, z);
+    ((result & 0xFF) as u8, z)
 }
 
 pub fn and_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
@@ -111,25 +113,25 @@ pub fn and_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
 
     let z = FlagRegister::new(0, 1, 0, result == 0);
 
-    return (result, z);
+    (result, z)
 }
 
 pub fn or_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
     let result = a | b;
     let z = FlagRegister::new(0, 0, 0, result == 0);
-    return (result, z);
+    (result, z)
 }
 
 pub fn xor_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
     let result = a ^ b;
     let z = FlagRegister::new(0, 0, 0, result == 0);
-    return (result, z);
+    (result, z)
 }
 
 pub fn cp_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
     // This is basically A - n with the result thrown away
     let (_, flags) = sub_u8_u8(a, b);
-    return (a, flags);
+    (a, flags)
 }
 
 // Having a useless first parameter to fit with helper functions in cpu
@@ -140,7 +142,7 @@ pub fn inc_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagR
         FlagBits::Carry,
         current_flags.get_bit(FlagBits::Carry) as u32,
     );
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn dec_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
@@ -150,7 +152,7 @@ pub fn dec_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagR
         FlagBits::Carry,
         current_flags.get_bit(FlagBits::Carry) as u32,
     );
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn add_u16_u16(a: u16, b: u16, current_flags: &FlagRegister) -> (u16, FlagRegister) {
@@ -166,7 +168,7 @@ pub fn add_u16_u16(a: u16, b: u16, current_flags: &FlagRegister) -> (u16, FlagRe
 
     let z = FlagRegister::new(c, h, 0, current_flags.has_bit(FlagBits::Zero));
 
-    return (result as u16, z);
+    (result as u16, z)
 }
 
 // Used for LDHL sp+n and ADD SP, n
@@ -182,14 +184,14 @@ pub fn add_u16_i8(a: u16, b: u8) -> (u16, FlagRegister) {
 
     let z = FlagRegister::new(c as u32, hc as u32, 0, false);
 
-    return (result, z);
+    (result, z)
 }
 
 // Misc funcs
 pub fn swap_u8(a: u8) -> (u8, FlagRegister) {
     let result = ((a & 0xF0) >> 4) | ((a & 0xF) << 4);
     let z = FlagRegister::new(0, 0, 0, result == 0);
-    return (result, z);
+    (result, z)
 }
 
 // I have no idea how this works, so I just referenced an implementation in nesdev.com
@@ -226,7 +228,7 @@ pub fn daa(a_u8: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
         a == 0,
     );
 
-    return (a as u8, flags);
+    (a as u8, flags)
 }
 
 pub fn cpl_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
@@ -239,7 +241,7 @@ pub fn cpl_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
         current_flags.has_bit(FlagBits::Zero),
     );
 
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn ccf_u8(current_flags: &FlagRegister) -> (FlagRegister) {
@@ -248,15 +250,14 @@ pub fn ccf_u8(current_flags: &FlagRegister) -> (FlagRegister) {
     } else {
         1
     };
-    let flags = FlagRegister::new(c, 0, 0, current_flags.has_bit(FlagBits::Zero));
-    return flags;
+    FlagRegister::new(c, 0, 0, current_flags.has_bit(FlagBits::Zero))
 }
 
 pub fn rotate_left_high_to_carry_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
     let c = a & 0x80;
     let result: u8 = (a << 1) | (c >> 7);
     let flags = FlagRegister::new(c as u32, 0, 0, result == 0);
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn rotate_left_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
@@ -268,14 +269,14 @@ pub fn rotate_left_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8,
     }; // todo: refactor get_bit
     let result: u8 = (a << 1) | old_c;
     let flags = FlagRegister::new(c as u32, 0, 0, result == 0);
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn rotate_right_low_to_carry_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
     let c = a & 0x1;
     let result: u8 = (a >> 1) | (c << 7);
     let flags = FlagRegister::new(c as u32, 0, 0, result == 0);
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn rotate_right_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {
@@ -287,25 +288,25 @@ pub fn rotate_right_through_carry_u8(a: u8, current_flags: &FlagRegister) -> (u8
     }; // todo: refactor get_bit
     let result: u8 = (a >> 1) | old_c;
     let flags = FlagRegister::new(c as u32, 0, 0, result == 0);
-    return (result, flags);
+    (result, flags)
 }
 
 pub fn shift_left_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
     let c = a & 0x80;
     let result: u8 = a << 1;
-    return (result, FlagRegister::new(c as u32, 0, 0, result == 0));
+    (result, FlagRegister::new(c as u32, 0, 0, result == 0))
 }
 
 pub fn shift_right_preserve_high_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
     let c = a & 0x1;
     let result: u8 = (a >> 1) | (a & 0x80);
-    return (result, FlagRegister::new(c as u32, 0, 0, result == 0));
+    (result, FlagRegister::new(c as u32, 0, 0, result == 0))
 }
 
 pub fn shift_right_u8(a: u8, _: &FlagRegister) -> (u8, FlagRegister) {
     let c = a & 0x1;
     let result = a >> 1;
-    return (result, FlagRegister::new(c as u32, 0, 0, result == 0));
+    (result, FlagRegister::new(c as u32, 0, 0, result == 0))
 }
 
 pub fn bit_test_u8(a: u8, bit: u8, current_flags: &FlagRegister) -> (FlagRegister) {

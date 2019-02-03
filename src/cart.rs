@@ -184,7 +184,7 @@ mod mbc1 {
                     // 0 gets mapped to 1.
                     self.rom_bank = match value & 0x1F {
                         0 => 1,
-                        num @ _ => {
+                        num => {
                             println!("Setting to {}", num);
                             num
                         }

@@ -144,7 +144,7 @@ impl Memory {
 
     pub fn read_general_8(&self, raw_address: usize) -> u8 {
         match self.translate_readable_address(raw_address).unwrap() {
-            ReadableAddress::WriteableAddress(WriteableAddress(location @ _, addr)) => {
+            ReadableAddress::WriteableAddress(WriteableAddress(location, addr)) => {
                 match location {
                     WriteableLocation::Mbc => self.cart.read(addr).unwrap(),
                     WriteableLocation::UnusedOAM => {
@@ -184,7 +184,7 @@ impl Memory {
         self.read_general_8(reg as usize)
     }
 
-    pub fn read_register<'a, A, T>(&'a self, cons: T) -> A
+    pub fn read_register<A, T>(&self, cons: T) -> A
     where
         A: Register,
         T: core::ops::FnOnce([u8; 1]) -> A,

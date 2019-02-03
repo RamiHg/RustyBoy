@@ -46,7 +46,6 @@ pub trait Instruction /*: core::fmt::Display */ {
 }
 
 /// Can be added to an instruction to signify (HL+) or (HL-).
-#[derive(Clone, Copy)]
 pub enum HLOp {
     None,
     Inc,
@@ -55,9 +54,7 @@ pub enum HLOp {
 
 /// Covers indirect loading from an (XX) location to a register.
 /// E.g.
-/// LD (BC), A
 /// LD A, (DE)
-#[derive(Clone, Copy)]
 pub struct IndirectLoad {
     source: Register,
     destination: SingleTable,
@@ -106,3 +103,8 @@ impl Into<InstructionType> for IndirectLoad {
         InstructionType::IndirectLoad(self)
     }
 }
+
+/// Covers indirect storing to a register or immediate into a (XX).
+/// Examples:
+/// LD (BC), A
+pub struct IndirectStore {}

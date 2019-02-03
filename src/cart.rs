@@ -70,12 +70,11 @@ fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn Cart> {
     match cart_type.mbc {
         MbcVersion::None => Box::new(none::Cart::from_mem(mem, ram_size)),
         MbcVersion::Mbc1 => Box::new(mbc1::Cart::from_mem(mem, ram_size)),
-        _ => panic!("Unsupported cart type: {:?}.", cart_type.mbc),
     }
 }
 
 mod none {
-    use crate::memory::{MemoryError, Result};
+    use crate::memory::Result;
 
     pub struct Cart {
         mem: Vec<u8>,
@@ -220,6 +219,28 @@ mod mbc1 {
                 }
                 _ => panic!("TODO {}", raw_address),
             }
+        }
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::Result;
+    use crate::memory::MemoryError;
+
+    pub struct ErrorCart;
+    impl super::Cart for ErrorCart {
+        fn read(&self, raw_address: usize) -> Result<u8> {
+            Err(MemoryError {
+                location: raw_address,
+                reason: "Cannot read from ErrorCart!",
+            })
+        }
+        fn write(&mut self, raw_address: usize, _: u8) -> Result<()> {
+            Err(MemoryError {
+                location: raw_address,
+                reason: "Cannot write to ErrorCart!",
+            })
         }
     }
 }

@@ -159,6 +159,11 @@ impl Memory {
         }
     }
 
+    pub fn read(&self, raw_address: i32) -> i32 {
+        assert!(raw_address >= 0 && raw_address <= 0xFFFF);
+        self.read_general_8(raw_address as usize) as i32
+    }
+
     fn get_mut_8(&mut self, location: usize) -> &mut u8 {
         let WriteableAddress(_, addr) = self.translate_writeable_address(location).unwrap();
         &mut self.mem[addr]
@@ -213,5 +218,10 @@ impl Memory {
 
     pub fn store_memory_8(&mut self, location: usize, value: u8) {
         self.mem[location] = value;
+    }
+
+    #[cfg(test)]
+    pub fn mem(&mut self) -> &mut [u8; 0x10000] {
+        &mut self.mem
     }
 }

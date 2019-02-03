@@ -1,8 +1,10 @@
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
 #![allow(dead_code)]
-// #![deny(warnings)]
+#![deny(warnings)]
+#![deny(clippy::all)]
+#![allow(clippy::unreadable_literal)]
 
-use gl::types::{GLint, GLuint};
+use gl::types::GLuint;
 
 mod alu;
 mod cart;
@@ -10,14 +12,18 @@ mod cpu;
 mod debug;
 mod gpu;
 mod memory;
+mod mmu;
 mod registers;
 mod system;
+mod util;
 
 use system::System;
 
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 // https://github.com/gbdev/awesome-gbdev#emulator-development
+// https://www.youtube.com/watch?v=HyzD8pNlpwI
+// https://www.youtube.com/watch?v=GBYwjch6oEE
 
 /// Helpful macro to run a GL command and make sure no errors are generated.
 macro_rules! GL {

@@ -3,10 +3,9 @@ use crate::cpu::register::Register;
 use crate::cpu::*;
 use crate::memory::Memory;
 use crate::util::*;
+use crate::cpu::micro_code::InstrResult;
 
 mod test_instructions;
-
-use instructions::InstrResult;
 
 pub struct TestContext(State);
 

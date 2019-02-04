@@ -1,6 +1,6 @@
 pub mod cpu_rewrite;
-mod instruction_display;
-mod instructions;
+mod decoder;
+mod micro_code;
 pub mod register;
 
 pub use cpu::*;

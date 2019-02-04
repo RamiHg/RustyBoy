@@ -38,30 +38,30 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
                         .then_done()),
                     2 => Ok(Builder::new()
                         .nothing_then()
-                        .read_mem(Register::A, Register::DE)
+                        .read_mem(Register::A, Register::HL)
+                        .increment(IncrementerStage::HLI)
                         .then_done()),
                     3 | _ => Ok(Builder::new()
                         .nothing_then()
-                        .read_mem(Register::A, Register::DE)
+                        .read_mem(Register::A, Register::HL)
+                        .increment(IncrementerStage::HLD)
                         .then_done()),
                 },
                 _ => Err(err),
             },
             _ => Err(err),
         },
-        // // x = 1
-        // 1 => match op_z {
-        //     6 => match op_y {
-        //         6 => Err(err),
-        //         dest_reg => Ok(IndirectLoad::new(
-        //             SingleTable::from_i32(dest_reg).unwrap(),
-        //             Register::HL,
-        //             HLOp::None,
-        //         )
-        //         .into()),
-        //     },
-        //     _ => Err(err),
-        // },
+        // x = 1
+        1 => match op_z {
+            6 => match op_y {
+                6 => Err(err), // HALT
+                dest_reg => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::from_single_table(dest_reg), Register::HL)
+                    .then_done()),
+            },
+            _ => Err(err),
+        },
         _ => Err(err),
     }?;
 

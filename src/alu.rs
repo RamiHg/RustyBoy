@@ -1,5 +1,7 @@
 #![allow(clippy::verbose_bit_mask)]
 
+use crate::util::is_16bit;
+
 #[derive(Copy, Clone)]
 pub enum FlagBits {
     Carry = 1 << 4,
@@ -48,6 +50,16 @@ fn get_add_hc(a: i32, b: i32) -> i32 {
 
 fn get_sub_hc(a: i32, b: i32) -> i32 {
     (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
+}
+
+pub fn inc_u16(a: i32) -> i32 {
+    assert!(is_16bit(a));
+    i32::from((a as u16).wrapping_add(1))
+}
+
+pub fn dec_u16(a: i32) -> i32 {
+    assert!(is_16bit(a));
+    i32::from((a as u16).wrapping_sub(1))
 }
 
 pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {

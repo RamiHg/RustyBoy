@@ -50,7 +50,7 @@ impl Cpu {
     pub fn execute_machine_cycle(&mut self, memory: &Memory) -> Result<InstrResult> {
         if self.micro_code_stack.is_empty() {
             // Run the decoder to get a bunch of microcodes.
-            self.micro_code_stack = Builder::new().decode().then_done();
+            self.micro_code_stack = Builder::decode();
         }
         let top = self.micro_code_stack.remove(0);
         match top.execute(self, memory)? {

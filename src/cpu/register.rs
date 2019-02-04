@@ -50,6 +50,10 @@ impl Register {
     fn is_16bit(self) -> bool {
         self.is_pair()
     }
+
+    pub fn from_single_table(single_value: i32) -> Register {
+        Register::from(SingleTable::from_i32(single_value).unwrap())
+    }
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.

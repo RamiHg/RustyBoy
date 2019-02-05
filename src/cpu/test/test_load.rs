@@ -49,7 +49,10 @@ fn test_ld_reg_hl() {
 
 #[test]
 fn test_ld_reg_i8() {
-    for (reg, &op) in [0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E].iter().enumerate() {
+    for (reg, &op) in [0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E, 0x3E]
+        .iter()
+        .enumerate()
+    {
         with_default()
             .execute_instructions(&[op, 0xEA])
             .assert_reg_eq(Register::from_usize(reg).unwrap(), 0xEA);
@@ -72,4 +75,12 @@ fn test_ld_reg_reg() {
                 .assert_reg_eq(Register::from_single_table(dest), 0xEA);
         }
     }
+}
+
+#[test]
+fn test_ld_a_m16() {
+    with_default()
+        .set_mem_8bit(0xD0DA, 0xEA)
+        .execute_instructions(&[0xFA, 0xDA, 0xD0])
+        .assert_reg_eq(Register::A, 0xEA);
 }

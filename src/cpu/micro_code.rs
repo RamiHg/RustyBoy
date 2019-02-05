@@ -176,7 +176,7 @@ impl AluStage {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(PartialEq, Debug)]
 pub struct ReadMem {
     destination: Register,
     address: Register,

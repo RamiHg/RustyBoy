@@ -21,6 +21,7 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
     debug_assert!(op_p <= 3 && op_p >= 0);
     debug_assert!(op_y <= 7 && op_y >= 0);
     debug_assert!(op_z <= 7 && op_z >= 0);
+    debug_assert!(op_x <= 3);
 
     //#[allow(unreachable_patterns)]
     let mut micro_codes: Vec<MicroCode> = match op_x {
@@ -45,6 +46,7 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
             // z = 2
             2 => match op_q {
                 // q = 1
+                // LD A, (BC/DE/HLI/HLD)
                 1 => match op_p {
                     0 => Ok(Builder::new()
                         .nothing_then()
@@ -85,7 +87,24 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
                 )
                 .then_done()),
         },
-        _ => Err(err),
+        // x = 3. Assorted.
+        3 | _ => match op_z {
+            // z = 2.
+            2 => match op_y {
+                7 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::TEMP_HIGH, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::A, Register::TEMP)
+                    .then_done()),
+                _ => Err(err),
+            },
+            _ => Err(err),
+        },
     }?;
 
     // Execute the first microcode immediately.

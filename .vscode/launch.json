@@ -9,13 +9,16 @@
                 "args": [
                     "test",
                     "--no-run"
-                ]
+                ],
             },
             "program": "${cargo:program}",
             "args": [],
             "sourceLanguages": [
                 "rust"
-            ]
+            ],
+            "env": {
+                "RUST_TEST_THREADS": "1"
+            }
         }
     ]
 }

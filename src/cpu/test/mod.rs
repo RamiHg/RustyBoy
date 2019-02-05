@@ -33,6 +33,13 @@ impl TestContext {
         TestContext(state)
     }
 
+    pub fn set_mem_16bit(self, addr: i32, value: i32) -> TestContext {
+        assert!(is_16bit(addr) && is_16bit(value));
+        let mut state = self.0;
+        state.memory.store_general_16(addr as usize, value as u16);
+        TestContext(state)
+    }
+
     pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
         self.0.cpu.registers.set(register, value);
         self
@@ -47,6 +54,10 @@ impl TestContext {
         while self.0.cpu.registers.get(Register::PC) < 0xC000 + instructions.len() as i32 {
             while self.0.cpu.execute_machine_cycle(&self.0.memory).unwrap() != InstrResult::Done {}
         }
+        assert_eq!(
+            self.0.cpu.registers.get(Register::PC),
+            0xC000 + instructions.len() as i32
+        );
         self
     }
 

@@ -110,7 +110,7 @@ impl Builder {
             .then_done()
     }
 
-    fn then(mut self) -> Builder {
+    pub fn then(mut self) -> Builder {
         self.codes.push(self.current_code);
         self.current_code = MicroCode::new();
         self

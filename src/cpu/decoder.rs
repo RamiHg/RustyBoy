@@ -19,11 +19,28 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
 
     // Validating for documentation things that are tautologies.
     debug_assert!(op_p <= 3);
+    debug_assert!(op_y <= 7);
 
     //#[allow(unreachable_patterns)]
     let mut micro_codes: Vec<MicroCode> = match op_x {
         // x = 0
         0 => match op_z {
+            // z = 6. 8-bit immediate loading.
+            6 => match op_y {
+                // LD (HL), imm8
+                6 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    // TODO: Implement stores!
+                    .then_done()),
+                // LD r[y], imm8
+                _ => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::from_single_table(op_y), Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then_done()),
+            },
             // z = 2
             2 => match op_q {
                 // q = 1
@@ -53,8 +70,10 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
         },
         // x = 1
         1 => match op_z {
+            // z = 6
             6 => match op_y {
                 6 => Err(err), // HALT
+                // LD r[y], r[z]
                 dest_reg => Ok(Builder::new()
                     .nothing_then()
                     .read_mem(Register::from_single_table(dest_reg), Register::HL)

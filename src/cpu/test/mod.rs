@@ -1,11 +1,11 @@
 use crate::cart::test::ErrorCart;
+use crate::cpu::micro_code::InstrResult;
 use crate::cpu::register::Register;
 use crate::cpu::*;
 use crate::memory::Memory;
 use crate::util::*;
-use crate::cpu::micro_code::InstrResult;
 
-mod test_instructions;
+mod test_load;
 
 pub struct TestContext(State);
 

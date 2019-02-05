@@ -1,3 +1,5 @@
+use num_traits::FromPrimitive;
+
 use super::register::Register;
 use super::*;
 
@@ -42,5 +44,14 @@ fn test_ld_reg_hl() {
             .set_reg_pair(HL, 0xD000)
             .execute_instructions(&[op])
             .assert_reg_eq(reg, 0xEA);
+    }
+}
+
+#[test]
+fn test_ld_reg_i8() {
+    for (reg, &op) in [0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E].iter().enumerate() {
+        with_default()
+            .execute_instructions(&[op, 0xEA])
+            .assert_reg_eq(Register::from_usize(reg).unwrap(), 0xEA);
     }
 }

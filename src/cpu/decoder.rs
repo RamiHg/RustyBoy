@@ -18,8 +18,9 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
     let err = Error::InvalidOpcode(opcode);
 
     // Validating for documentation things that are tautologies.
-    debug_assert!(op_p <= 3);
-    debug_assert!(op_y <= 7);
+    debug_assert!(op_p <= 3 && op_p >= 0);
+    debug_assert!(op_y <= 7 && op_y >= 0);
+    debug_assert!(op_z <= 7 && op_z >= 0);
 
     //#[allow(unreachable_patterns)]
     let mut micro_codes: Vec<MicroCode> = match op_x {
@@ -68,30 +69,43 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
             },
             _ => Err(err),
         },
-        // x = 1
+        // x = 1. LD r[y], r[z] with the exception of HALT.
         1 => match op_z {
-            // z = 6
-            6 => match op_y {
-                6 => Err(err), // HALT
-                // LD r[y], r[z]
-                dest_reg => Ok(Builder::new()
-                    .nothing_then()
-                    .read_mem(Register::from_single_table(dest_reg), Register::HL)
-                    .then_done()),
-            },
-            _ => Err(err),
+            6 if op_y == 6 => Err(err), // HALT
+            // z = 6. LD r[y], (HL)
+            6 => Ok(Builder::new()
+                .nothing_then()
+                .read_mem(Register::from_single_table(op_y), Register::HL)
+                .then_done()),
+            // LD r[y], r[z]
+            _ => Ok(Builder::new()
+                .move_reg(
+                    Register::from_single_table(op_y),
+                    Register::from_single_table(op_z),
+                )
+                .then_done()),
         },
         _ => Err(err),
     }?;
 
     // Execute the first microcode immediately.
-    let setup_code = micro_codes.remove(0);
+    let setup_code = micro_codes.remove(0); // Could also initialize builder with decode.
     assert!(
         setup_code.memory_stage == MemoryStage::None,
         "First micro-code of any instruction cannot contain any memory operations: {:?}.",
         setup_code.memory_stage
     );
+    assert_eq!(
+        setup_code.incrementer_stage, None,
+        "Cannot use incrementers during the first machine cycle: {:?}.",
+        setup_code.incrementer_stage
+    );
     setup_code.execute(cpu, memory)?;
 
-    Ok(InstrResult::Decode(micro_codes))
+    // If there are any micro codes remaining, return them. Otherwise, we're done!
+    if micro_codes.is_empty() {
+        Ok(InstrResult::Done)
+    } else {
+        Ok(InstrResult::Decode(micro_codes))
+    }
 }

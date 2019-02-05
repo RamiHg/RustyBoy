@@ -33,8 +33,7 @@ impl TestContext {
         TestContext(state)
     }
 
-    pub fn set_reg_pair(mut self, register: Register, value: i32) -> TestContext {
-        assert!(is_16bit(value));
+    pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
         self.0.cpu.registers.set(register, value);
         self
     }

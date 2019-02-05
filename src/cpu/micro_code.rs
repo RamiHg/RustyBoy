@@ -13,23 +13,20 @@ pub enum InstrResult {
     Done,
 }
 
-pub enum ValueType {
-    Register(Register),
-    IndirectRegister(Register),
-    Imm8(i32),
-    Imm16(i32),
-    IndirectImm16(i32),
-}
-
 #[derive(PartialEq, Debug)]
 pub enum MemoryStage {
     None,
     ReadMem(ReadMem),
 }
+#[derive(PartialEq, Debug)]
+pub enum DirectValue {
+    Register(Register),
+    Imm8(i32),
+}
 
 #[derive(PartialEq, Debug)]
 pub enum AluStage {
-    None,
+    Move(Register, Register),
 }
 
 #[derive(PartialEq, Debug)]
@@ -48,6 +45,7 @@ pub enum SpecialStage {
 #[derive(Debug, PartialEq)]
 pub struct MicroCode {
     pub memory_stage: MemoryStage,
+    pub alu_stage: Option<AluStage>,
     pub special_stage: SpecialStage,
     pub incrementer_stage: Option<IncrementerStage>,
     // Set to true if is the last microcode of the instruction.
@@ -63,6 +61,7 @@ impl MicroCode {
     pub fn new() -> MicroCode {
         MicroCode {
             memory_stage: MemoryStage::None,
+            alu_stage: None,
             special_stage: SpecialStage::None,
             incrementer_stage: None,
             done: false,
@@ -83,10 +82,21 @@ impl Builder {
         self.then()
     }
 
+    pub fn then(mut self) -> Builder {
+        self.codes.push(self.current_code);
+        self.current_code = MicroCode::new();
+        self
+    }
+
     pub fn then_done(mut self) -> Vec<MicroCode> {
         self.current_code.done = true;
         self.codes.push(self.current_code);
         self.codes
+    }
+
+    pub fn move_reg(mut self, destination: Register, source: Register) -> Builder {
+        self.current_code.alu_stage = Some(AluStage::Move(destination, source));
+        self
     }
 
     pub fn read_mem(mut self, destination: Register, address: Register) -> Builder {
@@ -110,12 +120,6 @@ impl Builder {
             .then_done()
     }
 
-    pub fn then(mut self) -> Builder {
-        self.codes.push(self.current_code);
-        self.current_code = MicroCode::new();
-        self
-    }
-
     fn special_stage(mut self, special: SpecialStage) -> Builder {
         self.current_code.special_stage = special;
         self
@@ -129,6 +133,10 @@ impl MicroCode {
             MemoryStage::ReadMem(read) => read.execute(cpu, memory)?,
             _ => InstrResult::None,
         };
+        // Step 2: Perform any ALU.
+        if let Some(alu) = self.alu_stage {
+            alu.execute(cpu);
+        }
         // Possibly increment counters.
         if let Some(incrementer) = self.incrementer_stage {
             match incrementer {
@@ -154,6 +162,16 @@ impl MicroCode {
             Ok(InstrResult::Done)
         } else {
             Ok(memory_result)
+        }
+    }
+}
+
+impl AluStage {
+    fn execute(self, cpu: &mut Cpu) {
+        match self {
+            AluStage::Move(destination, source) => {
+                cpu.registers.set(destination, cpu.registers.get(source))
+            }
         }
     }
 }

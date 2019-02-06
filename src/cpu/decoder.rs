@@ -6,6 +6,7 @@ use crate::memory::Memory;
 // TODO: Refactor into impl.
 /// Executes a "Decode" special stage.
 /// Assumes that the current micro-code has already read (and will increment) PC.
+#[allow(clippy::cyclomatic_complexity)]
 pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<SideEffect>> {
     // This method uses the amazing guide to decode instructions programatically:
     // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
@@ -20,16 +21,60 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
 
     let err = Error::InvalidOpcode(opcode);
 
-    // Validating for documentation things that are tautologies.
+    // Validating preconditions for documentation.
     debug_assert!(op_p <= 3 && op_p >= 0);
     debug_assert!(op_y <= 7 && op_y >= 0);
     debug_assert!(op_z <= 7 && op_z >= 0);
     debug_assert!(op_x <= 3);
+    debug_assert!(op_q == 0 || op_q == 1);
 
-    //#[allow(unreachable_patterns)]
+    // At some point this will be converted into a static table with pre-defined instruction
+    // opcodes. For now, it's ease of development.
+
     let mut micro_codes: Vec<MicroCode> = match op_x {
         // x = 0
         0 => match op_z {
+            // z = 1
+            1 => match op_q {
+                // q = 0
+                // LD (BC/DE/HL/SP)
+                // Can probably just store straight into register pairs.
+                0 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::TEMP_HIGH, Register::PC)
+                    .move_reg(Register::from_sp_pair_table(op_p), Register::TEMP)
+                    .increment(IncrementerStage::PC)
+                    .then_done()),
+                1 | _ => Err(err),
+            },
+            // z = 2
+            2 => {
+                let (pair, increment) = match op_p {
+                    0 => (Register::BC, None),
+                    1 => (Register::DE, None),
+                    2 => (Register::HL, Some(IncrementerStage::HLI)),
+                    3 | _ => (Register::HL, Some(IncrementerStage::HLD)),
+                };
+                match op_q {
+                    // q = 0
+                    // LD (BC/De/HLI/HLD), A
+                    0 => Ok(Builder::new()
+                        .nothing_then()
+                        .write_mem(pair, Register::A)
+                        .maybe_increment(increment)
+                        .then_done()),
+                    // q = 1
+                    // LD A, (BC/DE/HLI/HLD)
+                    1 | _ => Ok(Builder::new()
+                        .nothing_then()
+                        .read_mem(Register::A, pair)
+                        .maybe_increment(increment)
+                        .then_done()),
+                }
+            }
             // z = 6. 8-bit immediate loading.
             6 => match op_y {
                 // LD (HL), imm8
@@ -45,32 +90,6 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                     .read_mem(Register::from_single_table(op_y), Register::PC)
                     .increment(IncrementerStage::PC)
                     .then_done()),
-            },
-            // z = 2
-            2 => match op_q {
-                // q = 1
-                // LD A, (BC/DE/HLI/HLD)
-                1 => match op_p {
-                    0 => Ok(Builder::new()
-                        .nothing_then()
-                        .read_mem(Register::A, Register::BC)
-                        .then_done()),
-                    1 => Ok(Builder::new()
-                        .nothing_then()
-                        .read_mem(Register::A, Register::DE)
-                        .then_done()),
-                    2 => Ok(Builder::new()
-                        .nothing_then()
-                        .read_mem(Register::A, Register::HL)
-                        .increment(IncrementerStage::HLI)
-                        .then_done()),
-                    3 | _ => Ok(Builder::new()
-                        .nothing_then()
-                        .read_mem(Register::A, Register::HL)
-                        .increment(IncrementerStage::HLD)
-                        .then_done()),
-                },
-                _ => Err(err),
             },
             _ => Err(err),
         },

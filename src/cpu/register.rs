@@ -26,7 +26,9 @@ pub enum Register {
     TEMP_LOW,
     TEMP_HIGH,
     SP,
+    SP_HIGH,
     PC,
+    PC_HIGH,
     // "Virtual" registers. I.e. a register pair.
     BC,
     DE,
@@ -54,6 +56,17 @@ impl Register {
     pub fn from_single_table(single_value: i32) -> Register {
         Register::from(SingleTable::from_i32(single_value).unwrap())
     }
+
+    pub fn from_sp_pair_table(pair_value: i32) -> Register {
+        use Register::*;
+        match pair_value {
+            0 => BC,
+            1 => DE,
+            2 => HL,
+            3 => SP,
+            _ => panic!("Unexpected pair_value: {}.", pair_value),
+        }
+    }
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.
@@ -67,6 +80,16 @@ pub enum SingleTable {
     L,
     HL,
     A,
+}
+
+/// 16-bit SP-based register table. Note that this maps to instruction opcodes.
+/// TODO: Move these tables to decoder.
+#[derive(FromPrimitive)]
+pub enum SPPairTable {
+    BC,
+    DE,
+    HL,
+    SP,
 }
 
 impl From<SingleTable> for Register {
@@ -90,8 +113,8 @@ impl File {
         use Register::*;
         match any {
             _ if (any as usize) <= (TEMP_HIGH as usize) => self.0[any as usize],
-            SP => self.combine(SP as usize + 1, SP as usize),
-            PC => self.combine(PC as usize + 1, PC as usize),
+            SP => self.combine(SP_HIGH as usize, SP as usize),
+            PC => self.combine(PC_HIGH as usize, PC as usize),
             BC => combine_any(Register::B, Register::C),
             DE => combine_any(Register::D, Register::E),
             HL => combine_any(Register::H, Register::L),
@@ -120,11 +143,11 @@ impl File {
                 self.0[L as usize] = value_u8;
             }
             SP => {
-                self.0[SP as usize + 1] = value_high;
+                self.0[SP_HIGH as usize] = value_high;
                 self.0[SP as usize] = value_u8;
             }
             PC => {
-                self.0[PC as usize + 1] = value_high;
+                self.0[PC_HIGH as usize] = value_high;
                 self.0[PC as usize] = value_u8;
             }
             TEMP => {

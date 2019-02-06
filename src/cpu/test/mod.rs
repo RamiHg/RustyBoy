@@ -6,6 +6,7 @@ use crate::system::System;
 use crate::util::*;
 
 mod test_load;
+mod test_store;
 
 pub struct TestSystem {
     cpu: Cpu,
@@ -69,6 +70,11 @@ impl TestContext {
 
     pub fn assert_reg_eq(self, register: Register, value: i32) -> TestContext {
         assert_eq!(self.0.cpu.registers.get(register), value);
+        self
+    }
+
+    pub fn assert_mem_8bit_eq(self, address: i32, value: i32) -> TestContext {
+        assert_eq!(self.0.memory.read(address), value);
         self
     }
 }

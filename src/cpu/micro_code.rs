@@ -116,9 +116,18 @@ impl Builder {
         self
     }
 
-    pub fn increment(mut self, increment: IncrementerStage) -> Builder {
-        self.current_code.incrementer_stage = Some(increment);
+    pub fn write_mem(mut self, address: Register, value: Register) -> Builder {
+        self.current_code.memory_stage = Some(MemoryStage::Write { address, value });
         self
+    }
+
+    pub fn maybe_increment(mut self, increment: Option<IncrementerStage>) -> Builder {
+        self.current_code.incrementer_stage = increment;
+        self
+    }
+
+    pub fn increment(self, increment: IncrementerStage) -> Builder {
+        self.maybe_increment(Some(increment))
     }
 
     pub fn decode() -> Vec<MicroCode> {

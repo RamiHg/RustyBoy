@@ -60,6 +60,15 @@ fn test_ld_reg_i8() {
 }
 
 #[test]
+fn test_ld_reg_i16() {
+    for (reg, &op) in [0x01, 0x11, 0x21, 0x31].iter().enumerate() {
+        with_default()
+            .execute_instructions(&[op, 0xEF, 0xBE])
+            .assert_reg_eq(Register::from_sp_pair_table(reg as i32), 0xBEEF);
+    }
+}
+
+#[test]
 fn test_ld_reg_reg() {
     // Unfortunately, table is too long to hard-code. So we programatically encode it.
     for dest in 0..=7 {

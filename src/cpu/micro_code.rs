@@ -3,20 +3,30 @@ use crate::cpu::decoder;
 use crate::cpu::register::Register;
 use crate::cpu::{Cpu, Result};
 use crate::memory::Memory;
-use crate::mmu;
 
-#[derive(PartialEq)]
-pub enum InstrResult {
-    None,
-    Write(mmu::Write),
+pub enum SideEffect {
+    Write { raw_address: i32, value: i32 },
     Decode(Vec<MicroCode>),
-    Done,
+}
+
+/// The output of a micro code execution.
+/// Contains any possible side effects, as well as a flag signifying the macro-instruction is
+/// complete.
+pub struct Output {
+    pub side_effect: Option<SideEffect>,
+    pub is_done: bool,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum MemoryStage {
-    None,
-    ReadMem(ReadMem),
+    Read {
+        destination: Register,
+        address: Register,
+    },
+    Write {
+        address: Register,
+        value: Register,
+    },
 }
 #[derive(PartialEq, Debug)]
 pub enum DirectValue {
@@ -38,18 +48,17 @@ pub enum IncrementerStage {
 
 #[derive(Debug, PartialEq)]
 pub enum SpecialStage {
-    None,
     Decode,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MicroCode {
-    pub memory_stage: MemoryStage,
+    pub memory_stage: Option<MemoryStage>,
     pub alu_stage: Option<AluStage>,
-    pub special_stage: SpecialStage,
+    pub special_stage: Option<SpecialStage>,
     pub incrementer_stage: Option<IncrementerStage>,
     // Set to true if is the last microcode of the instruction.
-    pub done: bool,
+    pub is_done: bool,
 }
 
 pub struct Builder {
@@ -60,11 +69,11 @@ pub struct Builder {
 impl MicroCode {
     pub fn new() -> MicroCode {
         MicroCode {
-            memory_stage: MemoryStage::None,
+            memory_stage: None,
             alu_stage: None,
-            special_stage: SpecialStage::None,
+            special_stage: None,
             incrementer_stage: None,
-            done: false,
+            is_done: false,
         }
     }
 }
@@ -89,7 +98,7 @@ impl Builder {
     }
 
     pub fn then_done(mut self) -> Vec<MicroCode> {
-        self.current_code.done = true;
+        self.current_code.is_done = true;
         self.codes.push(self.current_code);
         self.codes
     }
@@ -100,7 +109,7 @@ impl Builder {
     }
 
     pub fn read_mem(mut self, destination: Register, address: Register) -> Builder {
-        self.current_code.memory_stage = MemoryStage::ReadMem(ReadMem {
+        self.current_code.memory_stage = Some(MemoryStage::Read {
             destination,
             address,
         });
@@ -121,25 +130,22 @@ impl Builder {
     }
 
     fn special_stage(mut self, special: SpecialStage) -> Builder {
-        self.current_code.special_stage = special;
+        self.current_code.special_stage = Some(special);
         self
     }
 }
 
 impl MicroCode {
-    pub fn execute(self, cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
-        // Step 1: Execute the memory operation.
-        let memory_result = match self.memory_stage {
-            MemoryStage::ReadMem(read) => read.execute(cpu, memory)?,
-            _ => InstrResult::None,
-        };
+    pub fn execute(mut self, cpu: &mut Cpu, memory: &Memory) -> Result<Output> {
+        // Step 1: Execute the memory operation if any.
+        let memory_side_effect = self.memory_stage.and_then(|x| x.execute(cpu, memory));
         // Step 2: Perform any ALU.
         if let Some(alu) = self.alu_stage {
             alu.execute(cpu);
         }
         // Possibly increment counters.
-        if let Some(incrementer) = self.incrementer_stage {
-            match incrementer {
+        if let Some(incrementer_stage) = self.incrementer_stage {
+            match incrementer_stage {
                 IncrementerStage::PC => cpu
                     .registers
                     .set(Register::PC, inc_u16(cpu.registers.get(Register::PC))),
@@ -152,17 +158,22 @@ impl MicroCode {
             }
         }
         // Last step: Execute the "special" stage. Right now that's decoding.
-        if let SpecialStage::Decode = self.special_stage {
-            // Early exit if is decoder step.
-            return decoder::execute(cpu, memory);
-        }
-        // Return either the memory request or the Done result.
-        if self.done {
-            assert!(memory_result == InstrResult::None);
-            Ok(InstrResult::Done)
+        let decoder_side_effect = if let Some(SpecialStage::Decode) = self.special_stage {
+            debug_assert!(memory_side_effect.is_none());
+            decoder::execute_decode_stage(cpu, memory)?
         } else {
-            Ok(memory_result)
+            None
+        };
+
+        // If there are more micro-codes to execute, take away the is_done mark.
+        if decoder_side_effect.is_some() {
+            self.is_done = false;
         }
+        // Return a decoder's output if it exists, otherwise just return the memory side effect.
+        Ok(Output {
+            side_effect: decoder_side_effect.or(memory_side_effect),
+            is_done: self.is_done,
+        })
     }
 }
 
@@ -176,19 +187,30 @@ impl AluStage {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub struct ReadMem {
-    destination: Register,
-    address: Register,
-}
-
-impl ReadMem {
-    fn execute(self, cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
-        assert!(self.destination.is_single());
-        assert!(self.address.is_pair());
-        // MEMORY.
-        let memory_value = memory.read(cpu.registers.get(self.address));
-        cpu.registers.set(self.destination, memory_value);
-        Ok(InstrResult::None)
+impl MemoryStage {
+    fn execute(self, cpu: &mut Cpu, memory: &Memory) -> Option<SideEffect> {
+        match self {
+            MemoryStage::Read {
+                destination,
+                address,
+            } => {
+                assert!(destination.is_single());
+                assert!(address.is_pair());
+                // MEMORY.
+                // We let reads happen at any time since the writes are synchronized to happen
+                // at the end of every machine cycle.
+                cpu.registers
+                    .set(destination, memory.read(cpu.registers.get(address)));
+                None
+            }
+            MemoryStage::Write { address, value } => {
+                assert!(address.is_pair());
+                assert!(value.is_single());
+                Some(SideEffect::Write {
+                    raw_address: cpu.registers.get(address),
+                    value: cpu.registers.get(value),
+                })
+            }
+        }
     }
 }

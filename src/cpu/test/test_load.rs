@@ -1,7 +1,7 @@
 use num_traits::FromPrimitive;
 
-use super::register::Register;
 use super::*;
+use crate::cpu::register::Register;
 
 use Register::*;
 

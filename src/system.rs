@@ -1,40 +1,21 @@
-// use crate::cart::*;
-use crate::cpu::Cpu;
-use crate::gpu::Gpu;
-// use crate::memory::Memory;
-use crate::cart;
+use crate::cpu::{Output, Result, SideEffect};
 
-pub struct System {
-    pub gpu: Gpu,
-    cpu: Cpu,
-}
+/// Generic interface to the system as a whole.
+///
+/// Defined mainly to enable easier testing.
+pub trait System {
+    fn execute_cpu_cycle(&mut self) -> Result<Output>;
+    fn commit_memory_write(&mut self, raw_address: i32, value: i32);
 
-impl System {
-    // Due to a stupid decision to make Cpu own Memory early on in the project
-    // Now I have to use cpu.memory everywhere. Someday I will refactor this
-    pub fn new(cart_location: &str) -> System {
-        let cart = cart::from_file(cart_location);
-        let _memory = crate::memory::Memory::new(cart);
-        System {
-            gpu: Gpu::new(),
-            cpu: Cpu::new(),
+    fn execute_machine_cycle(&mut self) -> Result<Output> {
+        let cpu_output = self.execute_cpu_cycle()?;
+        if let Some(SideEffect::Write { raw_address, value }) = cpu_output.side_effect {
+            // In the future, this will wait until the GPU has reached the end of its 4th cycle, and
+            // then commited this write.
+            self.commit_memory_write(raw_address, value);
         }
-    }
-
-    pub fn start_system(&mut self) {
-        //self.cpu.memory.set_starting_sequence();
-        //self.cpu.pc = 0x100;
-    }
-
-    pub fn update_frame(&mut self) {}
-
-    pub fn execute_instruction(&mut self) {
-        // if !self.cpu.is_stopped {
-        //     let opcode = self.cpu.memory.read_general_8(self.cpu.pc as usize);
-        //     let num_cycles = self.cpu.execute_instruction(opcode);
-        //     self.gpu.update(num_cycles as u32, &mut self.cpu.memory);
-        // }
-
-        // self.cpu.handle_interrupts();
+        // TODO: Figure out what we should return here. Doesn't make sense to expose instruction
+        // side effect.
+        Ok(cpu_output)
     }
 }

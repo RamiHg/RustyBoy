@@ -1,18 +1,28 @@
 use crate::cart::test::ErrorCart;
-use crate::cpu::micro_code::InstrResult;
 use crate::cpu::register::Register;
 use crate::cpu::*;
 use crate::memory::Memory;
+use crate::system::System;
 use crate::util::*;
 
 mod test_load;
 
-pub struct TestContext(State);
-
-pub struct State {
+pub struct TestSystem {
     cpu: Cpu,
     memory: Memory,
 }
+
+impl System for TestSystem {
+    fn execute_cpu_cycle(&mut self) -> Result<Output> {
+        self.cpu.execute_machine_cycle(&self.memory)
+    }
+
+    fn commit_memory_write(&mut self, raw_address: i32, value: i32) {
+        self.memory.store(raw_address, value);
+    }
+}
+
+pub struct TestContext(TestSystem);
 
 pub fn with_default() -> TestContext {
     TestContext::with_default()
@@ -22,22 +32,18 @@ impl TestContext {
     fn with_default() -> TestContext {
         let memory = Memory::new(Box::new(ErrorCart));
         let cpu = Cpu::new();
-        TestContext(State { cpu, memory })
+        TestContext(TestSystem { cpu, memory })
     }
 
-    pub fn set_mem_8bit(self, addr: i32, value: i32) -> TestContext {
-        assert!(is_8bit(value));
-        assert!(is_16bit(addr));
-        let mut state = self.0;
-        state.memory.store_general_8(addr as usize, value as u8);
-        TestContext(state)
+    pub fn set_mem_8bit(mut self, addr: i32, value: i32) -> TestContext {
+        self.0.memory.store(addr, value);
+        self
     }
 
-    pub fn set_mem_16bit(self, addr: i32, value: i32) -> TestContext {
-        assert!(is_16bit(addr) && is_16bit(value));
-        let mut state = self.0;
-        state.memory.store_general_16(addr as usize, value as u16);
-        TestContext(state)
+    pub fn set_mem_16bit(mut self, addr: i32, value: i32) -> TestContext {
+        assert!(is_16bit(value));
+        self.0.memory.store_general_16(addr as usize, value as u16);
+        self
     }
 
     pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
@@ -52,7 +58,7 @@ impl TestContext {
         self.0.memory.mem()[0xC000..0xC000 + instructions.len()].copy_from_slice(instructions);
         self.0.cpu.registers.set(Register::PC, 0xC000);
         while self.0.cpu.registers.get(Register::PC) < 0xC000 + instructions.len() as i32 {
-            while self.0.cpu.execute_machine_cycle(&self.0.memory).unwrap() != InstrResult::Done {}
+            while !self.0.execute_machine_cycle().unwrap().is_done {}
         }
         assert_eq!(
             self.0.cpu.registers.get(Register::PC),

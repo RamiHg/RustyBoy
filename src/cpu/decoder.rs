@@ -3,7 +3,10 @@ use crate::cpu::register::Register;
 use crate::cpu::{Cpu, Error, Result};
 use crate::memory::Memory;
 
-pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
+// TODO: Refactor into impl.
+/// Executes a "Decode" special stage.
+/// Assumes that the current micro-code has already read (and will increment) PC.
+pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<SideEffect>> {
     // This method uses the amazing guide to decode instructions programatically:
     // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
 
@@ -107,24 +110,27 @@ pub fn execute(cpu: &mut Cpu, memory: &Memory) -> Result<InstrResult> {
         },
     }?;
 
-    // Execute the first microcode immediately.
-    let setup_code = micro_codes.remove(0); // Could also initialize builder with decode.
+    // The first microcode is special in the sense that it "execute" at the same time as the decode
+    // step. This, however, means that it is limited only to its alu stages.
+    let setup_code = micro_codes.remove(0);
     assert!(
-        setup_code.memory_stage == MemoryStage::None,
+        setup_code.memory_stage.is_none(),
         "First micro-code of any instruction cannot contain any memory operations: {:?}.",
         setup_code.memory_stage
     );
-    assert_eq!(
-        setup_code.incrementer_stage, None,
+    assert!(
+        setup_code.incrementer_stage.is_none(),
         "Cannot use incrementers during the first machine cycle: {:?}.",
         setup_code.incrementer_stage
     );
-    setup_code.execute(cpu, memory)?;
-
-    // If there are any micro codes remaining, return them. Otherwise, we're done!
+    assert!(setup_code.special_stage.is_none());
+    let setup_result = setup_code.execute(cpu, memory)?;
+    assert!(setup_result.side_effect.is_none());
+    // Microcode cannot mark as done if there are other micro codes to execute!
+    assert!(!setup_result.is_done || micro_codes.is_empty());
     if micro_codes.is_empty() {
-        Ok(InstrResult::Done)
+        Ok(None)
     } else {
-        Ok(InstrResult::Decode(micro_codes))
+        Ok(Some(SideEffect::Decode(micro_codes)))
     }
 }

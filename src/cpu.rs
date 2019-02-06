@@ -1,11 +1,17 @@
+mod decoder;
+mod micro_code;
+mod register;
+
+#[cfg(test)]
+mod test;
+
+// TODO: Place this in a better place..
+pub use self::micro_code::{Output, SideEffect};
+
 use core::fmt;
 
-//use num_traits::FromPrimitive;
-
-use crate::cpu::register;
+use crate::cpu::micro_code::{Builder, MicroCode};
 use crate::memory::{Memory, MemoryError};
-
-use crate::cpu::micro_code::{Builder, InstrResult, MicroCode};
 
 // #[derive(Debug)]
 pub enum Error {
@@ -47,18 +53,24 @@ impl Cpu {
     /// Runs a machine cycle.
     ///
     /// Optionally returns a data bus write request.
-    pub fn execute_machine_cycle(&mut self, memory: &Memory) -> Result<InstrResult> {
+    pub fn execute_machine_cycle(&mut self, memory: &Memory) -> Result<Output> {
         if self.micro_code_stack.is_empty() {
             // Run the decoder to get a bunch of microcodes.
             self.micro_code_stack = Builder::decode();
         }
         let top = self.micro_code_stack.remove(0);
-        match top.execute(self, memory)? {
-            InstrResult::Decode(instructions) => {
-                self.micro_code_stack = instructions;
-                Ok(InstrResult::None)
-            }
-            result => Ok(result),
+        let micro_code_output = top.execute(self, memory)?;
+
+        // If this is a decode micro-code, push the codes on the stack and return.
+        if let Some(SideEffect::Decode(instructions)) = micro_code_output.side_effect {
+            assert!(!micro_code_output.is_done);
+            self.micro_code_stack = instructions;
+            return Ok(Output {
+                side_effect: None,
+                ..micro_code_output
+            });
         }
+        // Otherise, return as normal.
+        Ok(micro_code_output)
     }
 }

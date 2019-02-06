@@ -1,5 +1,6 @@
 use crate::cart::Cart;
 use crate::registers::Register;
+use crate::util;
 
 // Useful tidbits:
 // https://retrocomputing.stackexchange.com/questions/1178/what-is-this-unused-memory-range-in-the-game-boys-memory-map
@@ -64,6 +65,7 @@ enum ReadableAddress {
     WriteableAddress(WriteableAddress),
 }
 
+// TODO: Clean up this API.
 impl Memory {
     pub fn new(cart: Box<dyn Cart>) -> Memory {
         Memory {
@@ -162,6 +164,13 @@ impl Memory {
     pub fn read(&self, raw_address: i32) -> i32 {
         assert!(raw_address >= 0 && raw_address <= 0xFFFF);
         self.read_general_8(raw_address as usize) as i32
+    }
+
+    /// Stores should theoretically never crash. So we do not return a Result.
+    pub fn store(&mut self, raw_address: i32, value: i32) {
+        debug_assert!(util::is_16bit(raw_address));
+        debug_assert!(util::is_8bit(value));
+        self.store_general_8(raw_address as usize, value as u8);
     }
 
     fn get_mut_8(&mut self, location: usize) -> &mut u8 {

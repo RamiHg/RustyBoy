@@ -6,6 +6,8 @@
 #![allow(clippy::cast_lossless)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
 #![allow(clippy::useless_attribute)]
+// Remove when this file is uncommented out.
+#![allow(unused_variables)]
 
 use gl::types::GLuint;
 
@@ -15,11 +17,11 @@ mod cpu;
 mod debug;
 mod gpu;
 mod memory;
-mod mmu;
 mod registers;
 mod system;
 mod util;
 
+#[allow(unused_imports)]
 use system::System;
 
 // Helpful links:
@@ -137,7 +139,7 @@ fn main() {
     let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/03-op sp,hl.gb";
     //let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/04-op r,imm.gb";
 
-    let mut system = System::new(cart);
+    //let mut system = System::new(cart);
     //system.start_system();
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/02-interrupts.gb");
     //system.start_system("");
@@ -151,7 +153,7 @@ fn main() {
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/11-op a,(hl).gb");
     //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/01-special.gb");
 
-    system.start_system();
+    //system.start_system();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
@@ -198,20 +200,20 @@ fn main() {
 
     loop {
         for _ in 0..2000 {
-            system.execute_instruction();
+            // system.execute_instruction();
         }
 
         //if system.gpu.mode == GpuMode::VBlank {
         {
-            let mut data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
+            let /*mut*/ data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
 
             for j in 0..144_usize {
                 for i in 0..160_usize {
-                    let pixel = system.gpu.get_pixel(i as u32, j as u32);
+                    // let pixel = system.gpu.get_pixel(i as u32, j as u32);
 
-                    data[(i + j * 160) * 3] = pixel.r;
-                    data[(i + j * 160) * 3 + 1] = pixel.g;
-                    data[(i + j * 160) * 3 + 2] = pixel.b;
+                    // data[(i + j * 160) * 3] = pixel.r;
+                    // data[(i + j * 160) * 3 + 1] = pixel.g;
+                    // data[(i + j * 160) * 3 + 2] = pixel.b;
                 }
             }
 

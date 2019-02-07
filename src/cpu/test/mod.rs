@@ -11,10 +11,12 @@ mod test_store;
 pub struct TestSystem {
     cpu: Cpu,
     memory: Memory,
+    cycles: i64,
 }
 
 impl System for TestSystem {
     fn execute_cpu_cycle(&mut self) -> Result<Output> {
+        self.cycles += 1;
         self.cpu.execute_machine_cycle(&self.memory)
     }
 
@@ -33,7 +35,11 @@ impl TestContext {
     fn with_default() -> TestContext {
         let memory = Memory::new(Box::new(ErrorCart));
         let cpu = Cpu::new();
-        TestContext(TestSystem { cpu, memory })
+        TestContext(TestSystem {
+            cpu,
+            memory,
+            cycles: 0,
+        })
     }
 
     pub fn set_mem_8bit(mut self, addr: i32, value: i32) -> TestContext {
@@ -68,6 +74,11 @@ impl TestContext {
         self
     }
 
+    pub fn assert_mcycles(self, cycles: i64) -> TestContext {
+        assert_eq!(self.0.cycles, cycles);
+        self
+    }
+
     pub fn assert_reg_eq(self, register: Register, value: i32) -> TestContext {
         assert_eq!(self.0.cpu.registers.get(register), value);
         self
@@ -75,6 +86,11 @@ impl TestContext {
 
     pub fn assert_mem_8bit_eq(self, address: i32, value: i32) -> TestContext {
         assert_eq!(self.0.memory.read(address), value);
+        self
+    }
+
+    pub fn assert_mem_16bit_eq(self, address: i32, value: i32) -> TestContext {
+        assert_eq!(self.0.memory.read_general_16(address as usize) as i32, value);
         self
     }
 }

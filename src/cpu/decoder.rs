@@ -34,6 +34,23 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
     let mut micro_codes: Vec<MicroCode> = match op_x {
         // x = 0
         0 => match op_z {
+            // z = 0. Relative jumps and other ops.
+            0 => match op_y {
+                1 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::TEMP_HIGH, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .write_mem(Register::TEMP, Register::SP_LOW)
+                    .increment(IncrementerStage::TEMP)
+                    .then()
+                    .write_mem(Register::TEMP, Register::SP_HIGH)
+                    .then_done()),
+                _ => Err(err),
+            },
             // z = 1
             1 => match op_q {
                 // q = 0
@@ -82,7 +99,8 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                     .nothing_then()
                     .read_mem(Register::TEMP_LOW, Register::PC)
                     .increment(IncrementerStage::PC)
-                    // TODO: Implement stores!
+                    .then()
+                    .write_mem(Register::HL, Register::TEMP_LOW)
                     .then_done()),
                 // LD r[y], imm8
                 _ => Ok(Builder::new()
@@ -111,8 +129,72 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
         },
         // x = 3. Assorted.
         3 | _ => match op_z {
+            // z = 0. Conditional return, mem-mapped register loads, stack operations.
+            0 => match op_y {
+                // y = 4. LD (0xFF00 + n), A
+                4 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .set_reg(Register::TEMP_HIGH, 0xFF)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .write_mem(Register::TEMP, Register::A)
+                    .then_done()),
+                // y = 6. LD A, (0xFF00 + n)
+                6 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .set_reg(Register::TEMP_HIGH, 0xFF)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::A, Register::TEMP)
+                    .then_done()),
+                _ => Err(err),
+            },
+            // z = 1.
+            1 => {
+                if op_q == 0 {
+                    Err(err)
+                } else {
+                    match op_p {
+                        // LD SP, HL
+                        3 => Ok(Builder::new()
+                            .move_reg(Register::SP_LOW, Register::L)
+                            .then()
+                            .move_reg(Register::SP_HIGH, Register::H)
+                            .then_done()),
+                        _ => Err(err),
+                    }
+                }
+            }
             // z = 2.
             2 => match op_y {
+                // y = 4. LD (0xFF00 + C), A
+                4 => Ok(Builder::new()
+                    .set_reg(Register::TEMP_HIGH, 0xFF)
+                    .move_reg(Register::TEMP_LOW, Register::C)
+                    .then()
+                    .write_mem(Register::TEMP, Register::A)
+                    .then_done()),
+                // y = 5. LD (nn), A
+                5 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .read_mem(Register::TEMP_HIGH, Register::PC)
+                    .increment(IncrementerStage::PC)
+                    .then()
+                    .write_mem(Register::TEMP, Register::A)
+                    .then_done()),
+                // y = 6. LD A, (0xFF00 + C)
+                6 => Ok(Builder::new()
+                    .set_reg(Register::TEMP_HIGH, 0xFF)
+                    .move_reg(Register::TEMP_LOW, Register::C)
+                    .then()
+                    .read_mem(Register::A, Register::TEMP)
+                    .then_done()),
+                // y = 7. LD A, (nn)
                 7 => Ok(Builder::new()
                     .nothing_then()
                     .read_mem(Register::TEMP_LOW, Register::PC)

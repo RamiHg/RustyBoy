@@ -7,7 +7,7 @@ use num_traits::FromPrimitive;
 
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.
-/// They are stored in the order B,C,D,E,H,L,A,F,SP,PC,TEMP
+/// They are stored in the order B,C,D,E,H,L,A,F,TEMP,SP,PC.
 pub struct File([i32; 14]);
 
 /// The logical list of possible registers and register combination.
@@ -25,11 +25,13 @@ pub enum Register {
     // TEMP_LOW/HIGH are "temporary" registers that store intermediate microcode results.
     TEMP_LOW,
     TEMP_HIGH,
-    SP,
+    SP_LOW,
     SP_HIGH,
-    PC,
+    PC_LOW,
     PC_HIGH,
-    // "Virtual" registers. I.e. a register pair.
+    // "Virtual" registers.
+    SP,
+    PC,
     BC,
     DE,
     HL,
@@ -112,13 +114,13 @@ impl File {
         let combine_any = |a, b| self.combine(a as usize, b as usize);
         use Register::*;
         match any {
-            _ if (any as usize) <= (TEMP_HIGH as usize) => self.0[any as usize],
-            SP => self.combine(SP_HIGH as usize, SP as usize),
-            PC => self.combine(PC_HIGH as usize, PC as usize),
-            BC => combine_any(Register::B, Register::C),
-            DE => combine_any(Register::D, Register::E),
-            HL => combine_any(Register::H, Register::L),
-            TEMP => combine_any(Register::TEMP_HIGH, Register::TEMP_LOW),
+            _ if (any as usize) <= (PC_HIGH as usize) => self.0[any as usize],
+            SP => combine_any(SP_HIGH, SP_LOW),
+            PC => combine_any(PC_HIGH, PC_LOW),
+            BC => combine_any(B, C),
+            DE => combine_any(D, E),
+            HL => combine_any(H, L),
+            TEMP => combine_any(TEMP_HIGH, TEMP_LOW),
             _ => panic!("Non-exhaustive pattern."),
         }
     }
@@ -129,7 +131,7 @@ impl File {
         let value_u8 = value & 0xFF;
         let value_high = (value & 0xFF00) >> 8;
         match any {
-            _ if (any as usize) <= (TEMP_HIGH as usize) => self.0[any as usize] = value_u8 as i32,
+            _ if (any as usize) <= (PC_HIGH as usize) => self.0[any as usize] = value_u8 as i32,
             BC => {
                 self.0[B as usize] = value_high;
                 self.0[C as usize] = value_u8;
@@ -144,11 +146,11 @@ impl File {
             }
             SP => {
                 self.0[SP_HIGH as usize] = value_high;
-                self.0[SP as usize] = value_u8;
+                self.0[SP_LOW as usize] = value_u8;
             }
             PC => {
                 self.0[PC_HIGH as usize] = value_high;
-                self.0[PC as usize] = value_u8;
+                self.0[PC_LOW as usize] = value_u8;
             }
             TEMP => {
                 self.0[TEMP_HIGH as usize] = value_high;

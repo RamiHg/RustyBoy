@@ -12,7 +12,8 @@ fn test_ld_a_bc_de() {
             .set_mem_8bit(0xD000, 0xEA)
             .set_reg(reg, 0xD000)
             .execute_instructions(&[op])
-            .assert_reg_eq(A, 0xEA);
+            .assert_reg_eq(A, 0xEA)
+            .assert_mcycles(2);
     }
 }
 
@@ -24,7 +25,8 @@ fn test_ld_a_hli_hld() {
             .set_reg(HL, 0xD000)
             .execute_instructions(&[op])
             .assert_reg_eq(A, 0xEA)
-            .assert_reg_eq(HL, expected);
+            .assert_reg_eq(HL, expected)
+            .assert_mcycles(2);
     }
 }
 
@@ -43,7 +45,8 @@ fn test_ld_reg_hl() {
             .set_mem_8bit(0xD000, 0xEA)
             .set_reg(HL, 0xD000)
             .execute_instructions(&[op])
-            .assert_reg_eq(reg, 0xEA);
+            .assert_reg_eq(reg, 0xEA)
+            .assert_mcycles(2);
     }
 }
 
@@ -55,7 +58,8 @@ fn test_ld_reg_i8() {
     {
         with_default()
             .execute_instructions(&[op, 0xEA])
-            .assert_reg_eq(Register::from_usize(reg).unwrap(), 0xEA);
+            .assert_reg_eq(Register::from_usize(reg).unwrap(), 0xEA)
+            .assert_mcycles(2);
     }
 }
 
@@ -64,7 +68,8 @@ fn test_ld_reg_i16() {
     for (reg, &op) in [0x01, 0x11, 0x21, 0x31].iter().enumerate() {
         with_default()
             .execute_instructions(&[op, 0xEF, 0xBE])
-            .assert_reg_eq(Register::from_sp_pair_table(reg as i32), 0xBEEF);
+            .assert_reg_eq(Register::from_sp_pair_table(reg as i32), 0xBEEF)
+            .assert_mcycles(3);
     }
 }
 
@@ -81,7 +86,8 @@ fn test_ld_reg_reg() {
             with_default()
                 .set_reg(Register::from_single_table(src), 0xEA)
                 .execute_instructions(&[op as u8])
-                .assert_reg_eq(Register::from_single_table(dest), 0xEA);
+                .assert_reg_eq(Register::from_single_table(dest), 0xEA)
+                .assert_mcycles(1);
         }
     }
 }
@@ -91,5 +97,29 @@ fn test_ld_a_m16() {
     with_default()
         .set_mem_8bit(0xD0DA, 0xEA)
         .execute_instructions(&[0xFA, 0xDA, 0xD0])
-        .assert_reg_eq(Register::A, 0xEA);
+        .assert_reg_eq(Register::A, 0xEA)
+        .assert_mcycles(4);
+}
+
+#[test]
+fn test_ld_assorted() {
+    // LD A, (0xFF00 + n)
+    with_default()
+        .set_mem_8bit(0xFFAB, 0xEA)
+        .execute_instructions(&[0xF0, 0xAB])
+        .assert_reg_eq(A, 0xEA)
+        .assert_mcycles(3);
+    // LD SP, HL.
+    with_default()
+        .set_reg(HL, 0xBEEF)
+        .execute_instructions(&[0xF9])
+        .assert_reg_eq(SP, 0xBEEF)
+        .assert_mcycles(2);
+    // LD A, (0xFF00 + C)
+    with_default()
+        .set_mem_8bit(0xFFAB, 0xEA)
+        .set_reg(C, 0xAB)
+        .execute_instructions(&[0xF2])
+        .assert_reg_eq(A, 0xEA)
+        .assert_mcycles(2);
 }

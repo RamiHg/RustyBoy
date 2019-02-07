@@ -17,7 +17,7 @@ pub struct Output {
     pub is_done: bool,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum MemoryStage {
     Read {
         destination: Register,
@@ -28,32 +28,34 @@ pub enum MemoryStage {
         value: Register,
     },
 }
-#[derive(PartialEq, Debug)]
-pub enum DirectValue {
-    Register(Register),
-    Imm8(i32),
-}
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
 pub enum AluStage {
     Move(Register, Register),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Debug)]
+pub enum RegisterControl {
+    Set(Register, i32),
+}
+
+#[derive(Debug)]
 pub enum IncrementerStage {
     PC,
     HLI,
     HLD,
+    TEMP,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum SpecialStage {
     Decode,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct MicroCode {
     pub memory_stage: Option<MemoryStage>,
+    pub register_control_stage: Option<RegisterControl>,
     pub alu_stage: Option<AluStage>,
     pub special_stage: Option<SpecialStage>,
     pub incrementer_stage: Option<IncrementerStage>,
@@ -70,6 +72,7 @@ impl MicroCode {
     pub fn new() -> MicroCode {
         MicroCode {
             memory_stage: None,
+            register_control_stage: None,
             alu_stage: None,
             special_stage: None,
             incrementer_stage: None,
@@ -104,11 +107,19 @@ impl Builder {
     }
 
     pub fn move_reg(mut self, destination: Register, source: Register) -> Builder {
+        debug_assert!(self.current_code.alu_stage.is_none());
         self.current_code.alu_stage = Some(AluStage::Move(destination, source));
         self
     }
 
+    pub fn set_reg(mut self, register: Register, value: i32) -> Builder {
+        debug_assert!(self.current_code.register_control_stage.is_none());
+        self.current_code.register_control_stage = Some(RegisterControl::Set(register, value));
+        self
+    }
+
     pub fn read_mem(mut self, destination: Register, address: Register) -> Builder {
+        debug_assert!(self.current_code.memory_stage.is_none());
         self.current_code.memory_stage = Some(MemoryStage::Read {
             destination,
             address,
@@ -117,16 +128,19 @@ impl Builder {
     }
 
     pub fn write_mem(mut self, address: Register, value: Register) -> Builder {
+        debug_assert!(self.current_code.memory_stage.is_none());
         self.current_code.memory_stage = Some(MemoryStage::Write { address, value });
         self
     }
 
     pub fn maybe_increment(mut self, increment: Option<IncrementerStage>) -> Builder {
+        debug_assert!(self.current_code.incrementer_stage.is_none());
         self.current_code.incrementer_stage = increment;
         self
     }
 
     pub fn increment(self, increment: IncrementerStage) -> Builder {
+        debug_assert!(self.current_code.incrementer_stage.is_none());
         self.maybe_increment(Some(increment))
     }
 
@@ -139,6 +153,7 @@ impl Builder {
     }
 
     fn special_stage(mut self, special: SpecialStage) -> Builder {
+        debug_assert!(self.current_code.special_stage.is_none());
         self.current_code.special_stage = Some(special);
         self
     }
@@ -148,7 +163,11 @@ impl MicroCode {
     pub fn execute(mut self, cpu: &mut Cpu, memory: &Memory) -> Result<Output> {
         // Step 1: Execute the memory operation if any.
         let memory_side_effect = self.memory_stage.and_then(|x| x.execute(cpu, memory));
-        // Step 2: Perform any ALU.
+        // Step 2: Register control.
+        if let Some(register_control) = self.register_control_stage {
+            register_control.execute(cpu);
+        }
+        // Step 3: Perform any ALU.
         if let Some(alu) = self.alu_stage {
             alu.execute(cpu);
         }
@@ -164,6 +183,9 @@ impl MicroCode {
                 IncrementerStage::HLD => cpu
                     .registers
                     .set(Register::HL, dec_u16(cpu.registers.get(Register::HL))),
+                IncrementerStage::TEMP => cpu
+                    .registers
+                    .set(Register::TEMP, inc_u16(cpu.registers.get(Register::TEMP))),
             }
         }
         // Last step: Execute the "special" stage. Right now that's decoding.
@@ -192,6 +214,14 @@ impl AluStage {
             AluStage::Move(destination, source) => {
                 cpu.registers.set(destination, cpu.registers.get(source))
             }
+        }
+    }
+}
+
+impl RegisterControl {
+    fn execute(self, cpu: &mut Cpu) {
+        match self {
+            RegisterControl::Set(register, value) => cpu.registers.set(register, value),
         }
     }
 }

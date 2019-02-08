@@ -11,13 +11,12 @@
 
 use gl::types::GLuint;
 
-mod alu;
 mod cart;
 mod cpu;
 mod debug;
 mod gpu;
 mod memory;
-mod registers;
+mod io_registers;
 mod system;
 mod util;
 

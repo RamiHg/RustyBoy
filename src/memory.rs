@@ -1,5 +1,5 @@
 use crate::cart::Cart;
-use crate::registers::Register;
+use crate::io_registers::Register;
 use crate::util;
 
 // Useful tidbits:

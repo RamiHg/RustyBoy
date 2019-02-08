@@ -1,9 +1,10 @@
 use std::convert::From;
 
-use crate::util::{is_16bit, is_8bit};
-
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+
+// use super::alu;
+use crate::util::{is_16bit, is_8bit};
 
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.

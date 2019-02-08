@@ -1,55 +1,61 @@
 #![allow(clippy::verbose_bit_mask)]
 
+use bitfield::bitfield;
+
+use super::decoder;
 use crate::util::is_16bit;
 
-#[derive(Copy, Clone)]
-pub enum FlagBits {
-    Carry = 1 << 4,
-    HCarry = 1 << 5,
-    Sub = 1 << 6,
-    Zero = 1 << 7,
+bitfield! {
+    pub struct FlagRegister(u32);
+    //u8;
+    pub carry, set_carry: 4;
+    pub half_carry, set_half_carry: 5;
+    pub subtract, set_subtract: 6;
+    pub zero, set_zero: 7;
 }
 
-pub struct FlagRegister {
-    pub value: u8,
+// impl<T> FlagRegister<[T]> {
+//     pub fn reset(&mut self) {}
+// }
+
+/// The master table of Alu operations.
+/// This defines all possible operations that the CPU can do.
+pub enum AluOp {
+    Binary(BinaryOp),
 }
 
-impl FlagRegister {
-    pub fn new(carry: u32, hcarry: u32, sub: u32, zero: bool) -> FlagRegister {
-        let mut ret = FlagRegister { value: 0 };
+#[derive(Debug)]
+pub enum BinaryOp {
+    Add,
+}
 
-        // So inefficient. TODO
-        ret.set_bit(FlagBits::Carry, carry);
-        ret.set_bit(FlagBits::HCarry, hcarry);
-        ret.set_bit(FlagBits::Sub, sub);
-        ret.set_bit(FlagBits::Zero, if zero { 1 } else { 0 });
-
-        ret
+impl core::convert::From<decoder::AluOpTable> for BinaryOp {
+    fn from(op: decoder::AluOpTable) -> BinaryOp {
+        use decoder::AluOpTable;
+        use BinaryOp::*;
+        match op {
+            AluOpTable::AddA => Add,
+            _ => panic!("Implement me."),
+        }
     }
+}
 
-    pub fn set_bit(&mut self, bit: FlagBits, val: u32) {
-        if val != 0 {
-            self.value |= bit as u8;
-        } else {
-            self.value &= !(bit as u8);
+impl BinaryOp {
+    pub fn execute(&self, lhs: i32, rhs: i32, flags: FlagRegister) -> (i32, FlagRegister) {
+        use BinaryOp::*;
+        match self {
+            Add => BinaryOp::add(lhs, rhs, flags),
         }
     }
 
-    pub fn get_bit(&self, bit: FlagBits) -> u8 {
-        self.value & (bit as u8)
+    fn add(lhs: i32, rhs: i32, mut flags: FlagRegister) -> (i32, FlagRegister) {
+        flags.set_subtract(false);
+        flags.set_half_carry(((lhs & 0xF) + (rhs & 0xF)) & 0x10 != 0);
+        let result = lhs + rhs;
+        flags.set_carry(result & 0x100 != 0);
+        flags.set_zero(result.trailing_zeros() == 8);
+        (result & 0xFF, flags)
     }
-
-    pub fn has_bit(&self, bit: FlagBits) -> bool {
-        self.get_bit(bit) != 0
-    }
-}
-
-fn get_add_hc(a: i32, b: i32) -> i32 {
-    ((a & 0xf) + (b & 0xf)) & 0xF0
-}
-
-fn get_sub_hc(a: i32, b: i32) -> i32 {
-    (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
 }
 
 pub fn inc_u16(a: i32) -> i32 {
@@ -60,6 +66,15 @@ pub fn inc_u16(a: i32) -> i32 {
 pub fn dec_u16(a: i32) -> i32 {
     assert!(is_16bit(a));
     i32::from((a as u16).wrapping_sub(1))
+}
+
+/*
+fn get_add_hc(a: i32, b: i32) -> i32 {
+    ((a & 0xf) + (b & 0xf)) & 0xF0
+}
+
+fn get_sub_hc(a: i32, b: i32) -> i32 {
+    (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
 }
 
 pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
@@ -326,3 +341,4 @@ pub fn bit_test_u8(a: u8, bit: u8, current_flags: &FlagRegister) -> (FlagRegiste
 
     FlagRegister::new(current_flags.get_bit(FlagBits::Carry) as u32, 1, 0, is_zero)
 }
+*/

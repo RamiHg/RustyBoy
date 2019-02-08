@@ -1,8 +1,10 @@
-use crate::alu::{dec_u16, inc_u16};
 use crate::cpu::decoder;
 use crate::cpu::register::Register;
 use crate::cpu::{Cpu, Result};
 use crate::memory::Memory;
+
+use super::alu;
+use alu::{dec_u16, inc_u16};
 
 pub enum SideEffect {
     Write { raw_address: i32, value: i32 },
@@ -29,12 +31,15 @@ pub enum MemoryStage {
     },
 }
 
-#[derive(Debug)]
 pub enum AluStage {
     Move(Register, Register),
+    BinaryOp {
+        op: alu::BinaryOp,
+        lhs: Register,
+        rhs: Register,
+    },
 }
 
-#[derive(Debug)]
 pub enum RegisterControl {
     Set(Register, i32),
 }
@@ -47,12 +52,10 @@ pub enum IncrementerStage {
     TEMP,
 }
 
-#[derive(Debug)]
 pub enum SpecialStage {
     Decode,
 }
 
-#[derive(Debug)]
 pub struct MicroCode {
     pub memory_stage: Option<MemoryStage>,
     pub register_control_stage: Option<RegisterControl>,
@@ -106,9 +109,16 @@ impl Builder {
         self.codes
     }
 
+    // ALU.
     pub fn move_reg(mut self, destination: Register, source: Register) -> Builder {
         debug_assert!(self.current_code.alu_stage.is_none());
         self.current_code.alu_stage = Some(AluStage::Move(destination, source));
+        self
+    }
+
+    pub fn binary_op(mut self, op: alu::BinaryOp, lhs: Register, rhs: Register) -> Builder {
+        debug_assert!(self.current_code.alu_stage.is_none());
+        self.current_code.alu_stage = Some(AluStage::BinaryOp { op, lhs, rhs });
         self
     }
 
@@ -210,9 +220,16 @@ impl MicroCode {
 
 impl AluStage {
     fn execute(self, cpu: &mut Cpu) {
+        let flags = alu::FlagRegister(cpu.registers.get(Register::F) as u32);
         match self {
             AluStage::Move(destination, source) => {
                 cpu.registers.set(destination, cpu.registers.get(source))
+            }
+            AluStage::BinaryOp { op, lhs, rhs } => {
+                let (result, new_flags) =
+                    op.execute(cpu.registers.get(lhs), cpu.registers.get(rhs), flags);
+                cpu.registers.set(lhs, result);
+                cpu.registers.set(Register::F, new_flags.0 as i32);
             }
         }
     }

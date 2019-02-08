@@ -1,7 +1,44 @@
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
 use crate::cpu::micro_code::*;
 use crate::cpu::register::Register;
 use crate::cpu::{Cpu, Error, Result};
 use crate::memory::Memory;
+
+/// Alu operations.
+#[derive(FromPrimitive)]
+pub enum AluOpTable {
+    AddA,
+    AdcA,
+    Sub,
+    SbcA,
+    And,
+    Xor,
+    Or,
+    Cp,
+}
+
+fn decode_8bit_binary_alu(op_y: i32, op_z: i32) -> Vec<MicroCode> {
+    debug_assert!(op_y <= 7 && op_y >= 0);
+    debug_assert!(op_z <= 7 && op_z >= 0);
+    let alu_table_entry = AluOpTable::from_i32(op_y).unwrap();
+    if op_z == 6 {
+        Builder::new()
+            .nothing_then()
+            .read_mem(Register::TEMP_LOW, Register::HL)
+            .binary_op(alu_table_entry.into(), Register::A, Register::TEMP_LOW)
+            .then_done()
+    } else {
+        Builder::new()
+            .binary_op(
+                alu_table_entry.into(),
+                Register::A,
+                Register::from_single_table(op_z),
+            )
+            .then_done()
+    }
+}
 
 // TODO: Refactor into impl.
 /// Executes a "Decode" special stage.
@@ -127,6 +164,8 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                 )
                 .then_done()),
         },
+        // x = 2. Binary Alu.
+        2 => Ok(decode_8bit_binary_alu(op_y, op_z)),
         // x = 3. Assorted.
         3 | _ => match op_z {
             // z = 0. Conditional return, mem-mapped register loads, stack operations.
@@ -211,8 +250,8 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
         },
     }?;
 
-    // The first microcode is special in the sense that it "execute" at the same time as the decode
-    // step. This, however, means that it is limited only to its alu stages.
+    // The first microcode is special in the sense that it executes at the same time as the decode
+    // step. This, however, means that it is limited only to its alu and register control stages.
     let setup_code = micro_codes.remove(0);
     assert!(
         setup_code.memory_stage.is_none(),

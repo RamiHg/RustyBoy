@@ -1,5 +1,5 @@
+use crate::io_registers::{InterruptFlag, LcdControl, LcdStatus, LcdcModeFlag};
 use crate::memory::*;
-use crate::registers::{InterruptFlag, LcdControl, LcdStatus, LcdcModeFlag};
 
 const LCD_WIDTH: u32 = 160;
 const LCD_HEIGHT: u32 = 144;

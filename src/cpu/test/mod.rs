@@ -5,6 +5,9 @@ use crate::memory::Memory;
 use crate::system::System;
 use crate::util::*;
 
+use super::alu;
+
+mod test_alu;
 mod test_load;
 mod test_store;
 
@@ -74,8 +77,8 @@ impl TestContext {
         self
     }
 
-    pub fn assert_mcycles(self, cycles: i64) -> TestContext {
-        assert_eq!(self.0.cycles, cycles);
+    pub fn assert_mcycles(self, cycles: i32) -> TestContext {
+        assert_eq!(self.0.cycles, cycles.into());
         self
     }
 
@@ -90,7 +93,20 @@ impl TestContext {
     }
 
     pub fn assert_mem_16bit_eq(self, address: i32, value: i32) -> TestContext {
-        assert_eq!(self.0.memory.read_general_16(address as usize) as i32, value);
+        assert_eq!(
+            self.0.memory.read_general_16(address as usize) as i32,
+            value
+        );
+        self
+    }
+
+    // Flags register.
+    pub fn assert_flags(self, zero: bool, sub: bool, half_carry: bool, carry: bool) -> TestContext {
+        let flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
+        assert_eq!(flags.zero(), zero);
+        assert_eq!(flags.subtract(), sub);
+        assert_eq!(flags.half_carry(), half_carry);
+        assert_eq!(flags.carry(), carry);
         self
     }
 }

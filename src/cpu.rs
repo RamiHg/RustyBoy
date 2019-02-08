@@ -1,6 +1,8 @@
+
 mod decoder;
 mod micro_code;
 mod register;
+mod alu;
 
 #[cfg(test)]
 mod test;

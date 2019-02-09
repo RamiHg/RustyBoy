@@ -38,6 +38,10 @@ pub enum AluStage {
         lhs: Register,
         rhs: Register,
     },
+    UnaryOp {
+        op: alu::UnaryOp,
+        register: Register,
+    },
 }
 
 pub enum RegisterControl {
@@ -119,6 +123,12 @@ impl Builder {
     pub fn binary_op(mut self, op: alu::BinaryOp, lhs: Register, rhs: Register) -> Builder {
         debug_assert!(self.current_code.alu_stage.is_none());
         self.current_code.alu_stage = Some(AluStage::BinaryOp { op, lhs, rhs });
+        self
+    }
+
+    pub fn unary_op(mut self, op: alu::UnaryOp, register: Register) -> Builder {
+        debug_assert!(self.current_code.alu_stage.is_none());
+        self.current_code.alu_stage = Some(AluStage::UnaryOp { op, register });
         self
     }
 
@@ -229,6 +239,11 @@ impl AluStage {
                 let (result, new_flags) =
                     op.execute(cpu.registers.get(lhs), cpu.registers.get(rhs), flags);
                 cpu.registers.set(lhs, result);
+                cpu.registers.set(Register::F, new_flags.0 as i32);
+            }
+            AluStage::UnaryOp { op, register } => {
+                let (result, new_flags) = op.execute(cpu.registers.get(register), flags);
+                cpu.registers.set(register, result);
                 cpu.registers.set(Register::F, new_flags.0 as i32);
             }
         }

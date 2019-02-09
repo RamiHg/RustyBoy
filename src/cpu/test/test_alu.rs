@@ -4,6 +4,7 @@ use crate::cpu::register::Register;
 use Register::*;
 
 const SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, PC];
+const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
 // Helper constants so that assert_flags isn't a list of bools. (TODO: Make struct instead?)
 const ZERO: bool = true;
 const NZERO: bool = false;
@@ -42,6 +43,24 @@ fn setup_lhs_rhs_carry(
 
 fn setup_lhs_rhs(op: i32, lhs_value: i32, rhs: Register, rhs_value: i32) -> TestContext {
     setup_lhs_rhs_carry(op, lhs_value, rhs, rhs_value, false)
+}
+
+fn setup_unary(reg: Register, value: i32) -> TestContext {
+    if let HL = reg {
+        with_default()
+            .set_mem_8bit(0xD000, value)
+            .set_reg(HL, 0xD000)
+    } else {
+        with_default().set_reg(reg, value)
+    }
+}
+
+fn expect_unary(reg: Register, value: i32, context: TestContext) -> TestContext {
+    if let HL = reg {
+        context.assert_mem_8bit_eq(0xD000, value)
+    } else {
+        context.assert_reg_eq(reg, value)
+    }
 }
 
 fn cycles_for_source(src: Register) -> i32 {
@@ -247,4 +266,50 @@ fn test_cp_a_r() {
         .assert_reg_eq(A, 0x8)
         .assert_flags(ZERO, SUB, NHCY, NCY)
         .assert_mcycles(1);
+}
+
+#[test]
+fn test_inc() {
+    for (&op, &reg) in [0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C]
+        .iter()
+        .zip(UNARY_SOURCES.iter())
+    {
+        expect_unary(
+            reg,
+            0x10,
+            setup_unary(reg, 0x0F)
+                .execute_instructions(&[op])
+                .assert_flags(NZERO, NSUB, HCY, NCY),
+        );
+        expect_unary(
+            reg,
+            0x00,
+            setup_unary(reg, 0xFF)
+                .execute_instructions(&[op])
+                .assert_flags(ZERO, NSUB, HCY, NCY),
+        );
+    }
+}
+
+#[test]
+fn test_dec() {
+    for (&op, &reg) in [0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D]
+        .iter()
+        .zip(UNARY_SOURCES.iter())
+    {
+        expect_unary(
+            reg,
+            0xEF,
+            setup_unary(reg, 0xF0)
+                .execute_instructions(&[op])
+                .assert_flags(NZERO, SUB, HCY, NCY),
+        );
+        expect_unary(
+            reg,
+            0x00,
+            setup_unary(reg, 0x01)
+                .execute_instructions(&[op])
+                .assert_flags(ZERO, SUB, NHCY, NCY),
+        );
+    }
 }

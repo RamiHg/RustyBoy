@@ -1,9 +1,10 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::cpu::micro_code::*;
-use crate::cpu::register::Register;
-use crate::cpu::{Cpu, Error, Result};
+use super::alu;
+use super::micro_code::*;
+use super::register::Register;
+use super::{Cpu, Error, Result};
 use crate::memory::Memory;
 
 /// Alu operations.
@@ -19,11 +20,14 @@ pub enum AluOpTable {
     CpA,
 }
 
+/// Decodes any 8-bit ALU operation in the form of OP A, r.
+/// (e.g. ADD A, C).
 fn decode_8bit_binary_alu(op_y: i32, op_z: i32) -> Vec<MicroCode> {
     debug_assert!(op_y <= 7 && op_y >= 0);
     debug_assert!(op_z <= 7 && op_z >= 0);
     let alu_table_entry = AluOpTable::from_i32(op_y).unwrap();
-    if op_z == 6 {
+    let rhs = Register::from_single_table(op_z);
+    if let Register::HL = rhs {
         Builder::new()
             .nothing_then()
             .read_mem(Register::TEMP_LOW, Register::HL)
@@ -31,15 +35,12 @@ fn decode_8bit_binary_alu(op_y: i32, op_z: i32) -> Vec<MicroCode> {
             .then_done()
     } else {
         Builder::new()
-            .binary_op(
-                alu_table_entry.into(),
-                Register::A,
-                Register::from_single_table(op_z),
-            )
+            .binary_op(alu_table_entry.into(), Register::A, rhs)
             .then_done()
     }
 }
 
+/// Decodes any 8-bit ALU operation in the form of OP A, imm8.
 fn decode_8bit_binary_imm_alu(op_y: i32) -> Vec<MicroCode> {
     debug_assert!(op_y <= 7 && op_y >= 0);
     let alu_table_entry = AluOpTable::from_i32(op_y).unwrap();
@@ -49,6 +50,24 @@ fn decode_8bit_binary_imm_alu(op_y: i32) -> Vec<MicroCode> {
         .increment(IncrementerStage::PC)
         .binary_op(alu_table_entry.into(), Register::A, Register::TEMP_LOW)
         .then_done()
+}
+
+/// Decodes 8bit INC/DECs.
+fn decode_incdec(unary_op: alu::UnaryOp, op_y: i32) -> Vec<MicroCode> {
+    debug_assert!(op_y <= 7 && op_y >= 0);
+    let register = Register::from_single_table(op_y);
+    if let Register::HL = register {
+        // Load the value from memory, increment it, store it again. Takes 3 mcycles.
+        Builder::new()
+            .nothing_then()
+            .read_mem(Register::TEMP_LOW, Register::HL)
+            .unary_op(unary_op, Register::TEMP_LOW)
+            .then()
+            .write_mem(Register::HL, Register::TEMP_LOW)
+            .then_done()
+    } else {
+        Builder::new().unary_op(unary_op, register).then_done()
+    }
 }
 
 // TODO: Refactor into impl.
@@ -140,6 +159,10 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                         .then_done()),
                 }
             }
+            // z = 4. 8-bit inc.
+            4 => Ok(decode_incdec(alu::UnaryOp::Inc, op_y)),
+            // z = 5. 8-bit dec.
+            5 => Ok(decode_incdec(alu::UnaryOp::Dec, op_y)),
             // z = 6. 8-bit immediate loading.
             6 => match op_y {
                 // LD (HL), imm8

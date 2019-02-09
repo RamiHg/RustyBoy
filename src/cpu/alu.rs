@@ -1,4 +1,4 @@
-#![allow(clippy::verbose_bit_mask)]
+use core::convert::From;
 use core::ops::Fn;
 
 use bitfield::bitfield;
@@ -25,13 +25,6 @@ impl FlagRegister {
     }
 }
 
-/// The master table of Alu operations.
-/// This defines all possible operations that the CPU can do.
-pub enum AluOp {
-    Binary(BinaryOp),
-}
-
-#[derive(Debug)]
 pub enum BinaryOp {
     Add,
     Adc,
@@ -43,7 +36,12 @@ pub enum BinaryOp {
     Cp,
 }
 
-impl core::convert::From<decoder::AluOpTable> for BinaryOp {
+pub enum UnaryOp {
+    Inc,
+    Dec,
+}
+
+impl From<decoder::AluOpTable> for BinaryOp {
     fn from(op: decoder::AluOpTable) -> BinaryOp {
         use decoder::AluOpTable;
         use BinaryOp::*;
@@ -85,6 +83,28 @@ impl BinaryOp {
             And => generic_8bit_logical_op(lhs, rhs, true, |x, y| x & y),
             Xor => generic_8bit_logical_op(lhs, rhs, false, |x, y| x ^ y),
             Or => generic_8bit_logical_op(lhs, rhs, false, |x, y| x | y),
+        }
+    }
+}
+
+impl UnaryOp {
+    pub fn execute(&self, value: i32, flags: FlagRegister) -> (i32, FlagRegister) {
+        use UnaryOp::*;
+        match self {
+            Inc => {
+                // Reuse add functionality.
+                let (result, mut flags) = BinaryOp::Add.execute(value, 1, flags);
+                // Carry is not affected.
+                flags.set_carry(false);
+                (result, flags)
+            }
+            Dec => {
+                // Reuse add functionality.
+                let (result, mut flags) = BinaryOp::Sub.execute(value, 1, flags);
+                // Carry is not affected.
+                flags.set_carry(false);
+                (result, flags)
+            }
         }
     }
 }

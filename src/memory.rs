@@ -163,7 +163,7 @@ impl Memory {
 
     pub fn read(&self, raw_address: i32) -> i32 {
         assert!(raw_address >= 0 && raw_address <= 0xFFFF);
-        self.read_general_8(raw_address as usize) as i32
+        self.read_general_8(raw_address as usize).into()
     }
 
     /// Stores should theoretically never crash. So we do not return a Result.
@@ -222,7 +222,8 @@ impl Memory {
     }
 
     pub fn read_general_16(&self, location: usize) -> u16 {
-        self.read_general_8(location) as u16 | ((self.read_general_8(location + 1) as u16) << 8)
+        u16::from(self.read_general_8(location))
+            | (u16::from(self.read_general_8(location + 1)) << 8)
     }
 
     pub fn store_memory_8(&mut self, location: usize, value: u8) {

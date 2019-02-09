@@ -122,8 +122,8 @@ impl Gpu {
     }
 
     fn render_scanline(&mut self, memory: &Memory) {
-        let scroll_x = memory.read_reg(RegisterAddr::ScrollX) as u32;
-        let scroll_y = memory.read_reg(RegisterAddr::ScrollY) as u32;
+        let scroll_x: u32 = memory.read_reg(RegisterAddr::ScrollX).into();
+        let scroll_y: u32 = memory.read_reg(RegisterAddr::ScrollY).into();
 
         let lcdc = memory.read_register(LcdControl);
         let palette = memory.read_reg(RegisterAddr::BgPalette);
@@ -149,8 +149,8 @@ impl Gpu {
 
             let tile_unsigned_index = memory.read_general_8(tilemap_location + tilemap_index);
 
-            let tile_index = if lcdc.bg_set_select() as u8 == 0 {
-                ((tile_unsigned_index as i8) as i32 + 128) as usize
+            let tile_index: usize = if lcdc.bg_set_select() as u8 == 0 {
+                (i32::from(tile_unsigned_index) + 128) as usize
             } else {
                 tile_unsigned_index as usize
             };

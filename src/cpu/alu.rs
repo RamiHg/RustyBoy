@@ -35,6 +35,12 @@ pub enum AluOp {
 pub enum BinaryOp {
     Add,
     Adc,
+    Sub,
+    Sbc,
+    And,
+    Xor,
+    Or,
+    Cp,
 }
 
 impl core::convert::From<decoder::AluOpTable> for BinaryOp {
@@ -44,7 +50,12 @@ impl core::convert::From<decoder::AluOpTable> for BinaryOp {
         match op {
             AluOpTable::AddA => Add,
             AluOpTable::AdcA => Adc,
-            _ => panic!("Implement me."),
+            AluOpTable::SubA => Sub,
+            AluOpTable::SbcA => Sbc,
+            AluOpTable::AndA => And,
+            AluOpTable::XorA => Xor,
+            AluOpTable::OrA => Or,
+            AluOpTable::CpA => Cp,
         }
     }
 }
@@ -53,23 +64,33 @@ impl BinaryOp {
     pub fn execute(&self, lhs: i32, rhs: i32, flags: FlagRegister) -> (i32, FlagRegister) {
         use BinaryOp::*;
         match self {
-            Add => generic_8bit_binary_op(lhs, rhs, 0, |x, y| x + y),
-            Adc => generic_8bit_binary_op(lhs, rhs, flags.carry().into(), |x, y| x + y),
+            Add => generic_8bit_math_op(lhs, rhs, 0, |x, y| x + y),
+            Adc => generic_8bit_math_op(lhs, rhs, flags.carry().into(), |x, y| x + y),
+            Sub => {
+                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 0, |x, y| x - y);
+                flags.set_subtract(true);
+                (result, flags)
+            }
+            Sbc => {
+                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 1, |x, y| x - y);
+                flags.set_subtract(true);
+                (result, flags)
+            }
+            Cp => {
+                // CP is basically a subtract with the results being ignored.
+                let (_, mut flags) = generic_8bit_math_op(lhs, rhs, 0, |x, y| x - y);
+                flags.set_subtract(true);
+                (lhs, flags)
+            }
+            And => generic_8bit_logical_op(lhs, rhs, true, |x, y| x & y),
+            Xor => generic_8bit_logical_op(lhs, rhs, false, |x, y| x ^ y),
+            Or => generic_8bit_logical_op(lhs, rhs, false, |x, y| x | y),
         }
-    }
-
-    fn add(lhs: i32, rhs: i32, add_carry: bool, mut flags: FlagRegister) -> (i32, FlagRegister) {
-        flags.set_subtract(false);
-        flags.set_half_carry(((lhs & 0xF) + (rhs & 0xF) + (add_carry as i32)) & 0x10 != 0);
-        let result = lhs + rhs + (add_carry as i32);
-        flags.set_carry(result & 0x100 != 0);
-        flags.set_zero(result.trailing_zeros() == 8);
-        (result & 0xFF, flags)
     }
 }
 
 /// A generic 8-bit binary op (e.g. add or subtract) that also computes flags.
-fn generic_8bit_binary_op<T>(lhs: i32, rhs: i32, prev_carry: i32, op: T) -> (i32, FlagRegister)
+fn generic_8bit_math_op<T>(lhs: i32, rhs: i32, prev_carry: i32, op: T) -> (i32, FlagRegister)
 where
     T: Fn(i32, i32) -> i32,
 {
@@ -84,6 +105,23 @@ where
     )
 }
 
+/// Slightly simpler version of generic_8bit_math_op that doesn't care about carry.
+fn generic_8bit_logical_op<T>(
+    lhs: i32,
+    rhs: i32,
+    has_high_carry: bool,
+    op: T,
+) -> (i32, FlagRegister)
+where
+    T: Fn(i32, i32) -> i32,
+{
+    let result = op(lhs, rhs) & 0xFF;
+    (
+        result,
+        FlagRegister::new(false, has_high_carry, false, result == 0),
+    )
+}
+
 pub fn inc_u16(a: i32) -> i32 {
     assert!(is_16bit(a));
     i32::from((a as u16).wrapping_add(1))
@@ -95,82 +133,6 @@ pub fn dec_u16(a: i32) -> i32 {
 }
 
 /*
-fn get_add_hc(a: i32, b: i32) -> i32 {
-    ((a & 0xf) + (b & 0xf)) & 0xF0
-}
-
-fn get_sub_hc(a: i32, b: i32) -> i32 {
-    (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
-}
-
-pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
-    let a_i32 = a as i32;
-    let carry = if prev_c != 0 { 1 } else { 0 };
-    let b_i32 = b as i32;
-
-    let hc = ((a_i32 & 0xF) + (b_i32 & 0xF) + carry) & 0xF0;
-    let result_i32 = a_i32 + b_i32 + carry;
-    let c = result_i32 & 0xF00;
-    let result = (result_i32 & 0xFF) as u8;
-
-    let z = FlagRegister::new(c as u32, hc as u32, 0, result == 0);
-
-    (result, z)
-}
-
-pub fn sub_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    let a_i32 = a as i32;
-    let b_i32 = b as i32;
-
-    let hc = get_sub_hc(a_i32, b_i32);
-    let result_i32 = a_i32 - b_i32;
-    let c = result_i32 & !0xFF;
-    let result = (result_i32 & 0xFF) as u8;
-
-    let z = FlagRegister::new(c as u32, hc as u32, 1, result == 0);
-
-    (result, z)
-}
-
-pub fn sbc_i8_i8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {
-    let a_i32 = a as i32;
-    let carry = if prev_c != 0 { 1 } else { 0 };
-    let b_i32 = b as i32;
-
-    let hc = ((a_i32 & 0xF) - (b_i32 & 0xF) - carry) & !0xF;
-    let result = a_i32 - b_i32 - carry;
-    let c = result & !0xFF;
-
-    let z = FlagRegister::new(c as u32, hc as u32, 1, (result & 0xFF) == 0);
-
-    ((result & 0xFF) as u8, z)
-}
-
-pub fn and_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    let result = a & b;
-
-    let z = FlagRegister::new(0, 1, 0, result == 0);
-
-    (result, z)
-}
-
-pub fn or_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    let result = a | b;
-    let z = FlagRegister::new(0, 0, 0, result == 0);
-    (result, z)
-}
-
-pub fn xor_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    let result = a ^ b;
-    let z = FlagRegister::new(0, 0, 0, result == 0);
-    (result, z)
-}
-
-pub fn cp_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    // This is basically A - n with the result thrown away
-    let (_, flags) = sub_u8_u8(a, b);
-    (a, flags)
-}
 
 // Having a useless first parameter to fit with helper functions in cpu
 pub fn inc_u8_u8(_unused: u8, a: u8, current_flags: &FlagRegister) -> (u8, FlagRegister) {

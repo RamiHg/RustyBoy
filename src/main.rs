@@ -2,8 +2,6 @@
 #![allow(dead_code)]
 #![deny(warnings)]
 #![deny(clippy::all)]
-#![allow(clippy::unreadable_literal)]
-#![allow(clippy::cast_lossless)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
 #![allow(clippy::useless_attribute)]
 // Remove when this file is uncommented out.
@@ -15,8 +13,8 @@ mod cart;
 mod cpu;
 mod debug;
 mod gpu;
-mod memory;
 mod io_registers;
+mod memory;
 mod system;
 mod util;
 

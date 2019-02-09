@@ -101,7 +101,7 @@ impl TestContext {
 
     pub fn assert_mem_16bit_eq(self, address: i32, value: i32) -> TestContext {
         assert_eq!(
-            self.0.memory.read_general_16(address as usize) as i32,
+            i32::from(self.0.memory.read_general_16(address as usize)),
             value
         );
         self

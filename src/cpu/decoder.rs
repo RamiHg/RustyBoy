@@ -11,12 +11,12 @@ use crate::memory::Memory;
 pub enum AluOpTable {
     AddA,
     AdcA,
-    Sub,
+    SubA,
     SbcA,
-    And,
-    Xor,
-    Or,
-    Cp,
+    AndA,
+    XorA,
+    OrA,
+    CpA,
 }
 
 fn decode_8bit_binary_alu(op_y: i32, op_z: i32) -> Vec<MicroCode> {
@@ -40,6 +40,17 @@ fn decode_8bit_binary_alu(op_y: i32, op_z: i32) -> Vec<MicroCode> {
     }
 }
 
+fn decode_8bit_binary_imm_alu(op_y: i32) -> Vec<MicroCode> {
+    debug_assert!(op_y <= 7 && op_y >= 0);
+    let alu_table_entry = AluOpTable::from_i32(op_y).unwrap();
+    Builder::new()
+        .nothing_then()
+        .read_mem(Register::TEMP_LOW, Register::PC)
+        .increment(IncrementerStage::PC)
+        .binary_op(alu_table_entry.into(), Register::A, Register::TEMP_LOW)
+        .then_done()
+}
+
 // TODO: Refactor into impl.
 /// Executes a "Decode" special stage.
 /// Assumes that the current micro-code has already read (and will increment) PC.
@@ -50,9 +61,9 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
 
     let opcode = cpu.registers.get(Register::TEMP_LOW);
     // Deconstruct the op into its components.
-    let op_z = opcode & 0b00000111;
-    let op_y = (opcode & 0b00111000) >> 3;
-    let op_x = (opcode & 0b11000000) >> 6;
+    let op_z = opcode & 0b0000_0111;
+    let op_y = (opcode & 0b0011_1000) >> 3;
+    let op_x = (opcode & 0b1100_0000) >> 6;
     let op_q = op_y & 0b001;
     let op_p = (op_y & 0b110) >> 1;
 
@@ -246,6 +257,8 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                     .then_done()),
                 _ => Err(err),
             },
+            // z = 6. Alu on immediate.
+            6 => Ok(decode_8bit_binary_imm_alu(op_y)),
             _ => Err(err),
         },
     }?;

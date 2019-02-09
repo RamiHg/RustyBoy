@@ -1,4 +1,5 @@
 #![allow(clippy::verbose_bit_mask)]
+use core::ops::Fn;
 
 use bitfield::bitfield;
 
@@ -14,9 +15,15 @@ bitfield! {
     pub zero, set_zero: 7;
 }
 
-// impl<T> FlagRegister<[T]> {
-//     pub fn reset(&mut self) {}
-// }
+impl FlagRegister {
+    pub fn new(carry: bool, half_carry: bool, subtract: bool, zero: bool) -> FlagRegister {
+        let bits = ((0b0001_0000) * (carry as i32))
+            | ((0b0010_0000) * (half_carry as i32))
+            | ((0b0100_0000) * (subtract as i32))
+            | ((0b1000_0000) * (zero as i32));
+        FlagRegister(bits as u32)
+    }
+}
 
 /// The master table of Alu operations.
 /// This defines all possible operations that the CPU can do.
@@ -27,6 +34,7 @@ pub enum AluOp {
 #[derive(Debug)]
 pub enum BinaryOp {
     Add,
+    Adc,
 }
 
 impl core::convert::From<decoder::AluOpTable> for BinaryOp {
@@ -35,6 +43,7 @@ impl core::convert::From<decoder::AluOpTable> for BinaryOp {
         use BinaryOp::*;
         match op {
             AluOpTable::AddA => Add,
+            AluOpTable::AdcA => Adc,
             _ => panic!("Implement me."),
         }
     }
@@ -44,18 +53,35 @@ impl BinaryOp {
     pub fn execute(&self, lhs: i32, rhs: i32, flags: FlagRegister) -> (i32, FlagRegister) {
         use BinaryOp::*;
         match self {
-            Add => BinaryOp::add(lhs, rhs, flags),
+            Add => generic_8bit_binary_op(lhs, rhs, 0, |x, y| x + y),
+            Adc => generic_8bit_binary_op(lhs, rhs, flags.carry().into(), |x, y| x + y),
         }
     }
 
-    fn add(lhs: i32, rhs: i32, mut flags: FlagRegister) -> (i32, FlagRegister) {
+    fn add(lhs: i32, rhs: i32, add_carry: bool, mut flags: FlagRegister) -> (i32, FlagRegister) {
         flags.set_subtract(false);
-        flags.set_half_carry(((lhs & 0xF) + (rhs & 0xF)) & 0x10 != 0);
-        let result = lhs + rhs;
+        flags.set_half_carry(((lhs & 0xF) + (rhs & 0xF) + (add_carry as i32)) & 0x10 != 0);
+        let result = lhs + rhs + (add_carry as i32);
         flags.set_carry(result & 0x100 != 0);
         flags.set_zero(result.trailing_zeros() == 8);
         (result & 0xFF, flags)
     }
+}
+
+/// A generic 8-bit binary op (e.g. add or subtract) that also computes flags.
+fn generic_8bit_binary_op<T>(lhs: i32, rhs: i32, prev_carry: i32, op: T) -> (i32, FlagRegister)
+where
+    T: Fn(i32, i32) -> i32,
+{
+    // Compute the half-carry (or borrow).
+    let half_carry = (op(op(lhs & 0xF, rhs & 0xF), prev_carry) & 0x10) != 0;
+    let result_full = op(op(lhs, rhs), prev_carry);
+    let carry = (result_full & 0x100) != 0;
+    let result = result_full & 0xFF;
+    (
+        result,
+        FlagRegister::new(carry, half_carry, false, result == 0),
+    )
 }
 
 pub fn inc_u16(a: i32) -> i32 {
@@ -75,21 +101,6 @@ fn get_add_hc(a: i32, b: i32) -> i32 {
 
 fn get_sub_hc(a: i32, b: i32) -> i32 {
     (((a & 0xF) - (b & 0xf)) as u32 & 0xFFFFFFF0) as i32
-}
-
-pub fn add_u8_u8(a: u8, b: u8) -> (u8, FlagRegister) {
-    // Cast up both to i32s
-    let a_i32 = a as i32;
-    let b_i32 = b as i32;
-
-    let hc = get_add_hc(a_i32, b_i32);
-    let result_i32 = a_i32 + b_i32;
-    let c = result_i32 & 0xF00;
-    let result = (result_i32 & 0xFF) as u8;
-
-    let z = FlagRegister::new(c as u32, hc as u32, 0, result == 0);
-
-    (result, z)
 }
 
 pub fn adc_u8_u8(a: u8, b: u8, prev_c: u8) -> (u8, FlagRegister) {

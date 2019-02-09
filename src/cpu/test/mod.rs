@@ -28,7 +28,7 @@ impl System for TestSystem {
     }
 }
 
-pub struct TestContext(TestSystem);
+pub struct TestContext(Box<TestSystem>);
 
 pub fn with_default() -> TestContext {
     TestContext::with_default()
@@ -38,11 +38,11 @@ impl TestContext {
     fn with_default() -> TestContext {
         let memory = Memory::new(Box::new(ErrorCart));
         let cpu = Cpu::new();
-        TestContext(TestSystem {
+        TestContext(Box::new(TestSystem {
             cpu,
             memory,
             cycles: 0,
-        })
+        }))
     }
 
     pub fn set_mem_8bit(mut self, addr: i32, value: i32) -> TestContext {
@@ -58,6 +58,13 @@ impl TestContext {
 
     pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
         self.0.cpu.registers.set(register, value);
+        self
+    }
+
+    pub fn set_carry(mut self, is_set: bool) -> TestContext {
+        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
+        flags.set_carry(is_set);
+        self.0.cpu.registers.set(Register::F, flags.0 as i32);
         self
     }
 

@@ -58,3 +58,40 @@ fn test_add_a_r() {
         .assert_flags(NZERO, NSUB, HCY, NCY)
         .assert_mcycles(1);
 }
+
+#[test]
+fn test_adc_a_r() {
+    for (&op, &src) in [0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E]
+        .iter()
+        .zip(SINGLES.iter())
+    {
+        setup_source(src, 1)
+            .set_carry(true)
+            .set_reg(A, 0x7E)
+            .execute_instructions(&[op])
+            .assert_reg_eq(A, 0x80)
+            .assert_flags(NZERO, NSUB, HCY, NCY)
+            .assert_mcycles(cycles_for_source(src));
+        setup_source(src, 0x80)
+            .set_carry(true)
+            .set_reg(A, 0x80)
+            .execute_instructions(&[op])
+            .assert_reg_eq(A, 1)
+            .assert_flags(NZERO, NSUB, NHCY, CY)
+            .assert_mcycles(cycles_for_source(src));
+        setup_source(src, 0x80)
+            .set_carry(false)
+            .set_reg(A, 0x80)
+            .execute_instructions(&[op])
+            .assert_reg_eq(A, 0)
+            .assert_flags(ZERO, NSUB, NHCY, CY)
+            .assert_mcycles(cycles_for_source(src));
+    }
+    // ADC A, A
+    with_default()
+        .set_reg(A, 0x8)
+        .execute_instructions(&[0x87])
+        .assert_reg_eq(A, 0x10)
+        .assert_flags(NZERO, NSUB, HCY, NCY)
+        .assert_mcycles(1);
+}

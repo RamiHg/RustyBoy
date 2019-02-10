@@ -8,7 +8,6 @@ use crate::util::is_16bit;
 
 bitfield! {
     pub struct FlagRegister(u32);
-    //u8;
     pub carry, set_carry: 4;
     pub half_carry, set_half_carry: 5;
     pub subtract, set_subtract: 6;
@@ -59,7 +58,7 @@ impl From<decoder::AluOpTable> for BinaryOp {
 }
 
 impl BinaryOp {
-    pub fn execute(&self, lhs: i32, rhs: i32, flags: FlagRegister) -> (i32, FlagRegister) {
+    pub fn execute(&self, lhs: i32, rhs: i32, flags: &FlagRegister) -> (i32, FlagRegister) {
         use BinaryOp::*;
         match self {
             Add => generic_8bit_math_op(lhs, rhs, 0, |x, y| x + y),
@@ -88,7 +87,7 @@ impl BinaryOp {
 }
 
 impl UnaryOp {
-    pub fn execute(&self, value: i32, flags: FlagRegister) -> (i32, FlagRegister) {
+    pub fn execute(&self, value: i32, flags: &FlagRegister) -> (i32, FlagRegister) {
         use UnaryOp::*;
         match self {
             Inc => {

@@ -68,6 +68,20 @@ impl TestContext {
         self
     }
 
+    pub fn set_zero(mut self, is_set: bool) -> TestContext {
+        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
+        flags.set_zero(is_set);
+        self.0.cpu.registers.set(Register::F, flags.0 as i32);
+        self
+    }
+
+    pub fn set_sub(mut self, is_set: bool) -> TestContext {
+        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
+        flags.set_subtract(is_set);
+        self.0.cpu.registers.set(Register::F, flags.0 as i32);
+        self
+    }
+
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the resulting
     /// system state.
     pub fn execute_instructions(mut self, instructions: &[u8]) -> TestContext {

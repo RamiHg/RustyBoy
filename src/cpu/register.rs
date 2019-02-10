@@ -70,6 +70,21 @@ impl Register {
             _ => panic!("Unexpected pair_value: {}.", pair_value),
         }
     }
+
+    /// Decomposes a 16-bit register into its high and low bytes.
+    pub fn decompose_pair(self) -> (Register, Register) {
+        debug_assert!(self.is_pair());
+        use Register::*;
+        match self {
+            BC => (B, C),
+            DE => (D, E),
+            HL => (H, L),
+            SP => (SP_HIGH, SP_LOW),
+            PC => (PC_HIGH, PC_LOW),
+            TEMP => (TEMP_HIGH, TEMP_LOW),
+            _ => panic!("Unexpected match result."),
+        }
+    }
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.

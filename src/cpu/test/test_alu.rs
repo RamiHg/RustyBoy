@@ -95,6 +95,54 @@ fn test_add_a() {
 }
 
 #[test]
+fn test_add_hl_rr() {
+    for (&op, &src) in [0x09, 0x19, 0x39].iter().zip([BC, DE, SP].iter()) {
+        with_default()
+            .set_reg(HL, 0xFF)
+            .set_reg(src, 0xFF)
+            .set_zero(true)
+            .execute_instructions(&[op])
+            .assert_reg_eq(HL, 0x1FE)
+            .assert_flags(ZERO, NSUB, NHCY, NCY)
+            .assert_mcycles(2);
+        with_default()
+            .set_reg(HL, 0xFFFE)
+            .set_reg(src, 0x2)
+            .set_zero(false)
+            .execute_instructions(&[op])
+            .assert_reg_eq(HL, 0x0)
+            .assert_flags(NZERO, NSUB, HCY, CY)
+            .assert_mcycles(2);
+    }
+    with_default()
+        .set_reg(HL, 0xFF)
+        .execute_instructions(&[0x29])
+        .assert_reg_eq(HL, 0x1FE)
+        .assert_flags(NZERO, NSUB, NHCY, NCY)
+        .assert_mcycles(2);
+}
+
+#[test]
+fn test_add_sp_i8() {
+    with_default()
+        .set_reg(SP, 0xFF00)
+        .set_zero(true)
+        .set_sub(true)
+        .execute_instructions(&[0xE8, 0xFF])
+        .assert_reg_eq(SP, 0xFEFF)
+        .assert_flags(NZERO, NSUB, HCY, CY)
+        .assert_mcycles(4);
+    with_default()
+        .set_reg(SP, 0xFF00)
+        .set_zero(false)
+        .set_sub(false)
+        .execute_instructions(&[0xE8, 0x1F])
+        .assert_reg_eq(SP, 0xFF1F)
+        .assert_flags(NZERO, NSUB, NHCY, NCY)
+        .assert_mcycles(4);
+}
+
+#[test]
 fn test_adc_a() {
     for (&op, &src) in [0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0xCE]
         .iter()

@@ -70,6 +70,23 @@ fn decode_incdec(unary_op: alu::UnaryOp, op_y: i32) -> Vec<MicroCode> {
     }
 }
 
+/// After two registers are prepared for a 16bit add, this helper method actually performs the
+/// add.
+fn continue_16bit_add(builder: Builder, lhs: Register, rhs: Register) -> Builder {
+    let (lhs_high, lhs_low) = lhs.decompose_pair();
+    let (rhs_high, rhs_low) = rhs.decompose_pair();
+    // We only want to preseve the zero bit of the flags register.
+    let flags_restore = alu::FlagRegister::new(false, false, false, true);
+    builder
+        // Save the flags register to be able to preserve the zero bit.
+        .move_reg(Register::TEMP_LOW, Register::F)
+        .binary_op(alu::BinaryOp::Add, lhs_low, rhs_low)
+        .then()
+        .binary_op(alu::BinaryOp::Adc, lhs_high, rhs_high)
+        // Restore the zero flags bit.
+        .post_alu_restore_flags(Register::TEMP_LOW, flags_restore)
+}
+
 // TODO: Refactor into impl.
 /// Executes a "Decode" special stage.
 /// Assumes that the current micro-code has already read (and will increment) PC.
@@ -132,7 +149,13 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                     .move_reg(Register::from_sp_pair_table(op_p), Register::TEMP)
                     .increment(IncrementerStage::PC)
                     .then_done()),
-                1 | _ => Err(err),
+                // q = 1. ADD HL, rr
+                1 | _ => Ok(continue_16bit_add(
+                    Builder::new(),
+                    Register::HL,
+                    Register::from_sp_pair_table(op_p),
+                )
+                .then_done()),
             },
             // z = 2
             2 => {
@@ -213,6 +236,23 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                     .then()
                     .write_mem(Register::TEMP, Register::A)
                     .then_done()),
+                // y = 5. ADD SP, i8.
+                5 => Ok(Builder::new()
+                    .nothing_then()
+                    .read_mem(Register::TEMP_LOW, Register::PC)
+                    .set_reg(Register::TEMP_HIGH, 0)
+                    .increment(IncrementerStage::PC)
+                    .binary_op(alu::BinaryOp::Add, Register::SP_LOW, Register::TEMP_LOW)
+                    .then()
+                    .sign_extend(Register::TEMP_LOW, Register::TEMP_LOW)
+                    .then()
+                    .binary_op(alu::BinaryOp::Adc, Register::SP_HIGH, Register::TEMP_LOW)
+                    // Use TEMP_HIGH to clear out Z and N.
+                    .post_alu_restore_flags(
+                        Register::TEMP_HIGH,
+                        alu::FlagRegister::new(false, false, true, true),
+                    )
+                    .then_done()),
                 // y = 6. LD A, (0xFF00 + n)
                 6 => Ok(Builder::new()
                     .nothing_then()
@@ -245,7 +285,7 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                 // y = 4. LD (0xFF00 + C), A
                 4 => Ok(Builder::new()
                     .set_reg(Register::TEMP_HIGH, 0xFF)
-                    .move_reg(Register::TEMP_LOW, Register::C)
+                    .post_alu_move_reg(Register::TEMP_LOW, Register::C)
                     .then()
                     .write_mem(Register::TEMP, Register::A)
                     .then_done()),
@@ -263,7 +303,7 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
                 // y = 6. LD A, (0xFF00 + C)
                 6 => Ok(Builder::new()
                     .set_reg(Register::TEMP_HIGH, 0xFF)
-                    .move_reg(Register::TEMP_LOW, Register::C)
+                    .post_alu_move_reg(Register::TEMP_LOW, Register::C)
                     .then()
                     .read_mem(Register::A, Register::TEMP)
                     .then_done()),
@@ -299,7 +339,7 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
         "Cannot use incrementers during the first machine cycle: {:?}.",
         setup_code.incrementer_stage
     );
-    assert!(setup_code.special_stage.is_none());
+    debug_assert!(!setup_code.has_decode_stage);
     let setup_result = setup_code.execute(cpu, memory)?;
     assert!(setup_result.side_effect.is_none());
     // Microcode cannot mark as done if there are other micro codes to execute!

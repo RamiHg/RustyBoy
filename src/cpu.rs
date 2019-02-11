@@ -1,8 +1,7 @@
-
+mod alu;
 mod decoder;
 mod micro_code;
 mod register;
-mod alu;
 
 #[cfg(test)]
 mod test;
@@ -12,7 +11,7 @@ pub use self::micro_code::{Output, SideEffect};
 
 use core::fmt;
 
-use crate::cpu::micro_code::{Builder, MicroCode};
+use crate::cpu::micro_code::MicroCode;
 use crate::memory::{Memory, MemoryError};
 
 // #[derive(Debug)]
@@ -58,7 +57,7 @@ impl Cpu {
     pub fn execute_machine_cycle(&mut self, memory: &Memory) -> Result<Output> {
         if self.micro_code_stack.is_empty() {
             // Run the decoder to get a bunch of microcodes.
-            self.micro_code_stack = Builder::decode();
+            self.micro_code_stack = decoder::build_decode();
         }
         let top = self.micro_code_stack.remove(0);
         let micro_code_output = top.execute(self, memory)?;

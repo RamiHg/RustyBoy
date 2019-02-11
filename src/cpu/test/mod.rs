@@ -1,13 +1,13 @@
 use crate::cart::test::ErrorCart;
+use crate::cpu::alu::Flags;
 use crate::cpu::register::Register;
 use crate::cpu::*;
 use crate::memory::Memory;
 use crate::system::System;
-use crate::util::*;
 
-use super::alu;
-
-mod test_alu;
+mod test_16bit_alu;
+mod test_8bit_alu;
+mod test_flow;
 mod test_load;
 mod test_store;
 
@@ -50,51 +50,50 @@ impl TestContext {
         self
     }
 
-    pub fn set_mem_16bit(mut self, addr: i32, value: i32) -> TestContext {
-        assert!(is_16bit(value));
-        self.0.memory.store_general_16(addr as usize, value as u16);
-        self
-    }
-
     pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
         self.0.cpu.registers.set(register, value);
         self
     }
 
-    pub fn set_carry(mut self, is_set: bool) -> TestContext {
-        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
-        flags.set_carry(is_set);
-        self.0.cpu.registers.set(Register::F, flags.0 as i32);
+    pub fn set_flag(mut self, flag: Flags, is_set: bool) -> TestContext {
+        let mut current_flags = Flags::from_bits(self.0.cpu.registers.get(Register::F)).unwrap();
+        current_flags.set(flag, is_set);
+        self.0.cpu.registers.set(Register::F, current_flags.bits());
         self
     }
 
-    pub fn set_zero(mut self, is_set: bool) -> TestContext {
-        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
-        flags.set_zero(is_set);
-        self.0.cpu.registers.set(Register::F, flags.0 as i32);
-        self
+    pub fn set_carry(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::CARRY, is_set)
     }
 
-    pub fn set_sub(mut self, is_set: bool) -> TestContext {
-        let mut flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
-        flags.set_subtract(is_set);
-        self.0.cpu.registers.set(Register::F, flags.0 as i32);
-        self
+    pub fn set_zero(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::ZERO, is_set)
+    }
+
+    pub fn set_sub(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::SUB, is_set)
     }
 
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the resulting
     /// system state.
     pub fn execute_instructions(mut self, instructions: &[u8]) -> TestContext {
         // Copy over the instructions into internal RAM.
-        self.0.memory.mem()[0xC000..0xC000 + instructions.len()].copy_from_slice(instructions);
+        self = self.set_mem_range(0xC000, instructions);
         self.0.cpu.registers.set(Register::PC, 0xC000);
-        while self.0.cpu.registers.get(Register::PC) < 0xC000 + instructions.len() as i32 {
+        // Don't let any test go longer than 100 cycles.
+        let mut num_cycles_left = 100;
+        while self.0.cpu.registers.get(Register::PC) != 0xC000 + instructions.len() as i32 {
             while !self.0.execute_machine_cycle().unwrap().is_done {}
+            num_cycles_left -= 1;
+            if num_cycles_left <= 0 {
+                panic!("Test lasting longer than 100 cycles. Most likely infinite loop.");
+            }
         }
-        assert_eq!(
-            self.0.cpu.registers.get(Register::PC),
-            0xC000 + instructions.len() as i32
-        );
+        self
+    }
+
+    pub fn set_mem_range(mut self, address: usize, values: &[u8]) -> TestContext {
+        self.0.memory.mem()[address..address + values.len()].copy_from_slice(values);
         self
     }
 
@@ -122,12 +121,9 @@ impl TestContext {
     }
 
     // Flags register.
-    pub fn assert_flags(self, zero: bool, sub: bool, half_carry: bool, carry: bool) -> TestContext {
-        let flags = alu::FlagRegister(self.0.cpu.registers.get(Register::F) as u32);
-        assert_eq!(flags.zero(), zero);
-        assert_eq!(flags.subtract(), sub);
-        assert_eq!(flags.half_carry(), half_carry);
-        assert_eq!(flags.carry(), carry);
+    pub fn assert_flags(self, expected: Flags) -> TestContext {
+        let flags = Flags::from_bits(self.0.cpu.registers.get(Register::F)).unwrap();
+        assert_eq!(flags, expected);
         self
     }
 }

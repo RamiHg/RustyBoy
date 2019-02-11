@@ -4,11 +4,16 @@ use crate::cpu::{Cpu, Result};
 use crate::memory::Memory;
 
 use super::alu;
-use alu::{dec_u16, inc_u16};
 
 pub enum SideEffect {
-    Write { raw_address: i32, value: i32 },
+    Write {
+        raw_address: i32,
+        value: i32,
+    },
     Decode(Vec<MicroCode>),
+    /// Triggers an early instruction end by dropping the rest of the microcodes in the stack.
+    /// Happens during conditional calls/returns.
+    DropRemainingMicroCodes,
 }
 
 /// The output of a micro code execution.
@@ -30,7 +35,8 @@ pub struct Output {
 /// 3. The last tick. There is where most of the logic and ALU happens. It is modeled as separate
 ///     components in the following order:
 ///     a-1) Decoder stage: If set, will run the decoder logic.
-///     a) IncrementerStage: Simple 16-bit incrementer. Probably exists in real hardware.
+///     a) IncrementerStage: Simple 16-bit incrementer. Probably exists in real hardware. Does not
+///         affect or real flags.
 ///     b) ALU Stage. Various ALU operations happen here.
 ///     c) Post-ALU register control: Convenience stage that can do simple register moves/sets.
 
@@ -49,7 +55,7 @@ pub enum MemoryStage {
     },
 }
 
-pub enum AluStage {
+pub enum AluOp {
     BinaryOp {
         op: alu::BinaryOp,
         lhs: Register,
@@ -59,33 +65,59 @@ pub enum AluStage {
         op: alu::UnaryOp,
         register: Register,
     },
+    Move {
+        destination: Register,
+        source: Register,
+    },
+}
+
+pub struct AluStage {
+    pub op: AluOp,
+    pub flag_condition: Option<FlagCondition>,
+}
+
+#[derive(Debug)]
+pub enum RegisterControl {
+    Set(Register, i32),
+    Move(Register, Register),
+    RestoreFlags {
+        source: Register,
+        mask: alu::Flags,
+    },
+    // Moves source into destination if flag conditions are met.
+    // ConditionalMove {
+    //     destination: Register,
+    //     source: Register,
+    //     flags: alu::Flags,
+    //     is_set: bool,
+    // },
     SignExtend {
         destination: Register,
         source: Register,
     },
 }
 
-pub enum RegisterControl {
-    Set(Register, i32),
-    Move(Register, Register),
-    RestoreFlags {
-        source: Register,
-        mask: alu::FlagRegister,
-    },
-}
-
 #[derive(Debug)]
 pub enum IncrementerStage {
-    PC,
-    HLI,
-    HLD,
-    TEMP,
+    Increment(Register),
+    Decrement(Register),
+}
+
+pub enum DecoderStage {
+    Decode,
+    ConditionalDone(FlagCondition),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FlagCondition {
+    pub test_flags: alu::Flags,
+    pub test_is_set: bool,
 }
 
 pub struct MicroCode {
     pub memory_stage: Option<MemoryStage>,
     pub register_control_stage: Option<RegisterControl>,
-    pub has_decode_stage: bool,
+    pub decoder_stage: Option<DecoderStage>,
     pub incrementer_stage: Option<IncrementerStage>,
     pub alu_stage: Option<AluStage>,
     pub post_alu_control_stage: Option<RegisterControl>,
@@ -93,139 +125,17 @@ pub struct MicroCode {
     pub is_done: bool,
 }
 
-pub struct Builder {
-    current_code: MicroCode,
-    codes: Vec<MicroCode>,
-}
-
 impl MicroCode {
     pub fn new() -> MicroCode {
         MicroCode {
             memory_stage: None,
             register_control_stage: None,
-            has_decode_stage: false,
+            decoder_stage: None,
             incrementer_stage: None,
             alu_stage: None,
             post_alu_control_stage: None,
             is_done: false,
         }
-    }
-}
-
-impl Builder {
-    pub fn new() -> Builder {
-        Builder {
-            current_code: MicroCode::new(),
-            codes: Vec::new(),
-        }
-    }
-
-    pub fn nothing_then(mut self) -> Builder {
-        self.current_code = MicroCode::new();
-        self.then()
-    }
-
-    pub fn then(mut self) -> Builder {
-        self.codes.push(self.current_code);
-        self.current_code = MicroCode::new();
-        self
-    }
-
-    pub fn then_done(mut self) -> Vec<MicroCode> {
-        self.current_code.is_done = true;
-        self.codes.push(self.current_code);
-        self.codes
-    }
-
-    // ALU.
-    pub fn binary_op(mut self, op: alu::BinaryOp, lhs: Register, rhs: Register) -> Builder {
-        debug_assert!(self.current_code.alu_stage.is_none());
-        self.current_code.alu_stage = Some(AluStage::BinaryOp { op, lhs, rhs });
-        self
-    }
-
-    pub fn unary_op(mut self, op: alu::UnaryOp, register: Register) -> Builder {
-        debug_assert!(self.current_code.alu_stage.is_none());
-        self.current_code.alu_stage = Some(AluStage::UnaryOp { op, register });
-        self
-    }
-
-    pub fn sign_extend(mut self, destination: Register, source: Register) -> Builder {
-        debug_assert!(self.current_code.alu_stage.is_none());
-        self.current_code.alu_stage = Some(AluStage::SignExtend {
-            destination,
-            source,
-        });
-        self
-    }
-
-    // (Pre-ALU) Register control.
-    pub fn move_reg(mut self, destination: Register, source: Register) -> Builder {
-        debug_assert!(self.current_code.register_control_stage.is_none());
-        self.current_code.register_control_stage = Some(RegisterControl::Move(destination, source));
-        self
-    }
-
-    pub fn set_reg(mut self, register: Register, value: i32) -> Builder {
-        debug_assert!(self.current_code.register_control_stage.is_none());
-        self.current_code.register_control_stage = Some(RegisterControl::Set(register, value));
-        self
-    }
-
-    // (Post-ALU) Register control.
-    pub fn post_alu_move_reg(mut self, destination: Register, source: Register) -> Builder {
-        debug_assert!(self.current_code.post_alu_control_stage.is_none());
-        self.current_code.post_alu_control_stage = Some(RegisterControl::Move(destination, source));
-        self
-    }
-
-    // Memory.
-
-    pub fn read_mem(mut self, destination: Register, address: Register) -> Builder {
-        debug_assert!(self.current_code.memory_stage.is_none());
-        self.current_code.memory_stage = Some(MemoryStage::Read {
-            destination,
-            address,
-        });
-        self
-    }
-
-    pub fn write_mem(mut self, address: Register, value: Register) -> Builder {
-        debug_assert!(self.current_code.memory_stage.is_none());
-        self.current_code.memory_stage = Some(MemoryStage::Write { address, value });
-        self
-    }
-
-    pub fn maybe_increment(mut self, increment: Option<IncrementerStage>) -> Builder {
-        debug_assert!(self.current_code.incrementer_stage.is_none());
-        self.current_code.incrementer_stage = increment;
-        self
-    }
-
-    pub fn increment(self, increment: IncrementerStage) -> Builder {
-        debug_assert!(self.current_code.incrementer_stage.is_none());
-        self.maybe_increment(Some(increment))
-    }
-
-    pub fn decode() -> Vec<MicroCode> {
-        Builder::new()
-            .read_mem(Register::TEMP_LOW, Register::PC)
-            .has_decode_stage()
-            .increment(IncrementerStage::PC)
-            .then_done()
-    }
-
-    // Misc stages.
-    pub fn post_alu_restore_flags(mut self, source: Register, mask: alu::FlagRegister) -> Builder {
-        debug_assert!(self.current_code.post_alu_control_stage.is_none());
-        self.current_code.post_alu_control_stage =
-            Some(RegisterControl::RestoreFlags { source, mask });
-        self
-    }
-
-    fn has_decode_stage(mut self) -> Builder {
-        self.current_code.has_decode_stage = true;
-        self
     }
 }
 
@@ -237,34 +147,21 @@ impl MicroCode {
         if let Some(register_control) = self.register_control_stage {
             register_control.execute(cpu);
         }
-        // Step 3: Perform a decode (if requested).
-        let decoder_side_effect = if self.has_decode_stage {
-            debug_assert!(self.alu_stage.is_none());
-            debug_assert!(self.post_alu_control_stage.is_none());
-            decoder::execute_decode_stage(cpu, memory)?
-        } else {
-            None
-        };
-        // Step 4: Perform any ALU.
+        // Step 3: Perform any ALU.
         if let Some(alu) = self.alu_stage {
             alu.execute(cpu);
         }
+        // Step 4: Perform special decode stages (almost always an actual decode, sometimes an
+        // early instruction end).
+        let decoder_side_effect = if let Some(stage) = self.decoder_stage {
+            debug_assert!(self.post_alu_control_stage.is_none());
+            stage.execute(cpu, memory)
+        } else {
+            None
+        };
         // Possibly increment counters.
         if let Some(incrementer_stage) = self.incrementer_stage {
-            match incrementer_stage {
-                IncrementerStage::PC => cpu
-                    .registers
-                    .set(Register::PC, inc_u16(cpu.registers.get(Register::PC))),
-                IncrementerStage::HLI => cpu
-                    .registers
-                    .set(Register::HL, inc_u16(cpu.registers.get(Register::HL))),
-                IncrementerStage::HLD => cpu
-                    .registers
-                    .set(Register::HL, dec_u16(cpu.registers.get(Register::HL))),
-                IncrementerStage::TEMP => cpu
-                    .registers
-                    .set(Register::TEMP, inc_u16(cpu.registers.get(Register::TEMP))),
-            }
+            incrementer_stage.execute(cpu);
         }
         // Step 5: Do any post-alu register control.
         if let Some(stage) = self.post_alu_control_stage {
@@ -282,33 +179,82 @@ impl MicroCode {
     }
 }
 
-impl AluStage {
-    fn execute(self, cpu: &mut Cpu) {
-        let flags = alu::FlagRegister(cpu.registers.get(Register::F) as u32);
+impl AluOp {
+    fn execute(self, cpu: &Cpu) -> (Register, (i32, alu::Flags)) {
+        let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
         match self {
-            AluStage::BinaryOp { op, lhs, rhs } => {
-                let (result, new_flags) =
-                    op.execute(cpu.registers.get(lhs), cpu.registers.get(rhs), &flags);
-                cpu.registers.set(lhs, result);
-                cpu.registers.set(Register::F, new_flags.0 as i32);
+            AluOp::BinaryOp { op, lhs, rhs } => (
+                lhs,
+                op.execute(cpu.registers.get(lhs), cpu.registers.get(rhs), flags),
+            ),
+            AluOp::UnaryOp { op, register } => {
+                (register, op.execute(cpu.registers.get(register), flags))
             }
-            AluStage::UnaryOp { op, register } => {
-                let (result, new_flags) = op.execute(cpu.registers.get(register), &flags);
-                cpu.registers.set(register, result);
-                cpu.registers.set(Register::F, new_flags.0 as i32);
-            }
-            AluStage::SignExtend {
+            AluOp::Move {
                 destination,
                 source,
-            } => {
-                let source_value = cpu.registers.get(source);
-                // Can also use conversion to not be so literal.
-                let result = if (source_value & 0x80) != 0 {
-                    0xFF
+            } => (destination, (cpu.registers.get(source), flags)),
+        }
+    }
+}
+
+impl FlagCondition {
+    pub fn is_met(self, flags: i32) -> bool {
+        alu::Flags::from_bits(flags)
+            .unwrap()
+            .contains(self.test_flags)
+            == self.test_is_set
+    }
+}
+
+impl AluStage {
+    fn execute(self, cpu: &mut Cpu) {
+        dbg!(self.flag_condition);
+        let condition_met = if let Some(condition) = self.flag_condition {
+            condition.is_met(cpu.registers.get(Register::F))
+        } else {
+            true
+        };
+        dbg!(condition_met);
+        if condition_met {
+            let (destination, (value, new_flags)) = self.op.execute(cpu);
+            cpu.registers.set(destination, value);
+            cpu.registers.set(Register::F, new_flags.bits());
+        }
+    }
+}
+
+impl DecoderStage {
+    fn execute(self, cpu: &mut Cpu, memory: &Memory) -> Option<SideEffect> {
+        match self {
+            DecoderStage::Decode => decoder::execute_decode_stage(cpu, memory).unwrap(),
+            DecoderStage::ConditionalDone(condition) => {
+                if condition.is_met(cpu.registers.get(Register::F)) {
+                    Some(SideEffect::DropRemainingMicroCodes)
                 } else {
-                    0x00
-                };
-                cpu.registers.set(destination, result);
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl IncrementerStage {
+    fn execute(self, cpu: &mut Cpu) {
+        match self {
+            IncrementerStage::Increment(register) => {
+                debug_assert!(register.is_pair());
+                cpu.registers.set(
+                    register,
+                    (cpu.registers.get(register) as u16).wrapping_add(1).into(),
+                );
+            }
+            IncrementerStage::Decrement(register) => {
+                debug_assert!(register.is_pair());
+                cpu.registers.set(
+                    register,
+                    (cpu.registers.get(register) as u16).wrapping_sub(1).into(),
+                )
             }
         }
     }
@@ -319,22 +265,50 @@ impl RegisterControl {
         match self {
             RegisterControl::Set(register, value) => cpu.registers.set(register, value),
             RegisterControl::Move(destination, source) => {
+                debug_assert_eq!(destination.is_pair(), source.is_pair());
+                println!(
+                    "Setting {:?} by {:?} to {:X?}",
+                    destination,
+                    source,
+                    cpu.registers.get(source)
+                );
                 cpu.registers.set(destination, cpu.registers.get(source))
             }
             RegisterControl::RestoreFlags { source, mask } => {
                 RegisterControl::restore_flags(cpu, source, mask)
             }
+            // RegisterControl::ConditionalMove {
+            //     destination,
+            //     source,
+            //     flags,
+            //     is_set,
+            // } => RegisterControl::conditional_move(cpu, destination, source, flags, is_set),
+            RegisterControl::SignExtend {
+                destination,
+                source,
+            } => RegisterControl::sign_extend(cpu, destination, source),
         }
     }
 
-    fn restore_flags(cpu: &mut Cpu, source: Register, mask: alu::FlagRegister) {
+    fn restore_flags(cpu: &mut Cpu, source: Register, mask: alu::Flags) {
         let current_flags = cpu.registers.get(Register::F);
         let backup_flags = cpu.registers.get(source);
-        let mask_i32 = mask.0 as i32;
+        let mask_i32 = mask.bits();
         let new_flags = (backup_flags & mask_i32) | (current_flags & !mask_i32);
         debug_assert!(new_flags.leading_zeros() >= 24);
         debug_assert!(new_flags.trailing_zeros() >= 4);
         cpu.registers.set(Register::F, new_flags);
+    }
+
+    fn sign_extend(cpu: &mut Cpu, destination: Register, source: Register) {
+        let source_value = cpu.registers.get(source);
+        // Can also use conversion to not be so literal.
+        let result = if (source_value & 0x80) != 0 {
+            0xFF
+        } else {
+            0x00
+        };
+        cpu.registers.set(destination, result);
     }
 }
 

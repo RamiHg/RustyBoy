@@ -5,15 +5,6 @@ use Register::*;
 
 const SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, PC];
 const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
-// Helper constants so that assert_flags isn't a list of bools. (TODO: Make struct instead?)
-const ZERO: bool = true;
-const NZERO: bool = false;
-const SUB: bool = true;
-const NSUB: bool = false;
-const HCY: bool = true;
-const NHCY: bool = false;
-const CY: bool = true;
-const NCY: bool = false;
 
 fn setup_lhs_rhs_carry(
     op: i32,
@@ -78,11 +69,11 @@ fn test_add_a() {
     {
         setup_lhs_rhs(op, 0x7F, src, 1)
             .assert_reg_eq(A, 0x80)
-            .assert_flags(NZERO, NSUB, HCY, NCY)
+            .assert_flags(Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x80, src, 0x80)
             .assert_reg_eq(A, 0)
-            .assert_flags(ZERO, NSUB, NHCY, CY)
+            .assert_flags(Flags::ZERO | Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
     }
     // ADD A, A
@@ -90,56 +81,8 @@ fn test_add_a() {
         .set_reg(A, 0x8)
         .execute_instructions(&[0x87])
         .assert_reg_eq(A, 0x10)
-        .assert_flags(NZERO, NSUB, HCY, NCY)
+        .assert_flags(Flags::HCARRY)
         .assert_mcycles(1);
-}
-
-#[test]
-fn test_add_hl_rr() {
-    for (&op, &src) in [0x09, 0x19, 0x39].iter().zip([BC, DE, SP].iter()) {
-        with_default()
-            .set_reg(HL, 0xFF)
-            .set_reg(src, 0xFF)
-            .set_zero(true)
-            .execute_instructions(&[op])
-            .assert_reg_eq(HL, 0x1FE)
-            .assert_flags(ZERO, NSUB, NHCY, NCY)
-            .assert_mcycles(2);
-        with_default()
-            .set_reg(HL, 0xFFFE)
-            .set_reg(src, 0x2)
-            .set_zero(false)
-            .execute_instructions(&[op])
-            .assert_reg_eq(HL, 0x0)
-            .assert_flags(NZERO, NSUB, HCY, CY)
-            .assert_mcycles(2);
-    }
-    with_default()
-        .set_reg(HL, 0xFF)
-        .execute_instructions(&[0x29])
-        .assert_reg_eq(HL, 0x1FE)
-        .assert_flags(NZERO, NSUB, NHCY, NCY)
-        .assert_mcycles(2);
-}
-
-#[test]
-fn test_add_sp_i8() {
-    with_default()
-        .set_reg(SP, 0xFF00)
-        .set_zero(true)
-        .set_sub(true)
-        .execute_instructions(&[0xE8, 0xFF])
-        .assert_reg_eq(SP, 0xFEFF)
-        .assert_flags(NZERO, NSUB, HCY, CY)
-        .assert_mcycles(4);
-    with_default()
-        .set_reg(SP, 0xFF00)
-        .set_zero(false)
-        .set_sub(false)
-        .execute_instructions(&[0xE8, 0x1F])
-        .assert_reg_eq(SP, 0xFF1F)
-        .assert_flags(NZERO, NSUB, NHCY, NCY)
-        .assert_mcycles(4);
 }
 
 #[test]
@@ -150,15 +93,15 @@ fn test_adc_a() {
     {
         setup_lhs_rhs_carry(op, 0x7E, src, 1, true)
             .assert_reg_eq(A, 0x80)
-            .assert_flags(NZERO, NSUB, HCY, NCY)
+            .assert_flags(Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs_carry(op, 0x80, src, 0x80, true)
             .assert_reg_eq(A, 1)
-            .assert_flags(NZERO, NSUB, NHCY, CY)
+            .assert_flags(Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs_carry(op, 0x80, src, 0x80, false)
             .assert_reg_eq(A, 0)
-            .assert_flags(ZERO, NSUB, NHCY, CY)
+            .assert_flags(Flags::ZERO | Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
     }
     // ADC A, A
@@ -167,7 +110,7 @@ fn test_adc_a() {
         .set_carry(true)
         .execute_instructions(&[0x8F])
         .assert_reg_eq(A, 0x11)
-        .assert_flags(NZERO, NSUB, HCY, NCY)
+        .assert_flags(Flags::HCARRY)
         .assert_mcycles(1);
 }
 
@@ -179,19 +122,19 @@ fn test_sub_a_r() {
     {
         setup_lhs_rhs(op, 0xF0, src, 0x1)
             .assert_reg_eq(A, 0xEF)
-            .assert_flags(NZERO, SUB, HCY, NCY)
+            .assert_flags(Flags::SUB | Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x01, src, 0x02)
             .assert_reg_eq(A, 0xFF)
-            .assert_flags(NZERO, SUB, HCY, CY)
+            .assert_flags(Flags::SUB | Flags::HCARRY | Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
     }
-    // SUB A, A
+    // Flags::SUB A, A
     with_default()
         .set_reg(A, 0x8)
         .execute_instructions(&[0x97])
         .assert_reg_eq(A, 0)
-        .assert_flags(ZERO, SUB, NHCY, NCY)
+        .assert_flags(Flags::ZERO | Flags::SUB)
         .assert_mcycles(1);
 }
 
@@ -203,11 +146,11 @@ fn test_sbc_a_r() {
     {
         setup_lhs_rhs_carry(op, 0xF0, src, 0x0, true)
             .assert_reg_eq(A, 0xEF)
-            .assert_flags(NZERO, SUB, HCY, NCY)
+            .assert_flags(Flags::SUB | Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs_carry(op, 0x01, src, 0x01, true)
             .assert_reg_eq(A, 0xFF)
-            .assert_flags(NZERO, SUB, HCY, CY)
+            .assert_flags(Flags::SUB | Flags::HCARRY | Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
     }
     // SBC A, A
@@ -216,7 +159,7 @@ fn test_sbc_a_r() {
         .set_carry(true)
         .execute_instructions(&[0x9F])
         .assert_reg_eq(A, 0xFF)
-        .assert_flags(NZERO, SUB, HCY, CY)
+        .assert_flags(Flags::SUB | Flags::HCARRY | Flags::CARRY)
         .assert_mcycles(1);
 }
 
@@ -228,11 +171,11 @@ fn test_and_a_r() {
     {
         setup_lhs_rhs(op, 0x0B, src, 0x05)
             .assert_reg_eq(A, 0x01)
-            .assert_flags(NZERO, NSUB, HCY, NCY)
+            .assert_flags(Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x0A, src, 0x05)
             .assert_reg_eq(A, 0)
-            .assert_flags(ZERO, NSUB, HCY, NCY)
+            .assert_flags(Flags::ZERO | Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
     }
     // AND A, A
@@ -240,7 +183,7 @@ fn test_and_a_r() {
         .set_reg(A, 0x08)
         .execute_instructions(&[0xA7])
         .assert_reg_eq(A, 0x08)
-        .assert_flags(NZERO, NSUB, HCY, NCY)
+        .assert_flags(Flags::HCARRY)
         .assert_mcycles(1);
 }
 
@@ -252,11 +195,11 @@ fn test_or_a_r() {
     {
         setup_lhs_rhs(op, 0xAA, src, 0x55)
             .assert_reg_eq(A, 0xFF)
-            .assert_flags(NZERO, NSUB, NHCY, NCY)
+            .assert_flags(Flags::empty())
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x0, src, 0x0)
             .assert_reg_eq(A, 0x0)
-            .assert_flags(ZERO, NSUB, NHCY, NCY)
+            .assert_flags(Flags::ZERO)
             .assert_mcycles(cycles_for_source(src));
     }
     // OR A, A
@@ -264,7 +207,7 @@ fn test_or_a_r() {
         .set_reg(A, 0x08)
         .execute_instructions(&[0xB7])
         .assert_reg_eq(A, 0x08)
-        .assert_flags(NZERO, NSUB, NHCY, NCY)
+        .assert_flags(Flags::empty())
         .assert_mcycles(1);
 }
 
@@ -276,11 +219,11 @@ fn test_xor_a_r() {
     {
         setup_lhs_rhs(op, 0xAA, src, 0x55)
             .assert_reg_eq(A, 0xFF)
-            .assert_flags(NZERO, NSUB, NHCY, NCY)
+            .assert_flags(Flags::empty())
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x11, src, 0x55)
             .assert_reg_eq(A, 0x44)
-            .assert_flags(NZERO, NSUB, NHCY, NCY)
+            .assert_flags(Flags::empty())
             .assert_mcycles(cycles_for_source(src));
     }
     // XOR A, A
@@ -288,7 +231,7 @@ fn test_xor_a_r() {
         .set_reg(A, 0x08)
         .execute_instructions(&[0xAF])
         .assert_reg_eq(A, 0x0)
-        .assert_flags(ZERO, NSUB, NHCY, NCY)
+        .assert_flags(Flags::ZERO)
         .assert_mcycles(1);
 }
 
@@ -300,19 +243,19 @@ fn test_cp_a_r() {
     {
         setup_lhs_rhs(op, 0xF0, src, 0x1)
             .assert_reg_eq(A, 0xF0)
-            .assert_flags(NZERO, SUB, HCY, NCY)
+            .assert_flags(Flags::SUB | Flags::HCARRY)
             .assert_mcycles(cycles_for_source(src));
         setup_lhs_rhs(op, 0x01, src, 0x02)
             .assert_reg_eq(A, 0x01)
-            .assert_flags(NZERO, SUB, HCY, CY)
+            .assert_flags(Flags::SUB | Flags::HCARRY | Flags::CARRY)
             .assert_mcycles(cycles_for_source(src));
     }
-    // SUB A, A
+    // Flags::SUB A, A
     with_default()
         .set_reg(A, 0x8)
         .execute_instructions(&[0xBF])
         .assert_reg_eq(A, 0x8)
-        .assert_flags(ZERO, SUB, NHCY, NCY)
+        .assert_flags(Flags::ZERO | Flags::SUB)
         .assert_mcycles(1);
 }
 
@@ -327,14 +270,14 @@ fn test_inc() {
             0x10,
             setup_unary(reg, 0x0F)
                 .execute_instructions(&[op])
-                .assert_flags(NZERO, NSUB, HCY, NCY),
+                .assert_flags(Flags::HCARRY),
         );
         expect_unary(
             reg,
             0x00,
             setup_unary(reg, 0xFF)
                 .execute_instructions(&[op])
-                .assert_flags(ZERO, NSUB, HCY, NCY),
+                .assert_flags(Flags::ZERO | Flags::HCARRY),
         );
     }
 }
@@ -350,14 +293,14 @@ fn test_dec() {
             0xEF,
             setup_unary(reg, 0xF0)
                 .execute_instructions(&[op])
-                .assert_flags(NZERO, SUB, HCY, NCY),
+                .assert_flags(Flags::SUB | Flags::HCARRY),
         );
         expect_unary(
             reg,
             0x00,
             setup_unary(reg, 0x01)
                 .execute_instructions(&[op])
-                .assert_flags(ZERO, SUB, NHCY, NCY),
+                .assert_flags(Flags::ZERO | Flags::SUB),
         );
     }
 }

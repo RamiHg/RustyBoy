@@ -233,7 +233,11 @@ fn decode_call_cc(op_y: i32) -> Vec<MicroCode> {
         // M = 4
         .alu_move(PC, TEMP)
         .on_condition(flags, is_set)
+        // End the instruction early if the condition is not met.
+        .conditional_done(flags, !is_set)
+        // Otherwise, continue the call.
         .then_done()
+    // M = 5
 }
 
 /// Decodes RET.

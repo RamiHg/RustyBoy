@@ -48,9 +48,9 @@ fn setup_unary(reg: Register, value: i32) -> TestContext {
 
 fn expect_unary(reg: Register, value: i32, context: TestContext) -> TestContext {
     if let HL = reg {
-        context.assert_mem_8bit_eq(0xD000, value)
+        context.assert_mem_8bit_eq(0xD000, value).assert_mcycles(3)
     } else {
-        context.assert_reg_eq(reg, value)
+        context.assert_reg_eq(reg, value).assert_mcycles(1)
     }
 }
 

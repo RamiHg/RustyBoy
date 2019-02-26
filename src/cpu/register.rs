@@ -12,7 +12,7 @@ use crate::util::{is_16bit, is_8bit};
 pub struct File([i32; 14]);
 
 /// The logical list of possible registers and register combination.
-#[derive(FromPrimitive, Clone, Copy, PartialEq, Debug)]
+#[derive(FromPrimitive, Clone, Copy, Debug)]
 #[allow(non_camel_case_types)]
 pub enum Register {
     B,

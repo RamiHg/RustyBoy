@@ -95,7 +95,7 @@ pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<Sid
 
     let err = Error::InvalidOpcode(opcode);
 
-    println!("Opcode: {:X?}", opcode);
+    // println!("Opcode: {:X?}", opcode);
 
     // Validating preconditions for documentation.
     debug_assert!(op_p <= 3 && op_p >= 0);

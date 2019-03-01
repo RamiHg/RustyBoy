@@ -209,13 +209,13 @@ impl FlagCondition {
 
 impl AluStage {
     fn execute(self, cpu: &mut Cpu) {
-        dbg!(self.flag_condition);
+        // dbg!(self.flag_condition);
         let condition_met = if let Some(condition) = self.flag_condition {
             condition.is_met(cpu.registers.get(Register::F))
         } else {
             true
         };
-        dbg!(condition_met);
+        // dbg!(condition_met);
         if condition_met {
             let (destination, (value, new_flags)) = self.op.execute(cpu);
             cpu.registers.set(destination, value);
@@ -266,12 +266,12 @@ impl RegisterControl {
             RegisterControl::Set(register, value) => cpu.registers.set(register, value),
             RegisterControl::Move(destination, source) => {
                 debug_assert_eq!(destination.is_pair(), source.is_pair());
-                println!(
-                    "Setting {:?} by {:?} to {:X?}",
-                    destination,
-                    source,
-                    cpu.registers.get(source)
-                );
+                // println!(
+                //     "Setting {:?} by {:?} to {:X?}",
+                //     destination,
+                //     source,
+                //     cpu.registers.get(source)
+                // );
                 cpu.registers.set(destination, cpu.registers.get(source))
             }
             RegisterControl::RestoreFlags { source, mask } => {

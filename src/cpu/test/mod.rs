@@ -17,8 +17,22 @@ mod test_store;
 enum Assertion {
     RegEq(Register, i32),
     MemRange { base: i32, values: Vec<u8> },
-    Flags(Flags),
     MCycles(i32),
+}
+
+impl Assertion {
+    fn serialize(&self) -> String {
+        use Assertion::*;
+        match self {
+            RegEq(register, value) => format!("ASSERT_REG {:?} {:X?}\n", register, value),
+            MemRange { base, values } => values
+                .iter()
+                .enumerate()
+                .map(|(i, &x)| format!("ASSERT_MEM {:X?} {:X?}\n", base + i as i32, x))
+                .collect(),
+            MCycles(cycles) => format!("ASSERT_MCYCLES {}\n", cycles),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -54,8 +68,14 @@ impl TestDescriptor {
         for (reg, value) in reg_setup {
             s.push_str(&format!("set_reg {:?} {:X?}\n", reg, value));
         }
+        // Serialize PC.
+        s.push_str(&format!("PC {:X?}\n", self.initial_pc));
         // Execute!
         s.push_str(&format!("execute {}\n", self.num_instructions));
+        // Serialize assertions.
+        self.assertions
+            .iter()
+            .for_each(|x| s.push_str(&x.serialize()));
         s
     }
 }
@@ -88,7 +108,13 @@ impl TestContext {
     fn with_default() -> TestContext {
         // Figure out the test name.
         let bt = backtrace::Backtrace::new();
-        let name = format!("{:?}", bt.frames()[2].symbols()[0].name().unwrap());
+        let first_non_setup = bt.frames()[2..]
+            .iter()
+            .flat_map(|x| x.symbols()[0].name().and_then(|y| y.as_str()))
+            .filter(|y| !y.contains("::setup"))
+            .nth(0)
+            .unwrap();
+        let name = first_non_setup.to_string();
 
         let memory = Memory::new(Box::new(ErrorCart));
         let cpu = Cpu::new();
@@ -169,7 +195,15 @@ impl TestContext {
         self.0.desc.assertions.push(Assertion::MCycles(cycles));
         assert_eq!(self.0.cycles, cycles.into());
         // Serialize the nuggets! (TODO: Kinda hacky. Make test trait that just prints)
-        println!("{}", self.0.desc.serialize());
+        let data = self.0.desc.serialize();
+        use std::fs::OpenOptions;
+        use std::io::prelude::*;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("test_data.txt")
+            .unwrap();
+        file.write_all(data.as_bytes()).unwrap();
         self
     }
 

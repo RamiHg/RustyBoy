@@ -1,4 +1,5 @@
 mod alu;
+mod autodecoder;
 mod decoder;
 mod micro_code;
 mod register;

@@ -11,6 +11,8 @@ mod test_flow;
 mod test_load;
 mod test_store;
 
+mod test_autodecoder;
+
 /// Stores information about what was done at each step of each
 /// test. This is then later used to be able to export the tests
 /// to aid in hardware verification.

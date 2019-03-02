@@ -30,6 +30,7 @@ pub enum Register {
     SP_HIGH,
     PC_LOW,
     PC_HIGH,
+    INSTR,
     // "Virtual" registers.
     SP,
     PC,

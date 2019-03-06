@@ -1,6 +1,4 @@
-use crate::cart::Cart;
-use crate::io_registers::Register;
-use crate::util;
+use crate::{cart::Cart, io_registers::Register, util};
 
 // Useful tidbits:
 // https://retrocomputing.stackexchange.com/questions/1178/what-is-this-unused-memory-range-in-the-game-boys-memory-map

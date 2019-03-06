@@ -1,0 +1,14 @@
+unstable_features = true
+edition = "2018"
+version = "two"
+
+max_width = 100
+tab_spaces = 4
+
+wrap_comments = true
+comment_width = 100
+format_strings = true
+merge_imports = true
+
+report_todo = "Always"
+report_fixme = "Always"

@@ -1,7 +1,7 @@
-use crate::cpu::decoder;
-use crate::cpu::register::Register;
-use crate::cpu::{Cpu, Result};
-use crate::memory::Memory;
+use crate::{
+    cpu::{decoder, register::Register, Cpu, Result},
+    memory::Memory,
+};
 
 use super::alu;
 

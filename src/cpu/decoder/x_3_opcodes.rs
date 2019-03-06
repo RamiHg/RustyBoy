@@ -8,12 +8,13 @@ use num_traits::FromPrimitive;
 use super::builder::Builder;
 use crate::cpu;
 
-use super::condition_table_lookup;
-use super::AluOpTable;
-use cpu::alu::{self, Flags};
-use cpu::micro_code::*;
-use cpu::register::Register;
-use cpu::{Error, Result};
+use super::{condition_table_lookup, AluOpTable};
+use cpu::{
+    alu::{self, Flags},
+    micro_code::*,
+    register::Register,
+    Error, Result,
+};
 
 use Register::*;
 

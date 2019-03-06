@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::prelude::Read;
+use std::{fs::File, io::prelude::Read};
 
 use crate::memory::Result;
 

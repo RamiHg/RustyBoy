@@ -9,10 +9,11 @@ use crate::util::{is_16bit, is_8bit};
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.
 /// They are stored in the order B,C,D,E,H,L,A,F,TEMP,SP,PC.
-pub struct File([i32; 14]);
+#[derive(Clone, Copy)]
+pub struct File([i32; Register::NumRegisters as usize]);
 
 /// The logical list of possible registers and register combination.
-#[derive(FromPrimitive, Clone, Copy, Debug)]
+#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Register {
     B,
@@ -23,6 +24,10 @@ pub enum Register {
     L,
     A,
     F,
+    INSTR,
+    ALU_ACT,
+    ALU_TMP,
+    ALU_TMP_F,
     // TEMP_LOW/HIGH are "temporary" registers that store intermediate microcode results.
     TEMP_LOW,
     TEMP_HIGH,
@@ -30,7 +35,7 @@ pub enum Register {
     SP_HIGH,
     PC_LOW,
     PC_HIGH,
-    INSTR,
+    NumRegisters,
     // "Virtual" registers.
     SP,
     PC,
@@ -51,10 +56,6 @@ impl Register {
 
     pub fn is_single(self) -> bool {
         !self.is_pair()
-    }
-
-    fn is_16bit(self) -> bool {
-        self.is_pair()
     }
 
     pub fn from_single_table(single_value: i32) -> Register {
@@ -84,6 +85,17 @@ impl Register {
             PC => (PC_HIGH, PC_LOW),
             TEMP => (TEMP_HIGH, TEMP_LOW),
             _ => panic!("Unexpected match result."),
+        }
+    }
+
+    pub fn overlaps(self, rhs: Register) -> bool {
+        if self.is_pair() ^ rhs.is_pair() {
+            self == rhs
+        } else if self.is_pair() {
+            let (high, low) = self.decompose_pair();
+            high == rhs || low == rhs
+        } else {
+            rhs.overlaps(self)
         }
     }
 }
@@ -123,7 +135,7 @@ impl From<SingleTable> for Register {
 }
 
 impl File {
-    pub fn new(values: [i32; 14]) -> File {
+    pub fn new(values: [i32; Register::NumRegisters as usize]) -> File {
         File(values)
     }
 
@@ -144,7 +156,7 @@ impl File {
 
     pub fn set(&mut self, any: Register, value: i32) {
         use Register::*;
-        assert!(any.is_16bit() && is_16bit(value) || is_8bit(value));
+        assert!(any.is_pair() && is_16bit(value) || is_8bit(value));
         let value_u8 = value & 0xFF;
         let value_high = (value & 0xFF00) >> 8;
         match any {

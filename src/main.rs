@@ -6,6 +6,8 @@
 #![allow(clippy::useless_attribute)]
 // Remove when this file is uncommented out.
 #![allow(unused_variables)]
+// Temp.
+#![allow(unused_imports)]
 
 use gl::types::GLuint;
 

@@ -1,8 +1,6 @@
 use crate::cpu;
 
-use cpu::alu;
-use cpu::micro_code::*;
-use cpu::register::Register;
+use cpu::{alu, micro_code::*, register::Register};
 
 pub struct Builder {
     current_code: MicroCode,

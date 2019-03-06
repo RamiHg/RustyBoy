@@ -1,9 +1,9 @@
-use crate::cart::test::ErrorCart;
-use crate::cpu::alu::Flags;
-use crate::cpu::register::Register;
-use crate::cpu::*;
-use crate::memory::Memory;
-use crate::system::System;
+use crate::{
+    cart::test::ErrorCart,
+    cpu::{alu::Flags, register::Register, *},
+    memory::Memory,
+    system::System,
+};
 
 mod test_16bit_alu;
 mod test_8bit_alu;
@@ -92,7 +92,7 @@ pub struct TestSystem {
 impl System for TestSystem {
     fn execute_cpu_cycle(&mut self) -> Result<Output> {
         self.cycles += 1;
-        self.cpu.execute_machine_cycle(&self.memory)
+        self.cpu.execute_machine_cycle_v2(&self.memory)
     }
 
     fn commit_memory_write(&mut self, raw_address: i32, value: i32) {
@@ -109,14 +109,15 @@ pub fn with_default() -> TestContext {
 impl TestContext {
     fn with_default() -> TestContext {
         // Figure out the test name.
-        let bt = backtrace::Backtrace::new();
-        let first_non_setup = bt.frames()[2..]
-            .iter()
-            .flat_map(|x| x.symbols()[0].name().and_then(|y| y.as_str()))
-            .filter(|y| !y.contains("::setup"))
-            .nth(0)
-            .unwrap();
-        let name = first_non_setup.to_string();
+        // let bt = backtrace::Backtrace::new();
+        // let first_non_setup = bt.frames()[2..]
+        //     .iter()
+        //     .flat_map(|x| x.symbols()[0].name().and_then(|y| y.as_str()))
+        //     .filter(|y| !y.contains("::setup"))
+        //     .nth(0)
+        //     .unwrap();
+        // let name = first_non_setup.to_string();
+        let name = "ignoreme".to_string();
 
         let memory = Memory::new(Box::new(ErrorCart));
         let cpu = Cpu::new();
@@ -166,8 +167,8 @@ impl TestContext {
         self.set_flag(Flags::SUB, is_set)
     }
 
-    /// Brings up a System instance, sets it up, runs the given instructions, and returns the resulting
-    /// system state.
+    /// Brings up a System instance, sets it up, runs the given instructions, and returns the
+    /// resulting system state.
     pub fn execute_instructions(mut self, instructions: &[u8]) -> TestContext {
         // Capture the flags at the time of execution, rather than each bit set. Can possible
         // do this for registers as well.
@@ -198,8 +199,7 @@ impl TestContext {
         assert_eq!(self.0.cycles, cycles.into());
         // Serialize the nuggets! (TODO: Kinda hacky. Make test trait that just prints)
         let data = self.0.desc.serialize();
-        use std::fs::OpenOptions;
-        use std::io::prelude::*;
+        use std::{fs::OpenOptions, io::prelude::*};
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)

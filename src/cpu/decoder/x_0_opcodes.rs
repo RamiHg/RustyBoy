@@ -7,10 +7,12 @@ use super::builder::Builder;
 use crate::cpu;
 
 use super::condition_table_lookup;
-use cpu::alu::{self, Flags};
-use cpu::micro_code::*;
-use cpu::register::Register;
-use cpu::{Error, Result};
+use cpu::{
+    alu::{self, Flags},
+    micro_code::*,
+    register::Register,
+    Error, Result,
+};
 
 use Register::*;
 

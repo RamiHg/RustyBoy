@@ -5,10 +5,7 @@ mod x_3_opcodes;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use super::alu;
-use super::micro_code::*;
-use super::register::Register;
-use super::{Cpu, Error, Result};
+use super::{alu, micro_code::*, register::Register, Cpu, Error, Result};
 use crate::memory::Memory;
 
 use builder::Builder;

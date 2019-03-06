@@ -1,5 +1,7 @@
-use crate::io_registers::{InterruptFlag, LcdControl, LcdStatus, LcdcModeFlag};
-use crate::memory::*;
+use crate::{
+    io_registers::{InterruptFlag, LcdControl, LcdStatus, LcdcModeFlag},
+    memory::*,
+};
 
 const LCD_WIDTH: u32 = 160;
 const LCD_HEIGHT: u32 = 144;
@@ -141,8 +143,8 @@ impl Gpu {
 
         // Loop over every pixel in the scan line
         for i in 0..LCD_WIDTH {
-            // TODO: Rewrite this loop in terms of tiles instead of pixels for a significant optimization
-            // Find out which tile we're in
+            // TODO: Rewrite this loop in terms of tiles instead of pixels for a significant
+            // optimization Find out which tile we're in
             let tilemap_x = ((scroll_x + i) / 8) % 32;
             let tilemap_y = ((scroll_y + self.line) / 8) % 32;
             let tilemap_index = (tilemap_x + tilemap_y * 32) as usize;

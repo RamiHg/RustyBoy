@@ -1,7 +1,7 @@
 /*
  * Helper file to help with debugging:
  * Instruction trace, instruction stepping, register view, etc
-*/
+ */
 
 pub struct Debugger {}
 

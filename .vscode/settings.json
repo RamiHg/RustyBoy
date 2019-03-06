@@ -1,3 +1,6 @@
 {
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "debug.allowBreakpointsEverywhere": true,
+  "editor.tabSize": 4,
+  "rust.rustfmt_path": "$(workspace)/rustfmt.toml"
 }

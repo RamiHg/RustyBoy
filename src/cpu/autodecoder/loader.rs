@@ -249,6 +249,21 @@ impl HLMicroCodeArray {
             .for_each(|x| x.replace_source(source, with));
         self
     }
+
+    pub fn replace_lhs(self, with: Register) -> HLMicroCodeArray {
+        if with.is_pair() {
+            let (high, low) = with.decompose_pair();
+            self.replace_source(OpSource::LhsLow, OpSource::Register(low))
+                .replace_source(OpSource::LhsHigh, OpSource::Register(high))
+                .replace_source(OpSource::Lhs, OpSource::Register(with))
+        } else {
+            self.replace_source(OpSource::Lhs, OpSource::Register(with))
+        }
+    }
+
+    pub fn replace_rhs(self, with: Register) -> HLMicroCodeArray {
+        self.replace_source(OpSource::Rhs, OpSource::Register(with))
+    }
 }
 
 fn interpret_mcycle(rule: MCycleRule) -> HLMicroCode {

@@ -18,6 +18,21 @@ fn decode_op(opcode: i32, mmap: &HashMap<String, HLMicroCodeArray>) -> Vec<Micro
     let op_p = (op_y & 0b110) >> 1;
 
     let hl_codes = match op_x {
+        // x = 0
+        0 => match op_z {
+            1 if op_q == 0 => mmap["LDrr,i16"]
+                .clone()
+                .replace_lhs(Register::from_sp_pair_table(op_p)),
+            2 if op_q == 0 => match op_p {
+                0 => mmap["LD(rr),A"].clone().replace_lhs(Register::BC),
+                1 => mmap["LD(rr),A"].clone().replace_lhs(Register::DE),
+                _ => panic!(),
+            },
+            6 => mmap["LDr,i8"]
+                .clone()
+                .replace_lhs(Register::from_single_table(op_y)),
+            _ => panic!(),
+        },
         1 if op_y != 6 && op_z != 6 => mmap["LDr,r"]
             .clone()
             .replace_source(

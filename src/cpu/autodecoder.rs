@@ -5,7 +5,7 @@ pub mod loader;
 
 use super::register::Register;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum AluOp {
     Mov,
     Add,

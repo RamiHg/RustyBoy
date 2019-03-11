@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::AluOp;
+use crate::cpu::alu;
 use crate::cpu::register::Register;
 
 #[derive(Debug)]
@@ -178,10 +179,13 @@ pub struct Incrementer {
     pub addr: OpSource,
 }
 
-#[derive(Clone, Copy)]
-pub enum Op {
-    Alu(AluOp),
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HLAluOp {
+    BinaryOp(alu::BinaryOp),
     Addc1,
+    Mov,
+    Daa,
+    Cpl,
     Placeholder,
 }
 
@@ -213,7 +217,7 @@ pub struct HLMicroCode {
     pub incrementer: Option<Incrementer>,
 
     pub alu_tmp: Option<OpSource>,
-    pub alu_op: Option<Op>,
+    pub alu_op: Option<HLAluOp>,
     pub alu_rd: Option<OpSource>,
     pub alu_uses_tmp: bool,
     pub alu_tmp_flag: Option<TempFlagControl>,
@@ -240,6 +244,11 @@ impl HLMicroCode {
             _ => (),
         });
     }
+
+    fn replace_binary_op(&mut self, with: alu::BinaryOp) {
+        assert_eq!(self.alu_op, Some(HLAluOp::Placeholder));
+        self.alu_op = Some(HLAluOp::BinaryOp(with));
+    }
 }
 
 impl HLMicroCodeArray {
@@ -263,6 +272,11 @@ impl HLMicroCodeArray {
 
     pub fn replace_rhs(self, with: Register) -> HLMicroCodeArray {
         self.replace_source(OpSource::Rhs, OpSource::Register(with))
+    }
+
+    pub fn replace_binary_op(self, with: alu::BinaryOp) -> HLMicroCodeArray {
+        self.0.iter_mut().for_each(|x| x.replace_binary_op(with));
+        self
     }
 }
 
@@ -314,14 +328,14 @@ fn interpret_mcycle(rule: MCycleRule) -> HLMicroCode {
     // OP.
     let alu_op = match rule.op {
         Some(val) => Some(match val.as_str() {
-            "ADD" => Op::Alu(AluOp::Add),
-            "ADDC" => Op::Alu(AluOp::Addc),
-            "ADDC1" => Op::Addc1,
-            "MOV" => Op::Alu(AluOp::Mov),
-            "SUB" => Op::Alu(AluOp::Sub),
-            "DAA" => Op::Alu(AluOp::Daa),
-            "CPL" => Op::Alu(AluOp::Cpl),
-            "OP" => Op::Placeholder,
+            "ADD" => HLAluOp::BinaryOp(alu::BinaryOp::Add),
+            "ADDC" => HLAluOp::BinaryOp(alu::BinaryOp::Adc),
+            "ADDC1" => HLAluOp::Addc1,
+            "MOV" => HLAluOp::Mov,
+            "SUB" => HLAluOp::BinaryOp(alu::BinaryOp::Sub),
+            "DAA" => HLAluOp::Daa,
+            "CPL" => HLAluOp::Cpl,
+            "OP" => HLAluOp::Placeholder,
             _ => panic!("Unexpected ALU OP: {}.", val),
         }),
         None => None,

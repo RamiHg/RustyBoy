@@ -2,5 +2,10 @@
   "editor.formatOnSave": true,
   "debug.allowBreakpointsEverywhere": true,
   "editor.tabSize": 4,
-  "rust.rustfmt_path": "$(workspace)/rustfmt.toml"
+  "rust-client.disableRustup": true,
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.revealIfOpen": true,
+  "files.autoSave": "onFocusChange",
+  "rust-client.revealOutputChannelOn": "warn",
+  // "rust.rustfmt_path": "$(workspace)/rustfmt.toml"
 }

@@ -26,17 +26,19 @@ impl MicroCode {
                 }
             }
         };
+        // Select the register that the memory op will read into/write from.
         if let Some(register) = hl.register_select {
             t3.reg_select = register.as_single();
         }
-        // Then, create the T3 cycle. This is mostlty responsible for setting up the ALU parameters.
+        // Setup the ALU TMP register. This mostly happens in T3.
         match hl.alu_tmp {
+            // If the source is a register, select and read it.
             Some(OpSource::Register(register)) => {
                 assert!(register.is_single());
-                // We can't be changing the
                 t3.alu_bus_select = register;
                 t3.alu_bus_tmp_read = true;
             }
+            // If it's memory, sample the memory at T3.
             Some(OpSource::Memory) => {
                 assert!(t1.mem_read_enable);
                 t3.alu_bus_tmp_read_mem = true;
@@ -44,6 +46,7 @@ impl MicroCode {
             None => (),
             _ => panic!("Unexpected ALU TMP: {:?}.", hl.alu_tmp),
         }
+        // Setup the ALU ACT register read, and result write. This mostly happens in T3 and T4.
         match hl.alu_rd {
             Some(OpSource::Register(register)) => {
                 assert!(register.is_single());

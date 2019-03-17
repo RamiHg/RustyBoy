@@ -342,6 +342,11 @@ fn interpret_mcycle(rule: MCycleRule) -> HLMicroCode {
     };
     // RD.
     let alu_rd = rule.rd.map(OpSource::from);
+    if let Some(OpSource::Register(reg)) = alu_rd {
+        assert!(alu_op == Some(HLAluOp::Mov) || reg == Register::A || reg == Register::ALU_ACT,
+            "Can only write to arbitrary registers when source does not cause data hazard. Op: {:?}. Rd: {:?}.",
+            alu_op, reg);
+    }
     if let Some(rs) = rule.rs.as_ref() {
         if rs != "TMP" {
             panic!("Useless column can only be tmp.");

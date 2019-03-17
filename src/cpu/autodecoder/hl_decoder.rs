@@ -30,11 +30,12 @@ impl MicroCode {
         if let Some(register) = hl.register_select {
             t3.reg_select = register.as_single();
         }
-        // Setup the ALU TMP register. This mostly happens in T3.
+        // Setup the ALU TMP register. This happens in T3.
         match hl.alu_tmp {
             // If the source is a register, select and read it.
             Some(OpSource::Register(register)) => {
                 assert!(register.is_single());
+                assert!(!)
                 t3.alu_bus_select = register;
                 t3.alu_bus_tmp_read = true;
             }

@@ -25,7 +25,7 @@ pub enum Register {
     A,
     F,
     INSTR,
-    ALU_ACT,
+    ACT,
     ALU_TMP,
     ALU_TMP_F,
     // TEMP_LOW/HIGH are "temporary" registers that store intermediate microcode results.

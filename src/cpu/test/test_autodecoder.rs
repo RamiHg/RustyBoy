@@ -1,7 +1,6 @@
-use crate::cpu::autodecoder::loader::*;
-//use crate::cpu::autodecoder::*;
+use crate::cpu::autodecoder::csv_parser::parse_csv;
 
 #[test]
-fn test_decoder_load() {
-    load(r"C:\Users\Ramy\Downloads\CPU Design - Copy of Sheet7.csv");
+fn test_parse_csv() {
+    parse_csv(r"/Users/Ramy/Downloads/CPU Design - Instruction Breakdown.csv");
 }

@@ -99,6 +99,7 @@ fn alu_logic(
     current_state: &register::File,
     new_state: &mut register::File,
 ) -> i32 {
+    /*
     // For now, model the ALU as a Moore FSM.
     let act = current_state.get(Register::ALU_ACT);
     let rhs = current_state.get(Register::ALU_TMP);
@@ -160,6 +161,8 @@ fn alu_logic(
     }
     // Finally, return the result.
     result
+    */
+    0
 }
 
 fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> Output {
@@ -194,6 +197,7 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> Output {
 
     let alu_result = alu_logic(code, cpu, &current_regs, &mut new_regs);
 
+    /*
     if code.reg_write_enable {
         if code.alu_write {
             new_regs.set(code.reg_select, alu_result);
@@ -218,6 +222,7 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> Output {
             code.reg_select
         );
     }
+    */
 
     incrementer_logic(code, cpu, &current_regs, &mut new_regs);
 

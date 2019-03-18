@@ -30,7 +30,7 @@ pub enum UnaryOp {
 }
 
 impl BinaryOp {
-    pub fn execute(&self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
+    pub fn execute(self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
         use BinaryOp::*;
         match self {
             Add => generic_8bit_math_op(lhs, rhs, 0, |x, y| x + y),

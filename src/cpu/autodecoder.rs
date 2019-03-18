@@ -1,6 +1,9 @@
-pub mod control_unit;
-pub mod decoder;
-pub mod hl_decoder;
+pub mod asm;
+pub mod asm_parser;
+// pub mod control_unit;
+pub mod csv_parser;
+// pub mod decoder;
+// pub mod hl_decoder;
 pub mod loader;
 
 use super::register::Register;
@@ -74,16 +77,17 @@ impl Default for MicroCode {
             reg_select: Register::B,
             reg_write_enable: false,
 
-            alu_bus_select: Register::B,
-            alu_bus_tmp_read: false,
-            alu_bus_tmp_read_mem: false,
-            alu_bus_f_reset: false,
-            alu_bus_f_read: false,
-            alu_bus_f_write: 0,
-            alu_act_read: false,
+            alu_mem_to_a: false,
+            alu_mem_to_act: false,
+            alu_mem_to_tmp: false,
+            alu_mem_to_f: false,
+            alu_mem_to_tmp_f: false,
+            alu_tmp_f_to_f: false,
+            alu_0_to_f: false,
+            alu_force_carry: false,
+            alu_a_to_act: false,
+            alu_result_to_a: false,
             alu_op: AluOp::Mov,
-            alu_f_force_carry: false,
-            alu_write: false,
 
             inc_op: IncOp::Mov,
             inc_skip_latch: false,

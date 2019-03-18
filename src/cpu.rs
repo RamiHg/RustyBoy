@@ -138,6 +138,7 @@ impl Cpu {
     }
 
     pub fn execute_machine_cycle_v2(&mut self, memory: &Memory) -> Result<Output> {
+        /*
         let mut last_output = Output {
             side_effect: None,
             is_done: false,
@@ -153,6 +154,8 @@ impl Cpu {
         }
 
         Ok(last_output)
+        */
+        Err(Error::InvalidOpcode(1337))
     }
 
     /// Runs a machine cycle.

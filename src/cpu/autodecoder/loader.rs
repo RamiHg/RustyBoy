@@ -58,7 +58,7 @@ pub fn load(filename: &str) -> HashMap<String, HLMicroCodeArray> {
         let name = &record[0];
 
         let mut mcycles = Vec::new();
-        for i in 0..=6 {
+        for i in 0..=5 {
             let code = interpret_mcycle(extract_mcycle(i, &record));
             let is_end = if let EndMode::Yes = code.end_mode {
                 true
@@ -274,7 +274,7 @@ impl HLMicroCodeArray {
         self.replace_source(OpSource::Rhs, OpSource::Register(with))
     }
 
-    pub fn replace_binary_op(self, with: alu::BinaryOp) -> HLMicroCodeArray {
+    pub fn replace_binary_op(mut self, with: alu::BinaryOp) -> HLMicroCodeArray {
         self.0.iter_mut().for_each(|x| x.replace_binary_op(with));
         self
     }
@@ -343,7 +343,7 @@ fn interpret_mcycle(rule: MCycleRule) -> HLMicroCode {
     // RD.
     let alu_rd = rule.rd.map(OpSource::from);
     if let Some(OpSource::Register(reg)) = alu_rd {
-        assert!(alu_op == Some(HLAluOp::Mov) || reg == Register::A || reg == Register::ALU_ACT,
+        assert!(alu_op == Some(HLAluOp::Mov) || reg == Register::A || reg == Register::ACT,
             "Can only write to arbitrary registers when source does not cause data hazard. Op: {:?}. Rd: {:?}.",
             alu_op, reg);
     }

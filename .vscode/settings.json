@@ -6,6 +6,5 @@
   "workbench.editor.enablePreview": false,
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
-  "rust-client.revealOutputChannelOn": "warn",
   // "rust.rustfmt_path": "$(workspace)/rustfmt.toml"
 }

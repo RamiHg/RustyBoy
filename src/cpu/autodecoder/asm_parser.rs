@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::asm::{Arg, Command, Op};
+use super::asm::{AluCommand, Arg, Command, Op};
 use crate::cpu::register::Register;
 
 const OP_PATTERN: &str = r"([A-Z]+)[[:space:]]*([[:alnum:]]*),?[[:space:]]*([[:alnum:]]*)";
@@ -25,12 +25,15 @@ pub fn parse_op(op: &str) -> Op {
         "WR" => WR,
         "MOV" => MOV,
         "LD" => LD,
-        "ALU" => ALU,
+        "ALU" => ALUPlaceholder,
+        "ADD" => ALU(AluCommand::Add),
         "FMSK" => FMSK,
         "FZ" => FZ,
         "CSE" => CSE,
         "INC" => INC,
+        "DEC" => DEC,
         "END" => END,
+        "CCEND" => CCEND,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
     let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));
@@ -51,7 +54,6 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "L" => Arg::Register(Register::L),
         "W" => Arg::Register(Register::TEMP_HIGH),
         "Z" => Arg::Register(Register::TEMP_LOW),
-        //"C" => Arg::Register(Register::C),
         "WZ" => Arg::Register(Register::TEMP),
         "HL" => Arg::Register(Register::HL),
         "PC" => Arg::Register(Register::PC),
@@ -65,9 +67,9 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "LHS" => Arg::Lhs,
         "LHS_L" => Arg::LhsLow,
         "LHS_H" => Arg::LhsHigh,
-        //"MEM" => Arg::Memory,
-        //"SE" => Arg::SignExtendTmp,
-        //"CONST" => Arg::ConstantPlaceholder,
-        _ => panic!("Unexpected arg: \"{}\"", arg),
+        _ if is_constant(arg) => Arg::ConstantPlaceholder(arg.into()),
+        _ => panic!("Unknown arg: \"{}\"", arg),
     })
 }
+
+fn is_constant(value: &str) -> bool { value.parse::<i32>().is_ok() }

@@ -70,14 +70,12 @@ fn condition_table_lookup(value: i32) -> (alu::Flags, bool) {
     }
 }
 
-pub fn build_decode() -> Vec<MicroCode> {
-    Builder::decode()
-}
+pub fn build_decode() -> Vec<MicroCode> { Builder::decode() }
 
 // TODO: Refactor into impl.
 /// Executes a "Decode" special stage.
 /// Assumes that the current micro-code has already read (and will increment) PC.
-#[allow(clippy::cyclomatic_complexity)]
+// #[allow(clippy::cognitive_complexity)]
 pub fn execute_decode_stage(cpu: &mut Cpu, memory: &Memory) -> Result<Option<SideEffect>> {
     // This method uses the amazing guide to decode instructions programatically:
     // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html

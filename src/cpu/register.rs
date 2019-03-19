@@ -43,6 +43,7 @@ pub enum Register {
     DE,
     HL,
     TEMP,
+    INVALID = -1,
 }
 
 impl Register {
@@ -97,6 +98,12 @@ impl Register {
         } else {
             rhs.overlaps(self)
         }
+    }
+}
+
+impl Default for Register {
+    fn default() -> Self {
+        Register::INVALID
     }
 }
 

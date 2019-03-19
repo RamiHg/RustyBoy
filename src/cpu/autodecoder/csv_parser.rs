@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 
-use super::asm;
-use super::asm_parser::parse_op;
+use super::{asm, asm_parser::parse_op};
 
 type OpList = Vec<asm::Op>;
 type MCycleList = Vec<MCycle>;
 
 #[derive(Debug)]
 pub struct MCycle {
-    t1: Option<OpList>,
-    t2: Option<OpList>,
-    t3: Option<OpList>,
-    t4: Option<OpList>,
+    pub t1: Option<OpList>,
+    pub t2: Option<OpList>,
+    pub t3: Option<OpList>,
+    pub t4: Option<OpList>,
 }
 
 fn extract_tcycle(i: usize, num_ops: usize, record: &csv::StringRecord) -> Option<OpList> {
@@ -71,7 +70,6 @@ pub fn parse_csv(path: &str) -> HashMap<String, MCycleList> {
                 break;
             }
         }
-        dbg!(&mcycles);
         code_map.insert(name.replace(" ", "").to_string(), mcycles);
     }
     code_map

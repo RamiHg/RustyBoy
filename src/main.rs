@@ -4,6 +4,8 @@
 #![deny(clippy::all)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
 #![allow(clippy::useless_attribute)]
+#![allow(clippy::trivially_copy_pass_by_ref)]
+#![allow(unused_doc_comments)]
 // Remove when this file is uncommented out.
 #![allow(unused_variables)]
 // Temp.

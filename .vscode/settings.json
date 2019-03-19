@@ -6,5 +6,5 @@
   "workbench.editor.enablePreview": false,
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
-  // "rust.rustfmt_path": "$(workspace)/rustfmt.toml"
+  "rust.jobs": 8,
 }

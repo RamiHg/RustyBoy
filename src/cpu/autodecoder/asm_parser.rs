@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::asm::{AluCommand, Arg, Command, Op};
+use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
 use crate::cpu::register::Register;
 
 const OP_PATTERN: &str = r"([A-Z]+)[[:space:]]*([[:alnum:]]*),?[[:space:]]*([[:alnum:]]*)";
@@ -38,7 +38,11 @@ pub fn parse_op(op: &str) -> Op {
     };
     let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));
     let rhs = groups.get(3).and_then(|x| parse_arg(x.as_str()));
-    Op { cmd, lhs, rhs }
+    Op {
+        cmd,
+        lhs: MaybeArg::new(lhs),
+        rhs: MaybeArg::new(rhs),
+    }
 }
 
 fn parse_arg(arg: &str) -> Option<Arg> {
@@ -60,8 +64,8 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "PC_H" => Arg::Register(Register::PC_HIGH),
         "PC_L" => Arg::Register(Register::PC_LOW),
         "SP" => Arg::Register(Register::SP),
-        "SP_H" => Arg::Register(Register::PC_HIGH),
-        "SP_L" => Arg::Register(Register::PC_LOW),
+        "SP_H" => Arg::Register(Register::SP_HIGH),
+        "SP_L" => Arg::Register(Register::SP_LOW),
         "RHS_H" => Arg::RhsHigh,
         "RHS_L" => Arg::RhsLow,
         "LHS" => Arg::Lhs,

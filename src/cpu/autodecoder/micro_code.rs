@@ -1,6 +1,6 @@
 use crate::cpu::register::Register;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum IncOp {
     Mov = 0b00,
     Inc = 0b01,
@@ -11,7 +11,17 @@ impl Default for IncOp {
     fn default() -> Self { IncOp::Mov }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AluOp {
+    Mov,
+    Add,
+}
+
+impl Default for AluOp {
+    fn default() -> Self { AluOp::Mov }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AluOutSelect {
     Result,
     Tmp,
@@ -50,8 +60,9 @@ pub struct MicroCode {
     pub inc_to_addr_bus: bool,
 
     // Alu control.
+    pub alu_op: AluOp,
     pub alu_out_select: AluOutSelect,
-    pub alu_result_to_out: bool,
+    pub alu_to_data: bool,
     /// Overwrites the selected ALU register with the value in the data bus.
     pub alu_reg_write_enable: bool,
     pub alu_write_f_mask: u8,

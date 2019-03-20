@@ -7,4 +7,6 @@
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
   "rust.jobs": 8,
+  "rust.unstable_features": true,
+  "rust.clippy_preference": "off"
 }

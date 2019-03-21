@@ -32,6 +32,8 @@ pub enum Command {
     DEC,
     END,
     CCEND,
+
+    NOP,
 }
 
 #[derive(Clone, Debug)]
@@ -54,6 +56,16 @@ pub struct Op {
     pub cmd: Command,
     pub lhs: MaybeArg,
     pub rhs: MaybeArg,
+}
+
+impl Op {
+    pub fn nop() -> Op {
+        Op {
+            cmd: Command::NOP,
+            lhs: MaybeArg(None),
+            rhs: MaybeArg(None),
+        }
+    }
 }
 
 impl MaybeArg {

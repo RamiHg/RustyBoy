@@ -17,9 +17,8 @@ impl AluOutSelect {
 
 /// Main entry point. Uses compile_op and micro_code_combine (defined at the bottom) to compile a
 /// list of asm::Ops.
-pub fn compile_op_list(op_list: &[Op]) -> MicroCode {
+pub fn compile_op_list<'a>(op_list: impl Iterator<Item = &'a Op>) -> MicroCode {
     let code = op_list
-        .iter()
         .map(compile_op)
         .fold(MicroCode::default(), micro_code_combine);
     verify_micro_code(&code);

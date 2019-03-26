@@ -47,6 +47,12 @@ impl MCycleList {
         let mapper = |x: &MaybeArg| {
             if let Some(Arg::Lhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
+            } else if let Some(Arg::LhsLow) = x.0 {
+                let (high, low) = with.decompose_pair();
+                MaybeArg(Some(Arg::Register(low)))
+            } else if let Some(Arg::LhsHigh) = x.0 {
+                let (high, low) = with.decompose_pair();
+                MaybeArg(Some(Arg::Register(high)))
             } else {
                 x.clone()
             }
@@ -57,6 +63,12 @@ impl MCycleList {
         let mapper = |x: &MaybeArg| {
             if let Some(Arg::Rhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
+            } else if let Some(Arg::RhsLow) = x.0 {
+                let (high, low) = with.decompose_pair();
+                MaybeArg(Some(Arg::Register(low)))
+            } else if let Some(Arg::RhsHigh) = x.0 {
+                let (high, low) = with.decompose_pair();
+                MaybeArg(Some(Arg::Register(high)))
             } else {
                 x.clone()
             }

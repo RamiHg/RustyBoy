@@ -68,6 +68,22 @@ impl Decoder {
         let op_p = (op_y & 0b110) >> 1;
 
         let micro_codes = match op_x {
+            // x = 0
+            0 => match op_z {
+                // z = 1
+                1 => match op_q {
+                    // q = 0. LD rr, nn
+                    0 => self.pla["LDrr,i16"]
+                        .remap_lhs_reg(Register::from_sp_pair_table(op_p))
+                        .compile(),
+                    _ => panic!(),
+                },
+                // z = 6. LD r, n
+                6 => self.pla["LDr,i8"]
+                    .remap_lhs_reg(Register::from_single_table(op_y))
+                    .compile(),
+                _ => panic!(),
+            },
             // x = 1
             1 if op_y != 6 && op_z != 6 => self.pla["LDr,r"]
                 .remap_lhs_reg(Register::from_single_table(op_y))

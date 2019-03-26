@@ -5,7 +5,6 @@ use num_traits::FromPrimitive;
 
 use crate::cpu::alu;
 
-use super::asm_compiler;
 use super::csv_parser;
 use super::micro_code::MicroCode;
 use super::op_map::MCycleMap;
@@ -51,12 +50,12 @@ impl Decoder {
     pub fn new() -> Decoder {
         Decoder {
             pla: csv_parser::parse_csv(
-                r"/Users/Ramy/Downloads/CPU Design - Instruction Breakdown.csv",
+                r"/Users/elgarawany/Downloads/CPU Design - Instruction Breakdown.csv",
             ),
         }
     }
 
-    pub fn decode(&self, op: i32, _cpu: &mut Cpu, memory: &Memory) -> Vec<MicroCode> {
+    pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> {
         self.decode_op(op)
     }
 
@@ -68,12 +67,12 @@ impl Decoder {
         let op_q = op_y & 0b001;
         let op_p = (op_y & 0b110) >> 1;
 
-        let hl_codes = match op_x {
+        let micro_codes = match op_x {
             // x = 1
             1 if op_y != 6 && op_z != 6 => self.pla["LDr,r"]
-                .flatten()
                 .remap_lhs_reg(Register::from_single_table(op_y))
-                .remap_rhs_reg(Register::from_single_table(op_z)),
+                .remap_rhs_reg(Register::from_single_table(op_z))
+                .compile(),
             _ => panic!("Implement {:X?}", opcode),
         };
 
@@ -121,6 +120,6 @@ impl Decoder {
             .flat_map(|x| MicroCode::from(x).to_vec())
             .collect()
             */
-        hl_codes.ops()
+        micro_codes
     }
 }

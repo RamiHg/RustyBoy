@@ -59,17 +59,20 @@ pub struct Op {
 }
 
 impl Op {
-    pub fn nop() -> Op {
-        Op {
+    pub fn nop() -> &'static [Op] {
+        static NOP: [Op; 1] = [Op {
             cmd: Command::NOP,
             lhs: MaybeArg(None),
             rhs: MaybeArg(None),
-        }
+        }];
+        &NOP
     }
 }
 
 impl MaybeArg {
-    pub fn new(arg: Option<Arg>) -> MaybeArg { MaybeArg(arg) }
+    pub fn new(arg: Option<Arg>) -> MaybeArg {
+        MaybeArg(arg)
+    }
 
     pub fn expect_as_register(&self) -> Register {
         match self.0 {

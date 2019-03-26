@@ -31,13 +31,15 @@ impl MCycleList {
             // Replace all empty t-cycles with NOPs.
             .map(|x| {
                 if x.is_empty() {
-                    [Op::nop()].iter()
+                    Op::nop().iter()
                 } else {
                     x.iter()
                 }
             })
             // Compile each TCycle.
-            .map(|x| asm_compiler::compile_op_list(x.collect()))
+            .map(|x| asm_compiler::compile_op_list(x))
+            // Skip the first 2 nop tcycles.
+            .skip(2)
             .collect()
     }
 
@@ -91,7 +93,9 @@ impl MCycleList {
 
 // SourceOpList convenience functions to remap arguments.
 impl SourceOpList {
-    pub fn ops(&self) -> &[Op] { &self.0 }
+    pub fn ops(&self) -> &[Op] {
+        &self.0
+    }
 
     fn remap_arg(arg: &MaybeArg, from: &Arg, to: &Arg) -> MaybeArg {
         if let Some(from) = &arg.0 {

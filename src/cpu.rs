@@ -10,6 +10,8 @@ mod test;
 // TODO: Place this in a better place..
 pub use self::micro_code::{Output, SideEffect};
 
+use autodecoder::decoder::Decoder;
+
 use core::fmt;
 
 use crate::{
@@ -42,15 +44,22 @@ impl core::fmt::Display for Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DecodeMode {
     Fetch,
     Decode,
     Execute,
 }
 
-#[derive(Debug)]
+impl Default for DecodeMode {
+    fn default() -> Self {
+        DecodeMode::Fetch
+    }
+}
+
+#[derive(Copy, Clone, Debug, Default)]
 pub struct State {
+    t_state: TState,
     decode_mode: DecodeMode,
     address_latch: i32,
     data_latch: i32,
@@ -58,18 +67,7 @@ pub struct State {
     write_latch: bool,
 }
 
-impl Default for State {
-    fn default() -> State {
-        State {
-            decode_mode: DecodeMode::Fetch,
-            address_latch: 0,
-            data_latch: 0,
-            read_latch: true,
-            write_latch: false,
-        }
-    }
-}
-
+#[derive(Copy, Clone, Debug, Default)]
 pub struct TState(i32);
 
 impl TState {
@@ -87,7 +85,7 @@ impl TState {
 pub struct Cpu {
     pub state: State,
     pub registers: register::File,
-    t_state: TState,
+    pub decoder: Decoder,
     micro_code_stack: Vec<MicroCode>,
     pub micro_code_v2_stack: Vec<autodecoder::MicroCode>,
 }
@@ -97,7 +95,7 @@ impl Cpu {
         Cpu {
             state: State::default(),
             registers: register::File::new([0; register::Register::NumRegisters as usize]),
-            t_state: TState(0),
+            decoder: Decoder::new(),
             micro_code_stack: Vec::new(),
             micro_code_v2_stack: Vec::new(),
         }
@@ -109,7 +107,7 @@ impl Cpu {
         println!("Address: {:X?}", self.state.address_latch);
 
         if self.state.read_latch {
-            if self.t_state.get() == 3 {
+            if self.state.t_state.get() == 3 {
                 self.state.data_latch = memory.read(self.state.address_latch);
                 println!("Setting Data Latch: {:X}.", self.state.data_latch);
             } else {
@@ -121,16 +119,11 @@ impl Cpu {
         if self.state.write_latch {
             assert!(util::is_16bit(self.state.address_latch));
             assert!(util::is_8bit(self.state.data_latch));
-            if self.t_state.get() == 4 {
+            if self.state.t_state.get() == 4 {
                 return Some(SideEffect::Write {
                     raw_address: self.state.address_latch,
                     value: self.state.data_latch,
                 });
-            } else {
-                panic!(
-                    "Writing memory should only be asserted such that it is sampled at the rising \
-                     edge of T3."
-                );
             }
         }
 
@@ -138,24 +131,23 @@ impl Cpu {
     }
 
     pub fn execute_machine_cycle_v2(&mut self, memory: &Memory) -> Result<Output> {
-        /*
         let mut last_output = Output {
             side_effect: None,
             is_done: false,
         };
         for i in 0..=3 {
-            // Sanity check
-            assert_eq!(self.t_state.get(), i + 1);
+            // Sanity check=
             // Run the prelude.
             let side_effect = self.microcode_prelude(memory);
-            last_output = autodecoder::control_unit::cycle(self, memory);
-            last_output.side_effect = side_effect; // hack.
-            self.t_state.inc();
+            autodecoder::control_unit::cycle(self, memory);
+            last_output.side_effect = last_output.side_effect.or(side_effect);
+            self.state.t_state.inc();
         }
 
+        if self.state.t_state.get() == 1 && self.state.decode_mode == DecodeMode::Fetch {
+            last_output.is_done = true;
+        }
         Ok(last_output)
-        */
-        Err(Error::InvalidOpcode(1337))
     }
 
     /// Runs a machine cycle.

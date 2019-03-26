@@ -50,7 +50,6 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         return None;
     }
     Some(match arg {
-        "RHS" => Arg::Rhs,
         "A" => Arg::Register(Register::A),
         "ACT" => Arg::Register(Register::ACT),
         "TMP" => Arg::Register(Register::ALU_TMP),
@@ -66,6 +65,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "SP" => Arg::Register(Register::SP),
         "SP_H" => Arg::Register(Register::SP_HIGH),
         "SP_L" => Arg::Register(Register::SP_LOW),
+        "RHS" => Arg::Rhs,
         "RHS_H" => Arg::RhsHigh,
         "RHS_L" => Arg::RhsLow,
         "LHS" => Arg::Lhs,
@@ -76,4 +76,6 @@ fn parse_arg(arg: &str) -> Option<Arg> {
     })
 }
 
-fn is_constant(value: &str) -> bool { value.parse::<i32>().is_ok() }
+fn is_constant(value: &str) -> bool {
+    value.parse::<i32>().is_ok()
+}

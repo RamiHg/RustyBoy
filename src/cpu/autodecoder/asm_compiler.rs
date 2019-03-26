@@ -34,9 +34,11 @@ fn compile_op(op: &Op) -> MicroCode {
         WR => compile_wr,
         LD => compile_ld,
         ALU(_) => compile_alu,
+        MOV => compile_alu,
         INC => compile_inc,
         END => compile_end,
         CCEND => compile_ccend,
+        NOP => compile_nop,
         _ => panic!("Implement {:?}", op.cmd),
     };
     compile_fn(op)
@@ -47,7 +49,7 @@ fn compile_addr(op: &Op) -> MicroCode {
     let addr_select = op.lhs.expect_as_pair();
     op.rhs.expect_none();
     MicroCode {
-        reg_to_addr_bus: true,
+        reg_to_addr_buffer: true,
         addr_select,
         ..Default::default()
     }
@@ -141,9 +143,9 @@ fn compile_ld(op: &Op) -> MicroCode {
 }
 
 fn compile_alu(op: &Op) -> MicroCode {
-    dbg!(op);
     let alu_command = match &op.cmd {
         Command::ALU(command) => command,
+        Command::MOV => &AluCommand::Mov,
         _ => panic!(),
     };
     // Revisit if this mapping should even exist.
@@ -182,6 +184,12 @@ fn compile_ccend(op: &Op) -> MicroCode {
     }
 }
 
+fn compile_nop(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode::default()
+}
+
 // The second part of compilation is combining all the TCycle's microcodes into one. This also
 // checks for potential hazards and invalid operations.
 
@@ -215,7 +223,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(reg_select);
     move_if_unset!(reg_write_enable);
     move_if_unset!(reg_to_data);
-    move_if_unset!(reg_to_addr_bus);
+    move_if_unset!(reg_to_addr_buffer);
     move_if_unset!(addr_select);
     move_if_unset!(addr_write_enable);
     move_if_unset!(inc_op);
@@ -243,11 +251,11 @@ fn verify_micro_code(code: &MicroCode) {
         "Cannot read and write data bus from register file."
     );
     assert!(
-        !(code.reg_to_addr_bus && code.addr_write_enable),
+        !(code.reg_to_addr_buffer && code.addr_write_enable),
         "Cannot read and write address bus from register file."
     );
     assert!(
-        !(code.inc_to_addr_bus && code.reg_to_addr_bus),
+        !(code.inc_to_addr_bus && code.reg_to_addr_buffer),
         "Cannot drive address bus from both register file and address buffer."
     );
     assert!(

@@ -1,26 +1,19 @@
-use super::{AluOp, IncOp, MicroCode};
-use crate::{
-    cpu::{
-        self,
-        micro_code::{Output, SideEffect},
-    },
-    memory::Memory,
-};
+use crate::cpu;
+use crate::memory::Memory;
 
-use cpu::{
-    alu::Flags,
-    register::{self, Register},
-    Cpu, DecodeMode,
-};
+use cpu::alu::Flags;
+use cpu::register::{self, Register};
+use cpu::{Cpu, DecodeMode};
 
 use super::decoder;
+use super::micro_code::{AluOp, AluOutSelect, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
     MicroCode {
         // We set mem_read_enable to true explicitly even though we always reset at T4.
         mem_read_enable: true,
-        mem_set_address: true,
-        mem_reg_address: Register::PC,
+        reg_to_addr_buffer: true,
+        addr_select: Register::PC,
         ..Default::default()
     }
 }
@@ -31,67 +24,80 @@ fn fetch_t2() -> MicroCode {
     }
 }
 
-pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> Output {
-    let micro_code = match cpu.state.decode_mode {
-        DecodeMode::Fetch if cpu.t_state.get() == 1 => fetch_t1(),
-        DecodeMode::Fetch if cpu.t_state.get() == 2 => {
-            cpu.state.decode_mode = DecodeMode::Decode;
-            fetch_t2()
-        }
-        DecodeMode::Decode if cpu.t_state.get() == 3 => {
-            // Skip over the useless T1 and T2. (TODO: Maybe don't create them in the first place).
-            // The decoder is a Mealy FSM in that the T3 state depends on the input (memory).
-            cpu.micro_code_v2_stack = decoder::decode(cpu.state.data_latch, cpu, memory)
-                .iter()
-                .skip(2)
-                .cloned()
-                .collect();
-            cpu.state.decode_mode = DecodeMode::Execute;
-            let mut first = cpu.micro_code_v2_stack.remove(0);
-            // TODO: Figure out a clean way to do this.
-            first.reg_write_enable = false;
-            first
-        }
-        DecodeMode::Execute => cpu.micro_code_v2_stack.remove(0),
-        _ => panic!(
-            "Invalid internal decode mode: {:?} Tstate {:?}.",
-            cpu.state.decode_mode,
-            cpu.t_state.get()
-        ),
+pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
+    dbg!(cpu.state);
+    let (micro_code, mut next_state) = match cpu.state.decode_mode {
+        DecodeMode::Fetch => match cpu.state.t_state.get() {
+            1 => (fetch_t1(), DecodeMode::Fetch),
+            2 => (fetch_t2(), DecodeMode::Decode),
+            _ => panic!("Invalid fetch t-state"),
+        },
+        DecodeMode::Decode => match cpu.state.t_state.get() {
+            3 => {
+                let opcode = cpu.state.data_latch;
+                cpu.micro_code_v2_stack = cpu.decoder.decode(opcode, memory);
+                (cpu.micro_code_v2_stack.remove(0), DecodeMode::Execute)
+            }
+            _ => panic!("Invalid decode t-state"),
+        },
+        DecodeMode::Execute => (cpu.micro_code_v2_stack.remove(0), DecodeMode::Execute),
     };
     // Execute the micro-code.
-    let output = execute(&micro_code, cpu, memory);
+    execute(&micro_code, cpu, memory);
     if micro_code.is_end {
-        assert_eq!(cpu.t_state.get(), 4);
-        cpu.state.decode_mode = DecodeMode::Fetch;
+        assert_eq!(cpu.state.t_state.get(), 4);
+        next_state = DecodeMode::Fetch;
     }
-    output
+    cpu.state.decode_mode = next_state;
 }
 
 /// Incrementer module.
-fn incrementer_logic(
-    code: &MicroCode,
-    cpu: &Cpu,
-    current_state: &register::File,
-    new_state: &mut register::File,
-) {
-    // The input is either whatever is in the address latch, or directly
-    // read from the address bus if we're skipping the latch.
-    let source_value = if code.inc_skip_latch {
-        current_state.get(code.mem_reg_address)
-    } else {
-        cpu.state.address_latch
-    };
-    let new_value = match code.inc_op {
+
+fn incrementer_logic(code: &MicroCode, cpu: &Cpu, current_regs: &register::File) -> i32 {
+    let source_value = cpu.state.address_latch;
+    match code.inc_op {
         IncOp::Mov => source_value,
         IncOp::Inc => (source_value + 1) & 0xFFFF,
         IncOp::Dec => (source_value - 1) & 0xFFFF,
-    };
-    if code.inc_write {
-        new_state.set(code.inc_dest, new_value)
     }
 }
 
+fn alu_logic(
+    code: &MicroCode,
+    current_regs: &register::File,
+    new_regs: &mut register::File,
+) -> i32 {
+    let act = current_regs.get(Register::ACT);
+    let tmp = current_regs.get(Register::ALU_TMP);
+    use AluOp::*;
+    let (result, flags) = match code.alu_op {
+        Mov => (act, Flags::empty()),
+        _ => panic!("Implement {:?}", code.alu_op),
+    };
+    let current_flags = current_regs.get(Register::F);
+    let flag_mask = (code.alu_write_f_mask << 4) as i32;
+    let new_flags = (current_flags & !flag_mask) | (flags.bits() & flag_mask);
+    new_regs.set(Register::F, new_flags);
+    match code.alu_out_select {
+        AluOutSelect::Result => result,
+        AluOutSelect::Tmp => tmp,
+        AluOutSelect::A => current_regs.get(Register::A),
+        AluOutSelect::ACT => act,
+        AluOutSelect::F => current_flags,
+    }
+}
+
+fn alu_reg_write(code: &MicroCode, data: i32, new_regs: &mut register::File) {
+    match code.alu_out_select {
+        AluOutSelect::Tmp => new_regs.set(Register::ALU_TMP, data),
+        AluOutSelect::A => new_regs.set(Register::A, data),
+        AluOutSelect::ACT => new_regs.set(Register::ACT, data),
+        AluOutSelect::F => new_regs.set(Register::F, data),
+        _ => panic!("Invalid AluOutSelect {:?}", code.alu_out_select),
+    };
+}
+
+/*
 /// ALU module.
 fn alu_logic(
     code: &MicroCode,
@@ -162,88 +168,65 @@ fn alu_logic(
     // Finally, return the result.
     result
     */
-    0
+0
 }
 
-fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> Output {
+*/
+
+fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
     dbg!(code);
-    assert!(
-        !(code.mem_read_enable && code.mem_write_enable),
-        "Cannot read and write at the same time: {:?}.",
-        code
-    );
-    assert!(
-        !(cpu.state.read_latch && cpu.state.write_latch),
-        "Invalid CPU state enountered: Read and write latches are asserted."
-    );
 
     let current_regs = cpu.registers;
     let mut new_regs = current_regs;
 
+    let mut next_state = cpu.state;
+
     if code.mem_read_enable {
-        cpu.state.read_latch = true;
-        cpu.state.write_latch = false;
+        next_state.read_latch = true;
+        next_state.write_latch = false;
     }
 
     if code.mem_write_enable {
-        cpu.state.read_latch = false;
-        cpu.state.write_latch = true;
-        cpu.state.data_latch = current_regs.get(code.reg_select);
+        next_state.read_latch = false;
+        next_state.write_latch = true;
     }
 
-    if code.mem_set_address {
-        cpu.state.address_latch = current_regs.get(code.mem_reg_address);
+    if code.reg_to_addr_buffer {
+        debug_assert!(!code.inc_to_addr_bus);
+        debug_assert!(!code.addr_write_enable);
+        next_state.address_latch = current_regs.get(code.addr_select);
     }
 
-    let alu_result = alu_logic(code, cpu, &current_regs, &mut new_regs);
+    let addr_bus_value = if code.inc_to_addr_bus {
+        incrementer_logic(code, cpu, &current_regs)
+    } else {
+        -1
+    };
 
-    /*
+    if code.addr_write_enable {
+        new_regs.set(code.addr_select, addr_bus_value);
+    }
+
+    let data_bus_value = if code.alu_to_data {
+        alu_logic(code, &current_regs, &mut new_regs)
+    } else if code.reg_to_data {
+        debug_assert!(!code.reg_write_enable);
+        current_regs.get(code.reg_select)
+    } else {
+        cpu.state.data_latch
+    };
+
     if code.reg_write_enable {
-        if code.alu_write {
-            new_regs.set(code.reg_select, alu_result);
-        } else if cpu.state.read_latch {
-            assert_eq!(
-                cpu.t_state.get(),
-                3,
-                "Can only sample memory at rising edge of T3. Current TState: {:?}.",
-                cpu.t_state.get()
-            );
-            new_regs.set(code.reg_select, cpu.state.data_latch);
-        } else {
-            panic!(
-                "Register write enabled with no source driving internal bus: {:?}.",
-                code
-            );
-        }
-        assert!(
-            !code.inc_write || !code.inc_dest.overlaps(code.reg_select),
-            "Race condition. Incrementer destination ({:?}) overlaps with register write ({:?}).",
-            code.inc_dest,
-            code.reg_select
-        );
+        new_regs.set(code.reg_select, data_bus_value);
     }
-    */
 
-    incrementer_logic(code, cpu, &current_regs, &mut new_regs);
-
-    if cpu.t_state.get() == 4 {
-        assert!(
-            !code.mem_write_enable,
-            "Cannot assert write enable at T4: {:?}.",
-            code
-        );
-        // As a matter of fact, we shouldn't be asserting anything right now!
-        assert!(!code.mem_read_enable);
-        // Reset memory control.
-        cpu.state.read_latch = true;
-        cpu.state.write_latch = false;
+    if code.alu_reg_write_enable {
+        alu_reg_write(code, data_bus_value, &mut new_regs);
     }
+
+    //let alu_result = alu_logic(code, cpu, &current_regs, &mut new_regs);
 
     // Finally, copy over the new state.
     cpu.registers = new_regs;
-
-    Output {
-        side_effect: None,
-        is_done: code.is_end,
-    }
+    cpu.state = next_state;
 }

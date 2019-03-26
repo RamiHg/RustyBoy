@@ -8,7 +8,9 @@ pub enum IncOp {
 }
 
 impl Default for IncOp {
-    fn default() -> Self { IncOp::Mov }
+    fn default() -> Self {
+        IncOp::Mov
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -18,7 +20,9 @@ pub enum AluOp {
 }
 
 impl Default for AluOp {
-    fn default() -> Self { AluOp::Mov }
+    fn default() -> Self {
+        AluOp::Mov
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,10 +35,12 @@ pub enum AluOutSelect {
 }
 
 impl Default for AluOutSelect {
-    fn default() -> Self { AluOutSelect::Result }
+    fn default() -> Self {
+        AluOutSelect::Result
+    }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
     //  do much other than signal to the memory controller intent.
@@ -49,7 +55,7 @@ pub struct MicroCode {
     // Address control.
     /// If true, will drive the address bus from the register file, and more importantly, write
     /// into the address buffer register.
-    pub reg_to_addr_bus: bool,
+    pub reg_to_addr_buffer: bool,
     pub addr_select: Register,
     /// If true, will overwrite the selected address register with the value in the address bus.
     pub addr_write_enable: bool,

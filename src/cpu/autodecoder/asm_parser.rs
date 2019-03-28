@@ -4,7 +4,7 @@ use regex::Regex;
 use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
 use crate::cpu::register::Register;
 
-const OP_PATTERN: &str = r"([A-Z]+)[[:space:]]*([[:alnum:]]*),?[[:space:]]*([[:alnum:]]*)";
+const OP_PATTERN: &str = r"([A-Z]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
 
 pub fn parse_op(op: &str) -> Op {
     lazy_static! {
@@ -27,6 +27,7 @@ pub fn parse_op(op: &str) -> Op {
         "LD" => LD,
         "ALU" => ALUPlaceholder,
         "ADD" => ALU(AluCommand::Add),
+        "SUB" => ALU(AluCommand::Sub),
         "FMSK" => FMSK,
         "FZ" => FZ,
         "CSE" => CSE,
@@ -76,6 +77,4 @@ fn parse_arg(arg: &str) -> Option<Arg> {
     })
 }
 
-fn is_constant(value: &str) -> bool {
-    value.parse::<i32>().is_ok()
-}
+fn is_constant(value: &str) -> bool { value.parse::<i32>().is_ok() }

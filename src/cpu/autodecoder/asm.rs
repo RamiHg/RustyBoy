@@ -1,6 +1,6 @@
 use crate::cpu::register::Register;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum AluCommand {
     Mov,
     Add,
@@ -15,7 +15,7 @@ pub enum AluCommand {
     Daa,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Command {
     ADDR,
     RADDR,
@@ -70,9 +70,7 @@ impl Op {
 }
 
 impl MaybeArg {
-    pub fn new(arg: Option<Arg>) -> MaybeArg {
-        MaybeArg(arg)
-    }
+    pub fn new(arg: Option<Arg>) -> MaybeArg { MaybeArg(arg) }
 
     pub fn expect_as_register(&self) -> Register {
         match self.0 {

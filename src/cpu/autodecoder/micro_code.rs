@@ -8,21 +8,24 @@ pub enum IncOp {
 }
 
 impl Default for IncOp {
-    fn default() -> Self {
-        IncOp::Mov
-    }
+    fn default() -> Self { IncOp::Mov }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AluOp {
     Mov,
     Add,
+    Addc,
+    Sub,
+    Subc,
+    And,
+    Xor,
+    Or,
+    Cp,
 }
 
 impl Default for AluOp {
-    fn default() -> Self {
-        AluOp::Mov
-    }
+    fn default() -> Self { AluOp::Mov }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -35,9 +38,7 @@ pub enum AluOutSelect {
 }
 
 impl Default for AluOutSelect {
-    fn default() -> Self {
-        AluOutSelect::Result
-    }
+    fn default() -> Self { AluOutSelect::Result }
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -69,8 +70,10 @@ pub struct MicroCode {
     pub alu_op: AluOp,
     pub alu_out_select: AluOutSelect,
     pub alu_to_data: bool,
-    /// Overwrites the selected ALU register with the value in the data bus.
+    pub alu_reg_write_one: bool,
+    /// Overwrites the selected ALU register with the value in the data bus (or a constant).
     pub alu_reg_write_enable: bool,
+    pub alu_a_to_act: bool,
     pub alu_write_f_mask: u8,
 
     // Control flow.

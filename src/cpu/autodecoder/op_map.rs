@@ -1,9 +1,10 @@
 use crate::cpu::register::Register;
 
-use super::asm::{Arg, MaybeArg, Op};
+use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
 use super::asm_compiler;
 use super::micro_code::MicroCode;
 
+#[derive(Debug)]
 pub struct MCycleList(pub Vec<MCycle>);
 pub type MCycleMap = std::collections::HashMap<String, MCycleList>;
 
@@ -44,6 +45,7 @@ impl MCycleList {
     }
 
     pub fn remap_lhs_reg(&self, with: Register) -> MCycleList {
+        dbg!(self);
         let mapper = |x: &MaybeArg| {
             if let Some(Arg::Lhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
@@ -57,7 +59,7 @@ impl MCycleList {
                 x.clone()
             }
         };
-        self.map_ops(mapper)
+        self.map_args(mapper)
     }
     pub fn remap_rhs_reg(&self, with: Register) -> MCycleList {
         let mapper = |x: &MaybeArg| {
@@ -73,17 +75,32 @@ impl MCycleList {
                 x.clone()
             }
         };
-        self.map_ops(mapper)
+        self.map_args(mapper)
     }
 
-    fn map_ops(&self, mapper: impl Fn(&MaybeArg) -> MaybeArg) -> MCycleList {
+    pub fn remap_alu_placeholder(&self, with: AluCommand) -> MCycleList {
+        let mapper = |cmd: &Command| {
+            if let Command::ALUPlaceholder = cmd {
+                Command::ALU(with)
+            } else {
+                *cmd
+            }
+        };
+        self.map_cmds(mapper)
+    }
+
+    fn map_ops(
+        &self,
+        arg_mapper: impl Fn(&MaybeArg) -> MaybeArg,
+        cmd_mapper: impl Fn(&Command) -> Command,
+    ) -> MCycleList {
         let op_list_mutater = |ops: &[Op]| {
             SourceOpList(
                 ops.iter()
                     .map(|op| Op {
-                        cmd: op.cmd.clone(),
-                        lhs: mapper(&op.lhs),
-                        rhs: mapper(&op.rhs),
+                        cmd: cmd_mapper(&op.cmd),
+                        lhs: arg_mapper(&op.lhs),
+                        rhs: arg_mapper(&op.rhs),
                     })
                     .collect(),
             )
@@ -101,13 +118,19 @@ impl MCycleList {
                 .collect(),
         )
     }
+
+    fn map_args(&self, mapper: impl Fn(&MaybeArg) -> MaybeArg) -> MCycleList {
+        self.map_ops(mapper, |cmd| *cmd)
+    }
+
+    fn map_cmds(&self, mapper: impl Fn(&Command) -> Command) -> MCycleList {
+        self.map_ops(|arg| arg.clone(), mapper)
+    }
 }
 
 // SourceOpList convenience functions to remap arguments.
 impl SourceOpList {
-    pub fn ops(&self) -> &[Op] {
-        &self.0
-    }
+    pub fn ops(&self) -> &[Op] { &self.0 }
 
     fn remap_arg(arg: &MaybeArg, from: &Arg, to: &Arg) -> MaybeArg {
         if let Some(from) = &arg.0 {

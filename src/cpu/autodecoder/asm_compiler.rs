@@ -34,6 +34,7 @@ fn compile_op(op: &Op) -> MicroCode {
         WR => compile_wr,
         LD => compile_ld,
         ALU(_) => compile_alu,
+        FMSK => compile_fmsk,
         MOV => compile_alu,
         INC => compile_inc,
         END => compile_end,
@@ -68,10 +69,18 @@ fn compile_rd(op: &Op) -> MicroCode {
     let dst = op.lhs.expect_as_register();
     assert!(dst.is_single());
     op.rhs.expect_none();
-    MicroCode {
-        reg_select: dst,
-        reg_write_enable: true,
-        ..Default::default()
+    match dst {
+        Register::ALU_TMP => MicroCode {
+            alu_out_select: AluOutSelect::Tmp,
+            alu_reg_write_enable: true,
+            ..Default::default()
+        },
+        Register::ACT => panic!(),
+        _ => MicroCode {
+            reg_select: dst,
+            reg_write_enable: true,
+            ..Default::default()
+        },
     }
 }
 
@@ -130,15 +139,42 @@ fn compile_ld(op: &Op) -> MicroCode {
                 op.lhs
             )
         });
-    let source = op.rhs.expect_as_register();
-    MicroCode {
-        // Write the source to the data bus.
-        reg_select: source,
-        reg_to_data: true,
-        // Sample the data bus into the ALU register.
-        alu_out_select: destination,
-        alu_reg_write_enable: true,
-        ..Default::default()
+    match &op.rhs.0 {
+        Some(Arg::Register(source)) if source == &Register::A => {
+            assert_eq!(destination, AluOutSelect::ACT);
+            MicroCode {
+                alu_a_to_act: true,
+                ..Default::default()
+            }
+        }
+        Some(Arg::Register(source)) => MicroCode {
+            // Write the source to the data bus.
+            reg_select: *source,
+            reg_to_data: true,
+            // Sample the data bus into the ALU register.
+            alu_out_select: destination,
+            alu_reg_write_enable: true,
+            ..Default::default()
+        },
+        Some(Arg::ConstantPlaceholder(string)) => {
+            let value: i32 = string
+                .parse()
+                .unwrap_or_else(|_| panic!("Cannot parse {} as int", string));
+            if destination == AluOutSelect::Tmp && value == 1 {
+                MicroCode {
+                    alu_out_select: destination,
+                    alu_reg_write_enable: true,
+                    alu_reg_write_one: true,
+                    ..Default::default()
+                }
+            } else {
+                panic!(
+                    "Unsupported constant {} to load to {:?}",
+                    string, destination
+                )
+            }
+        }
+        _ => panic!("Unexpected LD RHS: {:?}", op.rhs.0),
     }
 }
 
@@ -152,17 +188,48 @@ fn compile_alu(op: &Op) -> MicroCode {
     let alu_op = match alu_command {
         AluCommand::Mov => AluOp::Mov,
         AluCommand::Add => AluOp::Add,
+        AluCommand::Addc => AluOp::Addc,
+        AluCommand::Sub => AluOp::Sub,
+        AluCommand::Subc => AluOp::Subc,
+        AluCommand::And => AluOp::And,
+        AluCommand::Xor => AluOp::Xor,
+        AluCommand::Or => AluOp::Or,
+        AluCommand::Cp => AluOp::Cp,
         _ => panic!("Implement {:?}", alu_command),
     };
     let dst = op.lhs.expect_as_register();
     assert!(dst.is_single());
-    MicroCode {
-        alu_op,
-        alu_out_select: AluOutSelect::Result,
-        alu_to_data: true,
-        reg_select: dst,
-        reg_write_enable: true,
-        ..Default::default()
+    if let Register::A = dst {
+        MicroCode {
+            alu_op,
+            alu_out_select: AluOutSelect::Result,
+            alu_to_data: true,
+            alu_reg_write_enable: true,
+            ..Default::default()
+        }
+    } else {
+        MicroCode {
+            alu_op,
+            alu_out_select: AluOutSelect::Result,
+            alu_to_data: true,
+            reg_select: dst,
+            reg_write_enable: true,
+            ..Default::default()
+        }
+    }
+}
+
+fn compile_fmsk(op: &Op) -> MicroCode {
+    op.rhs.expect_none();
+    if let Some(Arg::ConstantPlaceholder(string)) = &op.lhs.0 {
+        let mask = i32::from_str_radix(string, 2)
+            .unwrap_or_else(|_| panic!("Invalid FMSK constant: {}", string));
+        MicroCode {
+            alu_write_f_mask: mask as u8,
+            ..Default::default()
+        }
+    } else {
+        panic!("Unexpected FMSK arg: {:?}", op.lhs)
     }
 }
 
@@ -231,7 +298,9 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_op);
     move_if_unset!(alu_out_select);
     move_if_unset!(alu_to_data);
+    move_if_unset!(alu_reg_write_one);
     move_if_unset!(alu_reg_write_enable);
+    move_if_unset!(alu_a_to_act);
     move_if_unset!(alu_write_f_mask);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
@@ -259,8 +328,14 @@ fn verify_micro_code(code: &MicroCode) {
         "Cannot drive address bus from both register file and address buffer."
     );
     assert!(
-        !(code.alu_reg_write_enable && code.alu_to_data),
+        !(code.alu_reg_write_enable
+            && code.alu_to_data
+            && code.alu_out_select != AluOutSelect::Result),
         "Cannot read and write ALU registers."
+    );
+    assert!(
+        !(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::A && code.alu_a_to_act),
+        "Data hazard writing to ACT."
     );
     assert!(
         !(code.alu_to_data && code.reg_to_data),

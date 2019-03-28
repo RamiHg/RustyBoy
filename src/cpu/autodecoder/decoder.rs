@@ -5,6 +5,7 @@ use num_traits::FromPrimitive;
 
 use crate::cpu::alu;
 
+use super::asm;
 use super::csv_parser;
 use super::micro_code::MicroCode;
 use super::op_map::MCycleMap;
@@ -30,14 +31,14 @@ enum AluOpTable {
     CpA,
 }
 
-impl Into<alu::BinaryOp> for AluOpTable {
-    fn into(self) -> alu::BinaryOp {
-        use alu::BinaryOp::*;
+impl Into<asm::AluCommand> for AluOpTable {
+    fn into(self) -> asm::AluCommand {
+        use asm::AluCommand::*;
         match self {
             AluOpTable::AddA => Add,
-            AluOpTable::AdcA => Adc,
+            AluOpTable::AdcA => Addc,
             AluOpTable::SubA => Sub,
-            AluOpTable::SbcA => Sbc,
+            AluOpTable::SbcA => Subc,
             AluOpTable::AndA => And,
             AluOpTable::XorA => Xor,
             AluOpTable::OrA => Or,
@@ -50,14 +51,12 @@ impl Decoder {
     pub fn new() -> Decoder {
         Decoder {
             pla: csv_parser::parse_csv(
-                r"/Users/elgarawany/Downloads/CPU Design - Instruction Breakdown.csv",
+                r"/Users/Ramy/Downloads/CPU Design - Instruction Breakdown.csv",
             ),
         }
     }
 
-    pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> {
-        self.decode_op(op)
-    }
+    pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> { self.decode_op(op) }
 
     fn decode_op(&self, opcode: i32) -> Vec<MicroCode> {
         // Deconstruct the op into its components.
@@ -88,6 +87,14 @@ impl Decoder {
             1 if op_y != 6 && op_z != 6 => self.pla["LDr,r"]
                 .remap_lhs_reg(Register::from_single_table(op_y))
                 .remap_rhs_reg(Register::from_single_table(op_z))
+                .compile(),
+            // x = 2. ALU A, r
+            2 if op_z == 6 => self.pla["aluA,(HL)"]
+                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into())
+                .compile(),
+            2 => self.pla["aluA,r"]
+                .remap_rhs_reg(Register::from_single_table(op_z))
+                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into())
                 .compile(),
             _ => panic!("Implement {:X?}", opcode),
         };

@@ -1,6 +1,7 @@
 use crate::cpu;
 use crate::memory::Memory;
 
+use cpu::alu;
 use cpu::alu::Flags;
 use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
@@ -69,31 +70,40 @@ fn alu_logic(
 ) -> i32 {
     let act = current_regs.get(Register::ACT);
     let tmp = current_regs.get(Register::ALU_TMP);
+    let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     use AluOp::*;
     let (result, flags) = match code.alu_op {
         Mov => (act, Flags::empty()),
-        _ => panic!("Implement {:?}", code.alu_op),
+        Add => alu::BinaryOp::Add.execute(act, tmp, current_flags),
+        Addc => alu::BinaryOp::Adc.execute(act, tmp, current_flags),
+        Sub => alu::BinaryOp::Sub.execute(act, tmp, current_flags),
+        Subc => alu::BinaryOp::Sbc.execute(act, tmp, current_flags),
+        And => alu::BinaryOp::And.execute(act, tmp, current_flags),
+        Xor => alu::BinaryOp::Xor.execute(act, tmp, current_flags),
+        Or => alu::BinaryOp::Or.execute(act, tmp, current_flags),
+        Cp => alu::BinaryOp::Cp.execute(act, tmp, current_flags),
+        //_ => panic!("Implement {:?}", code.alu_op),
     };
-    let current_flags = current_regs.get(Register::F);
     let flag_mask = (code.alu_write_f_mask << 4) as i32;
-    let new_flags = (current_flags & !flag_mask) | (flags.bits() & flag_mask);
+    let new_flags = (current_flags.bits() & !flag_mask) | (flags.bits() & flag_mask);
     new_regs.set(Register::F, new_flags);
     match code.alu_out_select {
         AluOutSelect::Result => result,
         AluOutSelect::Tmp => tmp,
         AluOutSelect::A => current_regs.get(Register::A),
         AluOutSelect::ACT => act,
-        AluOutSelect::F => current_flags,
+        AluOutSelect::F => current_flags.bits(),
     }
 }
 
-fn alu_reg_write(code: &MicroCode, data: i32, new_regs: &mut register::File) {
+fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File) {
+    let data = if code.alu_reg_write_one { 1 } else { data_bus };
+
     match code.alu_out_select {
         AluOutSelect::Tmp => new_regs.set(Register::ALU_TMP, data),
-        AluOutSelect::A => new_regs.set(Register::A, data),
+        AluOutSelect::A | AluOutSelect::Result => new_regs.set(Register::A, data),
         AluOutSelect::ACT => new_regs.set(Register::ACT, data),
         AluOutSelect::F => new_regs.set(Register::F, data),
-        _ => panic!("Invalid AluOutSelect {:?}", code.alu_out_select),
     };
 }
 
@@ -140,12 +150,18 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         cpu.state.data_latch
     };
 
+    dbg!(data_bus_value);
+
     if code.reg_write_enable {
         new_regs.set(code.reg_select, data_bus_value);
     }
 
     if code.alu_reg_write_enable {
         alu_reg_write(code, data_bus_value, &mut new_regs);
+    }
+    if code.alu_a_to_act {
+        debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::A));
+        new_regs.set(Register::ACT, current_regs.get(Register::A));
     }
 
     //let alu_result = alu_logic(code, cpu, &current_regs, &mut new_regs);

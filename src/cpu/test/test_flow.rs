@@ -103,6 +103,7 @@ fn test_jr_cc() {
         (0x30, Flags::CARRY, false),
         (0x38, Flags::CARRY, true),
     ] {
+        println!("Testing {:?}", flag);
         #[rustfmt::skip]
         let ops: Vec<u8> = vec![
             // JR cc, 1
@@ -115,12 +116,16 @@ fn test_jr_cc() {
             .execute_instructions(&ops)
             .assert_reg_eq(A, 1)
             .assert_mcycles(3 + 1);
+        let mut expected_flags = Flags::ZERO | Flags::HCARRY;
+        if !is_set {
+            expected_flags |= flag;
+        };
         with_default()
             .set_flag(flag, !is_set)
             .execute_instructions(&ops)
             .assert_reg_eq(A, 0)
-            .assert_flags(Flags::ZERO | Flags::HCARRY)
-            .assert_mcycles(3 + 1 + 1);
+            .assert_flags(expected_flags)
+            .assert_mcycles(2 + 1 + 1);
     }
 }
 

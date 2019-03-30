@@ -2,9 +2,9 @@ use crate::cpu::register::Register;
 
 use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
 use super::asm_compiler;
-use super::micro_code::MicroCode;
+use super::micro_code::{Condition, MicroCode};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MCycleList(pub Vec<MCycle>);
 pub type MCycleMap = std::collections::HashMap<String, MCycleList>;
 
@@ -89,6 +89,28 @@ impl MCycleList {
         self.map_cmds(mapper)
     }
 
+    pub fn prune_ccend(&self) -> MCycleList {
+        let mapper = |cmd: &Command| {
+            if let Command::CCEND = cmd {
+                Command::NOP
+            } else {
+                *cmd
+            }
+        };
+        self.map_cmds(mapper)
+    }
+
+    pub fn remap_cond(&self, with: Condition) -> MCycleList {
+        let mapper = |x: &MaybeArg| {
+            if let Some(Arg::CCPlaceholder) = x.0 {
+                MaybeArg(Some(Arg::CC(with)))
+            } else {
+                x.clone()
+            }
+        };
+        self.map_args(mapper)
+    }
+
     fn map_ops(
         &self,
         arg_mapper: impl Fn(&MaybeArg) -> MaybeArg,
@@ -128,61 +150,6 @@ impl MCycleList {
     }
 }
 
-// SourceOpList convenience functions to remap arguments.
 impl SourceOpList {
     pub fn ops(&self) -> &[Op] { &self.0 }
-
-    fn remap_arg(arg: &MaybeArg, from: &Arg, to: &Arg) -> MaybeArg {
-        if let Some(from) = &arg.0 {
-            MaybeArg(Some(to.clone()))
-        } else {
-            arg.clone()
-        }
-    }
-
-    fn remap_op<Extractor, Zipper>(
-        &self,
-        from: &Arg,
-        with: &Arg,
-        extract: Extractor,
-        zipper: Zipper,
-    ) -> SourceOpList
-    where
-        Extractor: Fn(&Op) -> &MaybeArg,
-        Zipper: Fn((MaybeArg, &Op)) -> Op,
-    {
-        SourceOpList(
-            self.0
-                .iter()
-                .map(extract)
-                .map(|arg| SourceOpList::remap_arg(arg, from, with))
-                .zip(self.0.iter())
-                .map(zipper)
-                .collect(),
-        )
-    }
-
-    pub fn remap_lhs_reg(&self, with: Register) -> SourceOpList {
-        self.remap_op(
-            &Arg::Lhs,
-            &Arg::Register(with),
-            |op| &op.lhs,
-            |(arg, op)| Op {
-                lhs: arg,
-                ..op.clone()
-            },
-        )
-    }
-
-    pub fn remap_rhs_reg(&self, with: Register) -> SourceOpList {
-        self.remap_op(
-            &Arg::Rhs,
-            &Arg::Register(with),
-            |op| &op.rhs,
-            |(arg, op)| Op {
-                rhs: arg,
-                ..op.clone()
-            },
-        )
-    }
 }

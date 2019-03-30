@@ -33,10 +33,11 @@ fn compile_op(op: &Op) -> MicroCode {
         RD => compile_rd,
         WR => compile_wr,
         LD => compile_ld,
-        ALU(_) => compile_alu,
+        ALU(_) | MOV => compile_alu,
+        CSE => compile_cse,
         FMSK => compile_fmsk,
-        MOV => compile_alu,
-        INC => compile_inc,
+        INC => compile_incdec,
+        DEC => compile_incdec,
         END => compile_end,
         CCEND => compile_ccend,
         NOP => compile_nop,
@@ -75,7 +76,11 @@ fn compile_rd(op: &Op) -> MicroCode {
             alu_reg_write_enable: true,
             ..Default::default()
         },
-        Register::ACT => panic!(),
+        Register::ACT => MicroCode {
+            alu_out_select: AluOutSelect::ACT,
+            alu_reg_write_enable: true,
+            ..Default::default()
+        },
         _ => MicroCode {
             reg_select: dst,
             reg_write_enable: true,
@@ -118,11 +123,17 @@ fn compile_mov(op: &Op) -> MicroCode {
     }
 }
 
-fn compile_inc(op: &Op) -> MicroCode {
+fn compile_incdec(op: &Op) -> MicroCode {
     let addr_select = op.lhs.expect_as_pair();
     op.rhs.expect_none();
+    let inc_op = match op.cmd {
+        Command::INC => IncOp::Inc,
+        Command::DEC => IncOp::Dec,
+        Command::MOV => IncOp::Mov,
+        _ => panic!(),
+    };
     MicroCode {
-        inc_op: IncOp::Inc,
+        inc_op,
         inc_to_addr_bus: true,
         addr_select,
         addr_write_enable: true,
@@ -140,13 +151,17 @@ fn compile_ld(op: &Op) -> MicroCode {
             )
         });
     match &op.rhs.0 {
-        Some(Arg::Register(source)) if source == &Register::A => {
-            assert_eq!(destination, AluOutSelect::ACT);
-            MicroCode {
+        Some(Arg::Register(source)) if source == &Register::A => match destination {
+            AluOutSelect::ACT => MicroCode {
                 alu_a_to_act: true,
                 ..Default::default()
-            }
-        }
+            },
+            AluOutSelect::Tmp => MicroCode {
+                alu_a_to_tmp: true,
+                ..Default::default()
+            },
+            _ => panic!("Cannot write A to {:?}", destination),
+        },
         Some(Arg::Register(source)) => MicroCode {
             // Write the source to the data bus.
             reg_select: *source,
@@ -162,9 +177,7 @@ fn compile_ld(op: &Op) -> MicroCode {
                 .unwrap_or_else(|_| panic!("Cannot parse {} as int", string));
             if destination == AluOutSelect::Tmp && value == 1 {
                 MicroCode {
-                    alu_out_select: destination,
-                    alu_reg_write_enable: true,
-                    alu_reg_write_one: true,
+                    alu_one_to_tmp: true,
                     ..Default::default()
                 }
             } else {
@@ -197,6 +210,10 @@ fn compile_alu(op: &Op) -> MicroCode {
         AluCommand::Cp => AluOp::Cp,
         _ => panic!("Implement {:?}", alu_command),
     };
+    if alu_op == AluOp::Mov && op.lhs.expect_as_register().is_pair() {
+        // This is actually an incrementer operation!
+        return compile_incdec(op);
+    }
     let dst = op.lhs.expect_as_register();
     assert!(dst.is_single());
     if let Register::A = dst {
@@ -216,6 +233,15 @@ fn compile_alu(op: &Op) -> MicroCode {
             reg_write_enable: true,
             ..Default::default()
         }
+    }
+}
+
+fn compile_cse(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        alu_cse_to_tmp: true,
+        ..Default::default()
     }
 }
 
@@ -243,19 +269,20 @@ fn compile_end(op: &Op) -> MicroCode {
 }
 
 fn compile_ccend(op: &Op) -> MicroCode {
-    op.lhs.expect_none();
+    let cond = if let Some(Arg::CC(cond)) = op.lhs.0 {
+        cond
+    } else {
+        panic!("Expected condition. Got: {:?}", op.lhs)
+    };
     op.rhs.expect_none();
     MicroCode {
         is_cond_end: true,
+        cond,
         ..Default::default()
     }
 }
 
-fn compile_nop(op: &Op) -> MicroCode {
-    op.lhs.expect_none();
-    op.rhs.expect_none();
-    MicroCode::default()
-}
+fn compile_nop(op: &Op) -> MicroCode { MicroCode::default() }
 
 // The second part of compilation is combining all the TCycle's microcodes into one. This also
 // checks for potential hazards and invalid operations.
@@ -298,12 +325,15 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_op);
     move_if_unset!(alu_out_select);
     move_if_unset!(alu_to_data);
-    move_if_unset!(alu_reg_write_one);
     move_if_unset!(alu_reg_write_enable);
     move_if_unset!(alu_a_to_act);
+    move_if_unset!(alu_a_to_tmp);
+    move_if_unset!(alu_one_to_tmp);
+    move_if_unset!(alu_cse_to_tmp);
     move_if_unset!(alu_write_f_mask);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
+    move_if_unset!(cond);
 
     acc
 }
@@ -334,8 +364,24 @@ fn verify_micro_code(code: &MicroCode) {
         "Cannot read and write ALU registers."
     );
     assert!(
-        !(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::A && code.alu_a_to_act),
+        !(code.alu_reg_write_enable
+            && code.alu_out_select == AluOutSelect::ACT
+            && code.alu_a_to_act),
         "Data hazard writing to ACT."
+    );
+    assert!(
+        !(code.alu_reg_write_enable
+            && code.alu_out_select == AluOutSelect::Tmp
+            && (code.alu_a_to_tmp || code.alu_one_to_tmp || code.alu_cse_to_tmp)),
+        "Data hazard writing to ACT."
+    );
+    assert!(
+        !(code.alu_one_to_tmp && code.alu_a_to_tmp && code.alu_cse_to_tmp),
+        "Data hazard writing to TMP."
+    );
+    assert!(
+        !(code.alu_cse_to_tmp && !code.alu_to_data),
+        "Using CSE with potentially no ALU operation."
     );
     assert!(
         !(code.alu_to_data && code.reg_to_data),

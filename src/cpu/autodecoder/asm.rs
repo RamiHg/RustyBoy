@@ -1,3 +1,4 @@
+use super::micro_code;
 use crate::cpu::register::Register;
 
 #[derive(Debug, Clone, Copy)]
@@ -39,6 +40,7 @@ pub enum Command {
 #[derive(Clone, Debug)]
 pub enum Arg {
     Register(Register),
+    CC(micro_code::Condition),
     Rhs,
     RhsLow,
     RhsHigh,
@@ -46,6 +48,7 @@ pub enum Arg {
     LhsLow,
     LhsHigh,
     ConstantPlaceholder(String),
+    CCPlaceholder,
 }
 
 #[derive(Debug, Clone)]

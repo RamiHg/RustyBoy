@@ -7,7 +7,7 @@ use crate::cpu::alu;
 
 use super::asm;
 use super::csv_parser;
-use super::micro_code::MicroCode;
+use super::micro_code::{Condition, MicroCode};
 use super::op_map::MCycleMap;
 
 use crate::{
@@ -66,38 +66,99 @@ impl Decoder {
         let op_q = op_y & 0b001;
         let op_p = (op_y & 0b110) >> 1;
 
-        let micro_codes = match op_x {
+        let maybe_alu_op = AluOpTable::from_i32(op_y);
+
+        let mcycle_list = match op_x {
             // x = 0
             0 => match op_z {
+                // z = 0
+                0 => match op_y {
+                    // JR d
+                    3 => self.pla["JR[cc],i8"].prune_ccend(),
+                    4..=7 => {
+                        self.pla["JR[cc],i8"].remap_cond(Condition::from_i32(op_y - 4).unwrap())
+                    }
+                    _ => panic!("Implement {:X?}", opcode),
+                },
                 // z = 1
                 1 => match op_q {
                     // q = 0. LD rr, nn
-                    0 => self.pla["LDrr,i16"]
-                        .remap_lhs_reg(Register::from_sp_pair_table(op_p))
-                        .compile(),
+                    0 => self.pla["LDrr,i16"].remap_lhs_reg(Register::from_sp_pair_table(op_p)),
                     _ => panic!(),
                 },
+                // z = 2. Assorted indirect loads
+                2 => match op_q {
+                    // q = 0
+                    0 => match op_p {
+                        // LD (BC), A
+                        0 => self.pla["LD(rr),A"].remap_lhs_reg(Register::BC),
+                        // LD (DE), A
+                        1 => self.pla["LD(rr),A"].remap_lhs_reg(Register::DE),
+                        // LD (HL+/i), A
+                        2 => self.pla["LDI(HL),A"].clone(),
+                        3 | _ => self.pla["LDD(HL),A"].clone(),
+                    },
+                    // q = 1
+                    1 | _ => match op_p {
+                        // LD A, (BC)
+                        0 => self.pla["LDA,(rr)"].remap_rhs_reg(Register::BC),
+                        // LD A, (DE)
+                        1 => self.pla["LDA,(rr)"].remap_rhs_reg(Register::DE),
+                        2 => self.pla["LDIA,(HL)"].clone(),
+                        3 => self.pla["LDDA,(HL)"].clone(),
+                        _ => panic!(),
+                    },
+                },
+                // z = 4. INC n
+                4 => {
+                    if op_y == 6 {
+                        self.pla["INC/DEC(HL)"].remap_alu_placeholder(asm::AluCommand::Add)
+                    } else {
+                        self.pla["INC/DECr"]
+                            .remap_alu_placeholder(asm::AluCommand::Add)
+                            .remap_lhs_reg(Register::from_single_table(op_y))
+                    }
+                }
+                // z = 5. DEC n
+                5 => {
+                    if op_y == 6 {
+                        self.pla["INC/DEC(HL)"].remap_alu_placeholder(asm::AluCommand::Sub)
+                    } else {
+                        self.pla["INC/DECr"]
+                            .remap_alu_placeholder(asm::AluCommand::Sub)
+                            .remap_lhs_reg(Register::from_single_table(op_y))
+                    }
+                }
                 // z = 6. LD r, n
-                6 => self.pla["LDr,i8"]
-                    .remap_lhs_reg(Register::from_single_table(op_y))
-                    .compile(),
+                6 => self.pla["LDr,i8"].remap_lhs_reg(Register::from_single_table(op_y)),
                 _ => panic!(),
             },
             // x = 1
             1 if op_y != 6 && op_z != 6 => self.pla["LDr,r"]
                 .remap_lhs_reg(Register::from_single_table(op_y))
-                .remap_rhs_reg(Register::from_single_table(op_z))
-                .compile(),
+                .remap_rhs_reg(Register::from_single_table(op_z)),
             // x = 2. ALU A, r
             2 if op_z == 6 => self.pla["aluA,(HL)"]
-                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into())
-                .compile(),
+                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into()),
             2 => self.pla["aluA,r"]
                 .remap_rhs_reg(Register::from_single_table(op_z))
-                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into())
-                .compile(),
+                .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into()),
+            // x = 3
+            3 => match op_z {
+                // z = 3
+                3 => match op_y {
+                    0 => self.pla["JP[cc],i16"].prune_ccend(),
+                    _ => panic!("Implement {:X?}", opcode),
+                },
+                // z = 6. ALU A, n
+                6 => self.pla["aluA,i8"].remap_alu_placeholder(maybe_alu_op.unwrap().into()),
+                _ => panic!("Implement {:X?}", opcode),
+            },
             _ => panic!("Implement {:X?}", opcode),
         };
+
+        // Compile the MCyle assembly.
+        let micro_codes = mcycle_list.compile();
 
         /*
         let hl_codes = match op_x {

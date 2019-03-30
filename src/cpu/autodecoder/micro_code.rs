@@ -1,3 +1,5 @@
+use num_derive::FromPrimitive;
+
 use crate::cpu::register::Register;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -37,6 +39,18 @@ pub enum AluOutSelect {
     F,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, FromPrimitive)]
+pub enum Condition {
+    NZ,
+    Z,
+    NC,
+    C,
+}
+
+impl Default for Condition {
+    fn default() -> Self { Condition::NZ }
+}
+
 impl Default for AluOutSelect {
     fn default() -> Self { AluOutSelect::Result }
 }
@@ -70,13 +84,16 @@ pub struct MicroCode {
     pub alu_op: AluOp,
     pub alu_out_select: AluOutSelect,
     pub alu_to_data: bool,
-    pub alu_reg_write_one: bool,
     /// Overwrites the selected ALU register with the value in the data bus (or a constant).
     pub alu_reg_write_enable: bool,
     pub alu_a_to_act: bool,
+    pub alu_a_to_tmp: bool,
+    pub alu_one_to_tmp: bool,
+    pub alu_cse_to_tmp: bool,
     pub alu_write_f_mask: u8,
 
     // Control flow.
     pub is_end: bool,
     pub is_cond_end: bool,
+    pub cond: Condition,
 }

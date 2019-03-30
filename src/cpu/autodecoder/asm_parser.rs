@@ -72,6 +72,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "LHS" => Arg::Lhs,
         "LHS_L" => Arg::LhsLow,
         "LHS_H" => Arg::LhsHigh,
+        "CC" => Arg::CCPlaceholder,
         _ if is_constant(arg) => Arg::ConstantPlaceholder(arg.into()),
         _ => panic!("Unknown arg: \"{}\"", arg),
     })

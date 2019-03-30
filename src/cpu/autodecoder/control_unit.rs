@@ -7,7 +7,7 @@ use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
 
 use super::decoder;
-use super::micro_code::{AluOp, AluOutSelect, IncOp, MicroCode};
+use super::micro_code::{AluOp, AluOutSelect, Condition, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
     MicroCode {
@@ -26,7 +26,6 @@ fn fetch_t2() -> MicroCode {
 }
 
 pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
-    dbg!(cpu.state);
     let (micro_code, mut next_state) = match cpu.state.decode_mode {
         DecodeMode::Fetch => match cpu.state.t_state.get() {
             1 => (fetch_t1(), DecodeMode::Fetch),
@@ -45,7 +44,21 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
     };
     // Execute the micro-code.
     execute(&micro_code, cpu, memory);
-    if micro_code.is_end {
+    let is_end = if micro_code.is_cond_end {
+        println!("I'm here!");
+        let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
+        dbg!(flags);
+        dbg!(flags.intersects(alu::Flags::ZERO));
+        let end = !condition_check_passes(flags, micro_code.cond);
+        dbg!(end);
+        if end {
+            cpu.micro_code_v2_stack.clear();
+        };
+        end
+    } else {
+        micro_code.is_end
+    };
+    if is_end {
         assert_eq!(cpu.state.t_state.get(), 4);
         next_state = DecodeMode::Fetch;
     }
@@ -60,6 +73,15 @@ fn incrementer_logic(code: &MicroCode, cpu: &Cpu, current_regs: &register::File)
         IncOp::Mov => source_value,
         IncOp::Inc => (source_value + 1) & 0xFFFF,
         IncOp::Dec => (source_value - 1) & 0xFFFF,
+    }
+}
+
+fn condition_check_passes(flags: alu::Flags, cond: Condition) -> bool {
+    match cond {
+        Condition::NZ => !flags.intersects(alu::Flags::ZERO),
+        Condition::Z => flags.intersects(alu::Flags::ZERO),
+        Condition::NC => !flags.intersects(alu::Flags::CARRY),
+        Condition::C => flags.intersects(alu::Flags::CARRY),
     }
 }
 
@@ -84,6 +106,21 @@ fn alu_logic(
         Cp => alu::BinaryOp::Cp.execute(act, tmp, current_flags),
         //_ => panic!("Implement {:?}", code.alu_op),
     };
+    if code.alu_cse_to_tmp {
+        let is_negative = (tmp & 0x80) != 0;
+        let is_carry = flags.intersects(alu::Flags::CARRY);
+        // Can be written as simple arithmetic, but let's model how we want it in hardware.
+        let tmp_value = if is_carry == is_negative {
+            0
+        } else if is_carry && !is_negative {
+            1
+        } else if !is_carry && is_negative {
+            0xFF
+        } else {
+            panic!()
+        };
+        new_regs.set(Register::ALU_TMP, tmp_value);
+    }
     let flag_mask = (code.alu_write_f_mask << 4) as i32;
     let new_flags = (current_flags.bits() & !flag_mask) | (flags.bits() & flag_mask);
     new_regs.set(Register::F, new_flags);
@@ -97,8 +134,7 @@ fn alu_logic(
 }
 
 fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File) {
-    let data = if code.alu_reg_write_one { 1 } else { data_bus };
-
+    let data = data_bus;
     match code.alu_out_select {
         AluOutSelect::Tmp => new_regs.set(Register::ALU_TMP, data),
         AluOutSelect::A | AluOutSelect::Result => new_regs.set(Register::A, data),
@@ -150,8 +186,6 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         cpu.state.data_latch
     };
 
-    dbg!(data_bus_value);
-
     if code.reg_write_enable {
         new_regs.set(code.reg_select, data_bus_value);
     }
@@ -160,13 +194,20 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         alu_reg_write(code, data_bus_value, &mut new_regs);
     }
     if code.alu_a_to_act {
-        debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::A));
+        debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::ACT));
         new_regs.set(Register::ACT, current_regs.get(Register::A));
     }
-
-    //let alu_result = alu_logic(code, cpu, &current_regs, &mut new_regs);
+    if code.alu_a_to_tmp {
+        new_regs.set(Register::ALU_TMP, current_regs.get(Register::A));
+    }
+    if code.alu_one_to_tmp {
+        new_regs.set(Register::ALU_TMP, 1);
+    }
 
     // Finally, copy over the new state.
+    if code.alu_to_data || code.reg_to_data {
+        next_state.data_latch = data_bus_value;
+    }
     cpu.registers = new_regs;
     cpu.state = next_state;
 }

@@ -28,9 +28,7 @@ pub enum Error {
 }
 
 impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        <Error as fmt::Display>::fmt(self, f)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { <Error as fmt::Display>::fmt(self, f) }
 }
 
 impl core::fmt::Display for Error {
@@ -52,9 +50,7 @@ pub enum DecodeMode {
 }
 
 impl Default for DecodeMode {
-    fn default() -> Self {
-        DecodeMode::Fetch
-    }
+    fn default() -> Self { DecodeMode::Fetch }
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -71,13 +67,9 @@ pub struct State {
 pub struct TState(i32);
 
 impl TState {
-    pub fn get(&self) -> i32 {
-        self.0 + 1
-    }
+    pub fn get(&self) -> i32 { self.0 + 1 }
 
-    pub fn inc(&mut self) {
-        self.0 = (self.0 + 1) % 4;
-    }
+    pub fn inc(&mut self) { self.0 = (self.0 + 1) % 4; }
 }
 
 // This needs to get heavily refactored, with the control unit
@@ -103,9 +95,10 @@ impl Cpu {
 
     fn microcode_prelude(&mut self, memory: &Memory) -> Option<SideEffect> {
         assert!(!(self.state.read_latch && self.state.write_latch));
-        // Service read requests at T=3's rising edge.
-        println!("Address: {:X?}", self.state.address_latch);
+        println!("Address: {:X}", self.state.address_latch);
 
+        dbg!(self.state);
+        // Service read requests at T=3's rising edge.
         if self.state.read_latch {
             if self.state.t_state.get() == 3 {
                 self.state.data_latch = memory.read(self.state.address_latch);
@@ -145,6 +138,7 @@ impl Cpu {
         }
 
         if self.state.t_state.get() == 1 && self.state.decode_mode == DecodeMode::Fetch {
+            println!("Im done!");
             last_output.is_done = true;
         }
         Ok(last_output)

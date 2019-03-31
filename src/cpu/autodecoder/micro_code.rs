@@ -71,6 +71,7 @@ pub struct MicroCode {
     /// If true, will drive the address bus from the register file, and more importantly, write
     /// into the address buffer register.
     pub reg_to_addr_buffer: bool,
+    pub ff_to_addr_hi: bool,
     pub addr_select: Register,
     /// If true, will overwrite the selected address register with the value in the address bus.
     pub addr_write_enable: bool,
@@ -90,6 +91,7 @@ pub struct MicroCode {
     pub alu_a_to_tmp: bool,
     pub alu_one_to_tmp: bool,
     pub alu_cse_to_tmp: bool,
+    pub alu_f_force_nz: bool,
     pub alu_write_f_mask: u8,
 
     // Control flow.

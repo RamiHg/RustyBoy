@@ -30,12 +30,14 @@ fn compile_op(op: &Op) -> MicroCode {
     let compile_fn = match op.cmd {
         ADDR => compile_addr,
         RADDR => compile_raddr,
+        ADDR_H_FF => compile_addr_h_ff,
         RD => compile_rd,
         WR => compile_wr,
         LD => compile_ld,
         ALU(_) | MOV => compile_alu,
         CSE => compile_cse,
         FMSK => compile_fmsk,
+        FZ => compile_f,
         INC => compile_incdec,
         DEC => compile_incdec,
         END => compile_end,
@@ -63,6 +65,15 @@ fn compile_raddr(op: &Op) -> MicroCode {
     MicroCode {
         mem_read_enable: true,
         ..base
+    }
+}
+
+fn compile_addr_h_ff(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        ff_to_addr_hi: true,
+        ..Default::default()
     }
 }
 
@@ -259,6 +270,24 @@ fn compile_fmsk(op: &Op) -> MicroCode {
     }
 }
 
+fn compile_f(op: &Op) -> MicroCode {
+    assert_eq!(op.cmd, Command::FZ);
+    let string_value = if let Some(Arg::ConstantPlaceholder(string)) = &op.lhs.0 {
+        string
+    } else {
+        panic!("Expected arbitrary constant. Got: {:?}", op.rhs)
+    };
+    // I'm too lazy to make this any smarter.
+    if string_value == "0" {
+        MicroCode {
+            alu_f_force_nz: true,
+            ..Default::default()
+        }
+    } else {
+        panic!("Unsupported FZ command: {:?}", op);
+    }
+}
+
 fn compile_end(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
@@ -318,6 +347,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(reg_write_enable);
     move_if_unset!(reg_to_data);
     move_if_unset!(reg_to_addr_buffer);
+    move_if_unset!(ff_to_addr_hi);
     move_if_unset!(addr_select);
     move_if_unset!(addr_write_enable);
     move_if_unset!(inc_op);
@@ -330,6 +360,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_a_to_tmp);
     move_if_unset!(alu_one_to_tmp);
     move_if_unset!(alu_cse_to_tmp);
+    move_if_unset!(alu_f_force_nz);
     move_if_unset!(alu_write_f_mask);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
@@ -354,6 +385,10 @@ fn verify_micro_code(code: &MicroCode) {
         "Cannot read and write address bus from register file."
     );
     assert!(
+        !(code.ff_to_addr_hi && !code.reg_to_addr_buffer),
+        "Cannot use FF to address high if not writing from register file."
+    );
+    assert!(
         !(code.inc_to_addr_bus && code.reg_to_addr_buffer),
         "Cannot drive address bus from both register file and address buffer."
     );
@@ -375,6 +410,7 @@ fn verify_micro_code(code: &MicroCode) {
             && (code.alu_a_to_tmp || code.alu_one_to_tmp || code.alu_cse_to_tmp)),
         "Data hazard writing to ACT."
     );
+    // TODO: Fix this assert logic.
     assert!(
         !(code.alu_one_to_tmp && code.alu_a_to_tmp && code.alu_cse_to_tmp),
         "Data hazard writing to TMP."
@@ -386,6 +422,10 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.alu_to_data && code.reg_to_data),
         "Cannot drive data bus from both ALU and register file."
+    );
+    assert!(
+        !(code.alu_f_force_nz && ((code.alu_write_f_mask & 0b1000) == 0)),
+        "Forcing Z flag without writing it back,"
     );
     assert!(
         !(code.is_end && code.is_cond_end),

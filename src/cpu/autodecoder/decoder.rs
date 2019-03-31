@@ -59,6 +59,9 @@ impl Decoder {
     pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> { self.decode_op(op) }
 
     fn decode_op(&self, opcode: i32) -> Vec<MicroCode> {
+        // This method uses the amazing guide to decode instructions programatically:
+        // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
+
         // Deconstruct the op into its components.
         let op_z = opcode & 0b0000_0111;
         let op_y = (opcode & 0b0011_1000) >> 3;
@@ -84,16 +87,20 @@ impl Decoder {
                 1 => match op_q {
                     // q = 0. LD rr, nn
                     0 => self.pla["LDrr,i16"].remap_lhs_reg(Register::from_sp_pair_table(op_p)),
-                    _ => panic!(),
+                    1 | _ => self.pla["ADDHL,rr"].remap_rhs_reg(Register::from_sp_pair_table(op_p)),
                 },
                 // z = 2. Assorted indirect loads
                 2 => match op_q {
                     // q = 0
                     0 => match op_p {
                         // LD (BC), A
-                        0 => self.pla["LD(rr),A"].remap_lhs_reg(Register::BC),
+                        0 => self.pla["LD(rr),r"]
+                            .remap_lhs_reg(Register::BC)
+                            .remap_rhs_reg(Register::A),
                         // LD (DE), A
-                        1 => self.pla["LD(rr),A"].remap_lhs_reg(Register::DE),
+                        1 => self.pla["LD(rr),r"]
+                            .remap_lhs_reg(Register::DE)
+                            .remap_rhs_reg(Register::A),
                         // LD (HL+/i), A
                         2 => self.pla["LDI(HL),A"].clone(),
                         3 | _ => self.pla["LDD(HL),A"].clone(),
@@ -101,9 +108,13 @@ impl Decoder {
                     // q = 1
                     1 | _ => match op_p {
                         // LD A, (BC)
-                        0 => self.pla["LDA,(rr)"].remap_rhs_reg(Register::BC),
+                        0 => self.pla["LDr,(rr)"]
+                            .remap_lhs_reg(Register::A)
+                            .remap_rhs_reg(Register::BC),
                         // LD A, (DE)
-                        1 => self.pla["LDA,(rr)"].remap_rhs_reg(Register::DE),
+                        1 => self.pla["LDr,(rr)"]
+                            .remap_lhs_reg(Register::A)
+                            .remap_rhs_reg(Register::DE),
                         2 => self.pla["LDIA,(HL)"].clone(),
                         3 => self.pla["LDDA,(HL)"].clone(),
                         _ => panic!(),
@@ -134,9 +145,20 @@ impl Decoder {
                 _ => panic!(),
             },
             // x = 1
-            1 if op_y != 6 && op_z != 6 => self.pla["LDr,r"]
-                .remap_lhs_reg(Register::from_single_table(op_y))
-                .remap_rhs_reg(Register::from_single_table(op_z)),
+            1 => {
+                let op = if op_y == 6 && op_z == 6 {
+                    panic!("Implement HALT")
+                } else if op_y == 6 {
+                    "LD(rr),r"
+                } else if op_z == 6 {
+                    "LDr,(rr)"
+                } else {
+                    "LDr,r"
+                };
+                self.pla[op]
+                    .remap_lhs_reg(Register::from_single_table(op_y))
+                    .remap_rhs_reg(Register::from_single_table(op_z))
+            }
             // x = 2. ALU A, r
             2 if op_z == 6 => self.pla["aluA,(HL)"]
                 .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into()),
@@ -145,6 +167,30 @@ impl Decoder {
                 .remap_alu_placeholder(AluOpTable::from_i32(op_y).unwrap().into()),
             // x = 3
             3 => match op_z {
+                // z = 0
+                0 => match op_y {
+                    4 => self.pla["LD(FF00+i8),A"].clone(),
+                    5 => self.pla["ADDSP,i8"].clone(),
+                    6 => self.pla["LDA,(FF00+i8)"].clone(),
+                    7 => self.pla["LDHL,SP+i8"].clone(),
+                    _ => panic!("Implement {:X?}", opcode),
+                },
+                // z = 1
+                1 => match op_q {
+                    1 => match op_p {
+                        3 => self.pla["LDSP,HL"].clone(),
+                        _ => panic!("Implement {:X?}", opcode),
+                    },
+                    _ => panic!("Implement {:X?}", opcode),
+                },
+                // z = 2
+                2 => match op_y {
+                    4 => self.pla["LD(FF00+C),A"].clone(),
+                    5 => self.pla["LD(i16),A"].clone(),
+                    6 => self.pla["LDA,(FF00+C)"].clone(),
+                    7 => self.pla["LDA,(i16)"].clone(),
+                    _ => panic!("Implement {:X?}", opcode),
+                },
                 // z = 3
                 3 => match op_y {
                     0 => self.pla["JP[cc],i16"].prune_ccend(),

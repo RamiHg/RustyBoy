@@ -94,7 +94,7 @@ fn alu_logic(
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     use AluOp::*;
-    let (result, flags) = match code.alu_op {
+    let (result, mut flags) = match code.alu_op {
         Mov => (act, Flags::empty()),
         Add => alu::BinaryOp::Add.execute(act, tmp, current_flags),
         Addc => alu::BinaryOp::Adc.execute(act, tmp, current_flags),
@@ -120,6 +120,9 @@ fn alu_logic(
             panic!()
         };
         new_regs.set(Register::ALU_TMP, tmp_value);
+    }
+    if code.alu_f_force_nz {
+        flags.remove(Flags::ZERO);
     }
     let flag_mask = (code.alu_write_f_mask << 4) as i32;
     let new_flags = (current_flags.bits() & !flag_mask) | (flags.bits() & flag_mask);
@@ -165,16 +168,9 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         debug_assert!(!code.inc_to_addr_bus);
         debug_assert!(!code.addr_write_enable);
         next_state.address_latch = current_regs.get(code.addr_select);
-    }
-
-    let addr_bus_value = if code.inc_to_addr_bus {
-        incrementer_logic(code, cpu, &current_regs)
-    } else {
-        -1
-    };
-
-    if code.addr_write_enable {
-        new_regs.set(code.addr_select, addr_bus_value);
+        if code.ff_to_addr_hi {
+            next_state.address_latch |= 0xFF00;
+        }
     }
 
     let data_bus_value = if code.alu_to_data {
@@ -185,6 +181,16 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
     } else {
         cpu.state.data_latch
     };
+
+    let addr_bus_value = if code.inc_to_addr_bus {
+        incrementer_logic(code, cpu, &current_regs)
+    } else {
+        -1
+    };
+
+    if code.addr_write_enable {
+        new_regs.set(code.addr_select, addr_bus_value);
+    }
 
     if code.reg_write_enable {
         new_regs.set(code.reg_select, data_bus_value);
@@ -204,8 +210,8 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         new_regs.set(Register::ALU_TMP, 1);
     }
 
-    // Finally, copy over the new state.
-    if code.alu_to_data || code.reg_to_data {
+    // Copy to the data latch.
+    if code.mem_write_enable {
         next_state.data_latch = data_bus_value;
     }
     cpu.registers = new_regs;

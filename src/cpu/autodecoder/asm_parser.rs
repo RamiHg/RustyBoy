@@ -4,7 +4,7 @@ use regex::Regex;
 use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
 use crate::cpu::register::Register;
 
-const OP_PATTERN: &str = r"([A-Z]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
+const OP_PATTERN: &str = r"([A-Z_]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
 
 pub fn parse_op(op: &str) -> Op {
     lazy_static! {
@@ -21,12 +21,14 @@ pub fn parse_op(op: &str) -> Op {
     let cmd = match cmd_str {
         "ADDR" => ADDR,
         "RADDR" => RADDR,
+        "ADDR_H_FF" => ADDR_H_FF,
         "RD" => RD,
         "WR" => WR,
         "MOV" => MOV,
         "LD" => LD,
         "ALU" => ALUPlaceholder,
         "ADD" => ALU(AluCommand::Add),
+        "ADC" => ALU(AluCommand::Addc),
         "SUB" => ALU(AluCommand::Sub),
         "FMSK" => FMSK,
         "FZ" => FZ,
@@ -61,6 +63,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "WZ" => Arg::Register(Register::TEMP),
         "HL" => Arg::Register(Register::HL),
         "PC" => Arg::Register(Register::PC),
+        "BC" => Arg::Register(Register::BC),
         "PC_H" => Arg::Register(Register::PC_HIGH),
         "PC_L" => Arg::Register(Register::PC_LOW),
         "SP" => Arg::Register(Register::SP),
@@ -73,8 +76,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "LHS_L" => Arg::LhsLow,
         "LHS_H" => Arg::LhsHigh,
         "CC" => Arg::CCPlaceholder,
-        _ if is_constant(arg) => Arg::ConstantPlaceholder(arg.into()),
-        _ => panic!("Unknown arg: \"{}\"", arg),
+        _ => Arg::ConstantPlaceholder(arg.into()),
     })
 }
 

@@ -27,12 +27,12 @@ fn extract_mcycle(mcycle: usize, record: &csv::StringRecord) -> MCycle {
             t4: extract_tcycle(skip + 4, 4, record),
         }
     } else {
-        let i = skip + 8 + (mcycle - 1) * 12;
+        let i = skip + 8 + (mcycle - 1) * 13;
         MCycle {
-            t1: extract_tcycle(i, 3, record),
-            t2: extract_tcycle(i + 3, 1, record),
-            t3: extract_tcycle(i + 3 + 1, 4, record),
-            t4: extract_tcycle(i + 3 + 1 + 4, 4, record),
+            t1: extract_tcycle(i, 4, record),
+            t2: extract_tcycle(i + 4, 1, record),
+            t3: extract_tcycle(i + 4 + 1, 4, record),
+            t4: extract_tcycle(i + 4 + 1 + 4, 4, record),
         }
     }
 }

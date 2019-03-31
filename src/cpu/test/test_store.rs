@@ -36,7 +36,7 @@ fn test_ld_hli_hld_a() {
 }
 
 #[test]
-fn test_ld_assorted() {
+fn test_ld_store_assorted() {
     // LD (0xFF00 + n), A
     with_default()
         .set_reg(A, 0xEA)
@@ -47,25 +47,25 @@ fn test_ld_assorted() {
     with_default()
         .set_reg(A, 0xEA)
         .set_reg(C, 0xAB)
-        .execute_instructions(&[0xE2])
+        .execute_instructions(&[0xE2, 0x00])
         .assert_mem_8bit_eq(0xFFAB, 0xEA)
         .assert_mcycles(2);
-    // LD (nn), A
-    with_default()
-        .set_reg(A, 0xEA)
-        .execute_instructions(&[0xEA, 0xAB, 0xFF])
-        .assert_mem_8bit_eq(0xFFAB, 0xEA)
-        .assert_mcycles(4);
-    // LD (HL), n
-    with_default()
-        .set_reg(HL, 0xFFAB)
-        .execute_instructions(&[0x36, 0xEA])
-        .assert_mem_8bit_eq(0xFFAB, 0xEA)
-        .assert_mcycles(3);
-    // LD (nn), SP
-    with_default()
-        .set_reg(SP, 0xBEEF)
-        .execute_instructions(&[0x08, 0xAB, 0xFF])
-        .assert_mem_16bit_eq(0xFFAB, 0xBEEF)
-        .assert_mcycles(5);
+    // // LD (nn), A
+    // with_default()
+    //     .set_reg(A, 0xEA)
+    //     .execute_instructions(&[0xEA, 0xAB, 0xFF])
+    //     .assert_mem_8bit_eq(0xFFAB, 0xEA)
+    //     .assert_mcycles(4);
+    // // LD (HL), n
+    // with_default()
+    //     .set_reg(HL, 0xFFAB)
+    //     .execute_instructions(&[0x36, 0xEA])
+    //     .assert_mem_8bit_eq(0xFFAB, 0xEA)
+    //     .assert_mcycles(3);
+    // // LD (nn), SP
+    // with_default()
+    //     .set_reg(SP, 0xBEEF)
+    //     .execute_instructions(&[0x08, 0xAB, 0xFF])
+    //     .assert_mem_16bit_eq(0xFFAB, 0xBEEF)
+    //     .assert_mcycles(5);
 }

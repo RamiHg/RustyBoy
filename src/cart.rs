@@ -80,15 +80,11 @@ mod none {
     }
 
     impl Cart {
-        pub fn from_mem(mem: Vec<u8>, _: usize) -> Cart {
-            Cart { mem }
-        }
+        pub fn from_mem(mem: Vec<u8>, _: usize) -> Cart { Cart { mem } }
     }
 
     impl super::Cart for Cart {
-        fn write(&mut self, _raw_address: usize, _value: u8) -> Result<()> {
-            Ok(())
-        }
+        fn write(&mut self, _raw_address: usize, _value: u8) -> Result<()> { Ok(()) }
 
         fn read(&self, raw_address: usize) -> Result<u8> {
             match raw_address {
@@ -229,12 +225,7 @@ pub mod test {
 
     pub struct ErrorCart;
     impl super::Cart for ErrorCart {
-        fn read(&self, raw_address: usize) -> Result<u8> {
-            Err(MemoryError {
-                location: raw_address,
-                reason: "Cannot read from ErrorCart!",
-            })
-        }
+        fn read(&self, raw_address: usize) -> Result<u8> { Ok(0xFF) }
         fn write(&mut self, raw_address: usize, _: u8) -> Result<()> {
             Err(MemoryError {
                 location: raw_address,

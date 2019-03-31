@@ -119,7 +119,7 @@ fn test_ld_assorted() {
     with_default()
         .set_mem_8bit(0xFFAB, 0xEA)
         .set_reg(C, 0xAB)
-        .execute_instructions(&[0xF2])
+        .execute_instructions(&[0xF2, 0x00])
         .assert_reg_eq(A, 0xEA)
         .assert_mcycles(2);
 }

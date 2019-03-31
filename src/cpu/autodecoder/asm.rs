@@ -1,7 +1,7 @@
 use super::micro_code;
 use crate::cpu::register::Register;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AluCommand {
     Mov,
     Add,
@@ -16,10 +16,12 @@ pub enum AluCommand {
     Daa,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Command {
     ADDR,
     RADDR,
+    ADDR_H_FF,
     RD,
     WR,
     MOV,

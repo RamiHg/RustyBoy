@@ -173,11 +173,14 @@ impl Decoder {
                     5 => self.pla["ADDSP,i8"].clone(),
                     6 => self.pla["LDA,(FF00+i8)"].clone(),
                     7 => self.pla["LDHL,SP+i8"].clone(),
-                    _ => panic!("Implement {:X?}", opcode),
+                    _ => self.pla["RETcc"].remap_cond(Condition::from_i32(op_y).unwrap()),
                 },
                 // z = 1
                 1 => match op_q {
+                    // q = 1
                     1 => match op_p {
+                        0 => self.pla["RET"].clone(),
+                        2 => self.pla["JPHL"].clone(),
                         3 => self.pla["LDSP,HL"].clone(),
                         _ => panic!("Implement {:X?}", opcode),
                     },
@@ -189,12 +192,24 @@ impl Decoder {
                     5 => self.pla["LD(i16),A"].clone(),
                     6 => self.pla["LDA,(FF00+C)"].clone(),
                     7 => self.pla["LDA,(i16)"].clone(),
-                    _ => panic!("Implement {:X?}", opcode),
+                    _ => self.pla["JP[cc],i16"].remap_cond(Condition::from_i32(op_y).unwrap()),
                 },
                 // z = 3
                 3 => match op_y {
                     0 => self.pla["JP[cc],i16"].prune_ccend(),
                     _ => panic!("Implement {:X?}", opcode),
+                },
+                // z = 4. CALL [cc], nn
+                4 => match op_y {
+                    0..=3 => {
+                        self.pla["CALL[cc],i16"].remap_cond(Condition::from_i32(op_y).unwrap())
+                    }
+                    _ => panic!("Implement NOP"),
+                },
+                // z = 5.
+                5 => match op_q {
+                    1 if op_p == 0 => self.pla["CALL[cc],i16"].prune_ccend(),
+                    _ => panic!(),
                 },
                 // z = 6. ALU A, n
                 6 => self.pla["aluA,i8"].remap_alu_placeholder(maybe_alu_op.unwrap().into()),

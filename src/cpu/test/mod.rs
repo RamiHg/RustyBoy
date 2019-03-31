@@ -102,9 +102,7 @@ impl System for TestSystem {
 
 pub struct TestContext(Box<TestSystem>);
 
-pub fn with_default() -> TestContext {
-    TestContext::with_default()
-}
+pub fn with_default() -> TestContext { TestContext::with_default() }
 
 impl TestContext {
     fn with_default() -> TestContext {
@@ -155,21 +153,19 @@ impl TestContext {
         self
     }
 
-    pub fn set_carry(self, is_set: bool) -> TestContext {
-        self.set_flag(Flags::CARRY, is_set)
-    }
+    pub fn set_carry(self, is_set: bool) -> TestContext { self.set_flag(Flags::CARRY, is_set) }
 
-    pub fn set_zero(self, is_set: bool) -> TestContext {
-        self.set_flag(Flags::ZERO, is_set)
-    }
+    pub fn set_zero(self, is_set: bool) -> TestContext { self.set_flag(Flags::ZERO, is_set) }
 
-    pub fn set_sub(self, is_set: bool) -> TestContext {
-        self.set_flag(Flags::SUB, is_set)
-    }
+    pub fn set_sub(self, is_set: bool) -> TestContext { self.set_flag(Flags::SUB, is_set) }
 
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the
     /// resulting system state.
-    pub fn execute_instructions(mut self, instructions: &[u8]) -> TestContext {
+    pub fn execute_instructions_for_mcycles(
+        mut self,
+        instructions: &[u8],
+        mcycles: i32,
+    ) -> TestContext {
         // Capture the flags at the time of execution, rather than each bit set. Can possible
         // do this for registers as well.
         self.0
@@ -183,15 +179,25 @@ impl TestContext {
         self = self.set_mem_range(0xC000, instructions);
         self.0.cpu.registers.set(Register::PC, 0xC000);
         // Don't let any test go longer than 100 cycles.
-        let mut num_cycles_left = 100;
+        let mut num_cycles_left = if mcycles > 0 { mcycles } else { 100 };
         while self.0.cpu.registers.get(Register::PC) != 0xC000 + instructions.len() as i32 {
-            while !self.0.execute_machine_cycle().unwrap().is_done {}
+            while !self.0.execute_machine_cycle().unwrap().is_done {
+                num_cycles_left -= 1;
+            }
             num_cycles_left -= 1;
             if num_cycles_left <= 0 {
-                panic!("Test lasting longer than 100 cycles. Most likely infinite loop.");
+                if mcycles > 0 {
+                    break;
+                } else {
+                    panic!("Test lasting longer than 100 cycles. Most likely infinite loop.");
+                }
             }
         }
         self
+    }
+
+    pub fn execute_instructions(self, instructions: &[u8]) -> TestContext {
+        self.execute_instructions_for_mcycles(instructions, -1)
     }
 
     pub fn assert_mcycles(mut self, cycles: i32) -> TestContext {
@@ -214,7 +220,8 @@ impl TestContext {
             .desc
             .assertions
             .push(Assertion::RegEq(register, value));
-        assert_eq!(self.0.cpu.registers.get(register), value);
+        let reg_value = self.0.cpu.registers.get(register);
+        assert_eq!(reg_value, value, "{:X?} != {:X?}", reg_value, value);
         self
     }
 
@@ -234,10 +241,8 @@ impl TestContext {
 
     pub fn assert_mem_16bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8, (value >> 8) as u8]);
-        assert_eq!(
-            i32::from(self.0.memory.read_general_16(address as usize)),
-            value
-        );
+        let mem_value = i32::from(self.0.memory.read_general_16(address as usize));
+        assert_eq!(mem_value, value, "{:X?} != {:X?}", mem_value, value);
         self
     }
 

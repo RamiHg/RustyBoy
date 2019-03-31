@@ -91,7 +91,7 @@ fn test_jp_cc() {
             .set_flag(flag, !is_set)
             .execute_instructions(&ops)
             .assert_reg_eq(A, 0xFF)
-            .assert_mcycles(4 + 1);
+            .assert_mcycles(3 + 1);
     }
 }
 
@@ -103,7 +103,6 @@ fn test_jr_cc() {
         (0x30, Flags::CARRY, false),
         (0x38, Flags::CARRY, true),
     ] {
-        println!("Testing {:?}", flag);
         #[rustfmt::skip]
         let ops: Vec<u8> = vec![
             // JR cc, 1
@@ -130,6 +129,23 @@ fn test_jr_cc() {
 }
 
 #[test]
+/// Tests the basic functionality of CALL. I.e., stack address, new PC.
+fn test_call_bootstrap() {
+    #[rustfmt::skip]
+    let ops: Vec<u8> = vec![
+        // CALL 0xD000
+        0xCD, 0x00, 0xD0
+    ];
+    with_default()
+        .set_reg(Register::SP, 0xFFFF)
+        .execute_instructions_for_mcycles(&ops, 6)
+        .assert_reg_eq(Register::PC, 0xD000)
+        .assert_reg_eq(Register::SP, 0xFFFF - 2)
+        .assert_mem_16bit_eq(0xFFFF - 2, 0xC003)
+        .assert_mcycles(6);
+}
+
+#[test]
 fn test_call_ret() {
     // Build the call site.
     #[rustfmt::skip]
@@ -150,4 +166,87 @@ fn test_call_ret() {
         .assert_reg_eq(A, 0)
         .assert_flags(Flags::ZERO | Flags::SUB)
         .assert_mcycles(6 + 1 + 4 + 1);
+}
+
+#[test]
+fn test_call_cc() {
+    for &(op, flag, is_set) in &[
+        (0xC4, Flags::ZERO, false),
+        (0xCC, Flags::ZERO, true),
+        (0xD4, Flags::CARRY, false),
+        (0xDC, Flags::CARRY, true),
+    ] {
+        // Build the call site.
+        #[rustfmt::skip]
+        let call_site: Vec<u8>  = vec![
+            INC_A,
+            // RET
+            0xC9
+        ];
+        #[rustfmt::skip]
+        let ops: Vec<u8> = vec![
+            // CALL cc, 0xD000
+            op, 0x00, 0xD0,
+            DEC_A,
+            INC_A
+        ];
+        with_default()
+            .set_flag(flag, is_set)
+            .set_reg(Register::SP, 0xFFFF)
+            .set_mem_range(0xD000, &call_site)
+            .execute_instructions(&ops)
+            .assert_reg_eq(A, 1)
+            .assert_mcycles(6 + 1 + 4 + 2);
+        let mut expected_flags = Flags::ZERO | Flags::HCARRY;
+        if !is_set {
+            expected_flags |= flag;
+        };
+        with_default()
+            .set_flag(flag, !is_set)
+            .set_reg(Register::SP, 0xFFFF)
+            .set_mem_range(0xD000, &call_site)
+            .execute_instructions(&ops)
+            .assert_reg_eq(A, 0)
+            .assert_flags(expected_flags)
+            .assert_mcycles(3 + 2);
+    }
+}
+
+#[test]
+fn test_ret_cc() {
+    for &(op, flag, is_set) in &[
+        (0xC0, Flags::ZERO, false),
+        (0xC8, Flags::ZERO, true),
+        (0xD0, Flags::CARRY, false),
+        (0xD8, Flags::CARRY, true),
+    ] {
+        // Build the call site.
+        #[rustfmt::skip]
+        let call_site: Vec<u8>  = vec![
+            // RET cc
+            op,
+            INC_A,
+            // RET
+            0xC9
+        ];
+        #[rustfmt::skip]
+        let ops: Vec<u8> = vec![
+            // CALL 0xD000
+            0xCD, 0x00, 0xD0,
+        ];
+        with_default()
+            .set_flag(flag, is_set)
+            .set_reg(Register::SP, 0xFFFF)
+            .set_mem_range(0xD000, &call_site)
+            .execute_instructions(&ops)
+            .assert_reg_eq(A, 0)
+            .assert_mcycles(6 + 5);
+        with_default()
+            .set_flag(flag, !is_set)
+            .set_reg(Register::SP, 0xFFFF)
+            .set_mem_range(0xD000, &call_site)
+            .execute_instructions(&ops)
+            .assert_reg_eq(A, 1)
+            .assert_mcycles(6 + 2 + 1 + 4);
+    }
 }

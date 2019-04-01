@@ -120,6 +120,13 @@ impl Decoder {
                         _ => panic!(),
                     },
                 },
+                // z = 3. INC/DEC rr
+                3 if op_q == 0 => self.pla["INC/DECrr"]
+                    .remap_alu_placeholder(asm::AluCommand::Add)
+                    .remap_lhs_reg(Register::from_sp_pair_table(op_p)),
+                3 if op_q == 1 => self.pla["INC/DECrr"]
+                    .remap_alu_placeholder(asm::AluCommand::Sub)
+                    .remap_lhs_reg(Register::from_sp_pair_table(op_p)),
                 // z = 4. INC n
                 4 => {
                     if op_y == 6 {

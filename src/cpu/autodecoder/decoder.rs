@@ -227,51 +227,6 @@ impl Decoder {
 
         // Compile the MCyle assembly.
         let micro_codes = mcycle_list.compile();
-
-        /*
-        let hl_codes = match op_x {
-            // x = 0
-            0 => match op_z {
-                1 if op_q == 0 => mmap["LDrr,i16"]
-                    .clone()
-                    .replace_lhs(Register::from_sp_pair_table(op_p)),
-                2 if op_q == 0 => match op_p {
-                    0 => mmap["LD(rr),A"].clone().replace_lhs(Register::BC),
-                    1 => mmap["LD(rr),A"].clone().replace_lhs(Register::DE),
-                    _ => panic!(),
-                },
-                6 => mmap["LDr,i8"]
-                    .clone()
-                    .replace_lhs(Register::from_single_table(op_y)),
-                _ => panic!(),
-            },
-            // x = 1
-            1 if op_y != 6 && op_z != 6 => mmap["LDr,r"]
-                .clone()
-                .replace_source(
-                    OpSource::Lhs,
-                    OpSource::Register(Register::from_single_table(op_y)),
-                )
-                .replace_source(
-                    OpSource::Rhs,
-                    OpSource::Register(Register::from_single_table(op_z)),
-                ),
-            // x = 3
-            3 => match op_z {
-                // z = 6. ALU
-                6 => mmap["aluA,i8"]
-                    .clone()
-                    .replace_binary_op(AluOpTable::from_i32(op_y).unwrap().into()),
-            },
-            _ => panic!("Implement op {:X?}.", opcode),
-        };
-
-        hl_codes
-            .0
-            .iter()
-            .flat_map(|x| MicroCode::from(x).to_vec())
-            .collect()
-            */
         micro_codes
     }
 }

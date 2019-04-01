@@ -4,8 +4,6 @@ pub mod asm_parser;
 pub mod control_unit;
 pub mod csv_parser;
 pub mod decoder;
-// pub mod hl_decoder;
-pub mod loader;
 pub mod micro_code;
 pub mod op_map;
 

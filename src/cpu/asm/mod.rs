@@ -1,4 +1,11 @@
-use super::micro_code;
+/// This library handles the parsing and compilation of the high-level assembly down to CPU
+/// micro- codes.
+mod compiler;
+pub mod csv_loader;
+pub mod op_map;
+mod parser;
+
+use crate::cpu::micro_code;
 use crate::cpu::register::Register;
 
 #[derive(Debug, Clone, Copy, PartialEq)]

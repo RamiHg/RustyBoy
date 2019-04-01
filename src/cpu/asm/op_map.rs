@@ -1,8 +1,8 @@
+use crate::cpu::micro_code::{Condition, MicroCode};
 use crate::cpu::register::Register;
 
-use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
-use super::asm_compiler;
-use super::micro_code::{Condition, MicroCode};
+use super::compiler;
+use super::{AluCommand, Arg, Command, MaybeArg, Op};
 
 #[derive(Clone, Debug)]
 pub struct MCycleList(pub Vec<MCycle>);
@@ -38,7 +38,7 @@ impl MCycleList {
                 }
             })
             // Compile each TCycle.
-            .map(|x| asm_compiler::compile_op_list(x))
+            .map(|x| compiler::compile_op_list(x))
             // Skip the first 2 nop tcycles.
             .skip(2)
             .collect()

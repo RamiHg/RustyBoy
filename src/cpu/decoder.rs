@@ -6,9 +6,8 @@ use num_traits::FromPrimitive;
 use crate::cpu::alu;
 
 use super::asm;
-use super::csv_parser;
+use super::asm::{csv_loader, op_map::MCycleMap};
 use super::micro_code::{Condition, MicroCode};
-use super::op_map::MCycleMap;
 
 use crate::{
     cpu::{register::Register, Cpu},
@@ -50,7 +49,7 @@ impl Into<asm::AluCommand> for AluOpTable {
 impl Decoder {
     pub fn new() -> Decoder {
         Decoder {
-            pla: csv_parser::parse_csv(
+            pla: csv_loader::parse_csv(
                 r"/Users/Ramy/Downloads/CPU Design - Instruction Breakdown.csv",
             ),
         }

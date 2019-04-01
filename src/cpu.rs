@@ -1,23 +1,29 @@
 mod alu;
-mod autodecoder;
+mod asm;
+mod control_unit;
+mod decoder;
 mod micro_code;
 mod register;
 
 #[cfg(test)]
 mod test;
 
-// TODO: Place this in a better place..
-pub use self::micro_code::{Output, SideEffect};
-
-use autodecoder::decoder::Decoder;
-
 use core::fmt;
 
-use crate::{
-    cpu::micro_code::MicroCode,
-    memory::{Memory, MemoryError},
-    util,
-};
+use crate::memory::{Memory, MemoryError};
+use crate::util;
+use micro_code::MicroCode;
+
+pub enum SideEffect {
+    Write { raw_address: i32, value: i32 },
+}
+
+/// The output of a micro code execution.
+/// Legacy. Should probably be removed eventually.
+pub struct Output {
+    pub side_effect: Option<SideEffect>,
+    pub is_done: bool,
+}
 
 // #[derive(Debug)]
 pub enum Error {
@@ -30,8 +36,8 @@ impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { <Error as fmt::Display>::fmt(self, f) }
 }
 
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::InvalidOpcode(op) => write!(f, "Invalid opcode: 0x{:X?}.", op),
             _ => write!(f, "Buzz off"),
@@ -76,9 +82,8 @@ impl TState {
 pub struct Cpu {
     pub state: State,
     pub registers: register::File,
-    pub decoder: Decoder,
-    micro_code_stack: Vec<MicroCode>,
-    pub micro_code_v2_stack: Vec<autodecoder::MicroCode>,
+    pub decoder: decoder::Decoder,
+    pub micro_code_v2_stack: Vec<MicroCode>,
 }
 
 impl Cpu {
@@ -86,8 +91,7 @@ impl Cpu {
         Cpu {
             state: State::default(),
             registers: register::File::new([0; register::Register::NumRegisters as usize]),
-            decoder: Decoder::new(),
-            micro_code_stack: Vec::new(),
+            decoder: decoder::Decoder::new(),
             micro_code_v2_stack: Vec::new(),
         }
     }
@@ -131,13 +135,12 @@ impl Cpu {
             // Sanity check=
             // Run the prelude.
             let side_effect = self.microcode_prelude(memory);
-            autodecoder::control_unit::cycle(self, memory);
+            control_unit::cycle(self, memory);
             last_output.side_effect = last_output.side_effect.or(side_effect);
             self.state.t_state.inc();
         }
 
         if self.state.t_state.get() == 1 && self.state.decode_mode == DecodeMode::Fetch {
-            println!("Im done!");
             last_output.is_done = true;
         }
         Ok(last_output)

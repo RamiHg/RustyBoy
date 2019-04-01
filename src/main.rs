@@ -15,7 +15,6 @@ use gl::types::GLuint;
 
 mod cart;
 mod cpu;
-mod debug;
 mod gpu;
 mod io_registers;
 mod memory;

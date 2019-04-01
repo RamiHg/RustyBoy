@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{asm, asm_parser::parse_op};
+use super::parser;
 use crate::cpu::register::Register;
 
 use super::op_map::{MCycle, MCycleList, MCycleMap, SourceOpList};
@@ -10,7 +10,7 @@ fn extract_tcycle(i: usize, num_ops: usize, record: &csv::StringRecord) -> Sourc
     for op_index in 0..num_ops {
         let value = record.get(i + op_index).unwrap();
         if !value.is_empty() {
-            result.push(parse_op(value));
+            result.push(parser::parse_op(value));
         }
     }
     SourceOpList(result)

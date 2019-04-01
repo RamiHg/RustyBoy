@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::asm::{AluCommand, Arg, Command, MaybeArg, Op};
+use super::{AluCommand, Arg, Command, MaybeArg, Op};
 use crate::cpu::register::Register;
 
 const OP_PATTERN: &str = r"([A-Z_]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";

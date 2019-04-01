@@ -1,5 +1,5 @@
-use super::asm::{AluCommand, Arg, Command, Op};
 use super::micro_code::{AluOp, AluOutSelect, IncOp, MicroCode};
+use super::{AluCommand, Arg, Command, Op};
 use crate::cpu::register::Register;
 
 impl AluOutSelect {

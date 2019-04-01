@@ -76,6 +76,7 @@ impl Decoder {
                 // z = 0
                 0 => match op_y {
                     // JR d
+                    1 => self.pla["LD(i16),SP"].clone(),
                     3 => self.pla["JR[cc],i8"].prune_ccend(),
                     4..=7 => {
                         self.pla["JR[cc],i8"].remap_cond(Condition::from_i32(op_y - 4).unwrap())
@@ -147,7 +148,13 @@ impl Decoder {
                     }
                 }
                 // z = 6. LD r, n
-                6 => self.pla["LDr,i8"].remap_lhs_reg(Register::from_single_table(op_y)),
+                6 => {
+                    if op_y == 6 {
+                        self.pla["LD(HL),i8"].clone()
+                    } else {
+                        self.pla["LDr,i8"].remap_lhs_reg(Register::from_single_table(op_y))
+                    }
+                }
                 _ => panic!(),
             },
             // x = 1

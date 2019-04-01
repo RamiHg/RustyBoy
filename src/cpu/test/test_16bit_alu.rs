@@ -76,3 +76,22 @@ fn test_dec_rr() {
             .assert_mcycles(2);
     }
 }
+
+#[test]
+fn test_ld_hl_sp_i8() {
+    for (sp, offset, result, flags) in [
+        (1, 0xFE, 0xFFFF, Flags::empty()),
+        (1, 0xFF, 0, Flags::CARRY | Flags::HCARRY),
+        (0xFFFF, 0x1, 0, Flags::CARRY | Flags::HCARRY),
+    ]
+    .iter()
+    {
+        // LD HL, SP + d
+        with_default() // f8
+            .set_reg(SP, *sp)
+            .execute_instructions(&[0xF8, *offset])
+            .assert_reg_eq(HL, *result)
+            .assert_flags(*flags)
+            .assert_mcycles(3);
+    }
+}

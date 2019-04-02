@@ -1,21 +1,39 @@
-use crate::cpu::{Output, Result, SideEffect};
+use crate::error::Result;
+use crate::{cart, cpu, memory};
 
-/// Generic interface to the system as a whole.
-///
-/// Defined mainly to enable easier testing.
-pub trait System {
-    fn execute_cpu_cycle(&mut self) -> Result<Output>;
-    fn commit_memory_write(&mut self, raw_address: i32, value: i32);
+pub struct System {
+    cpu: cpu::Cpu,
+    memory: Box<memory::Memory>,
+}
 
-    fn execute_machine_cycle(&mut self) -> Result<Output> {
-        let cpu_output = self.execute_cpu_cycle()?;
-        if let Some(SideEffect::Write { raw_address, value }) = cpu_output.side_effect {
-            // In the future, this will wait until the GPU has reached the end of its 4th cycle, and
-            // then commited this write.
-            self.commit_memory_write(raw_address, value);
-        }
-        // TODO: Figure out what we should return here. Doesn't make sense to expose instruction
-        // side effect.
+impl System {
+    fn execute_t_cycle(&mut self) -> Result<cpu::Output> {
+        let cpu_output = self.cpu.execute_t_cycle(&self.memory)?;
+        if let Some(cpu::SideEffect::Write { raw_address, value }) = cpu_output.side_effect {
+            self.memory.store(raw_address, value);
+        };
         Ok(cpu_output)
     }
+
+    pub fn execute_machine_cycle(&mut self) -> Result<cpu::Output> {
+        let mut last_result = None;
+        for i in 0..=3 {
+            last_result = Some(self.execute_t_cycle()?);
+        }
+        self.cpu.handle_interrupts(&self.memory)?;
+        Ok(last_result.unwrap())
+    }
+}
+
+#[cfg(test)]
+impl System {
+    pub fn new_test_system() -> System {
+        System {
+            cpu: cpu::Cpu::new(),
+            memory: Box::new(memory::Memory::new(Box::new(cart::test::Cart))),
+        }
+    }
+
+    pub fn memory_mut(&mut self) -> &mut memory::Memory { &mut self.memory }
+    pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
 }

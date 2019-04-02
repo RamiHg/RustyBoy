@@ -15,6 +15,7 @@ use gl::types::GLuint;
 
 mod cart;
 mod cpu;
+mod error;
 mod gpu;
 mod io_registers;
 mod memory;

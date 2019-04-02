@@ -223,8 +223,8 @@ pub mod test {
     use super::Result;
     use crate::memory::MemoryError;
 
-    pub struct ErrorCart;
-    impl super::Cart for ErrorCart {
+    pub struct Cart;
+    impl super::Cart for Cart {
         fn read(&self, raw_address: usize) -> Result<u8> { Ok(0xFF) }
         fn write(&mut self, raw_address: usize, _: u8) -> Result<()> {
             Err(MemoryError {

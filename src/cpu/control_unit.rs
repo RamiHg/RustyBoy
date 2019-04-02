@@ -35,24 +35,20 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
         DecodeMode::Decode => match cpu.state.t_state.get() {
             3 => {
                 let opcode = cpu.state.data_latch;
-                cpu.micro_code_v2_stack = cpu.decoder.decode(opcode, memory);
-                (cpu.micro_code_v2_stack.remove(0), DecodeMode::Execute)
+                cpu.micro_code_stack = cpu.decoder.decode(opcode, memory);
+                (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
             }
             _ => panic!("Invalid decode t-state"),
         },
-        DecodeMode::Execute => (cpu.micro_code_v2_stack.remove(0), DecodeMode::Execute),
+        DecodeMode::Execute => (cpu.micro_code_stack.remove(0), DecodeMode::Execute),
     };
     // Execute the micro-code.
     execute(&micro_code, cpu, memory);
     let is_end = if micro_code.is_cond_end {
-        println!("I'm here!");
         let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
-        dbg!(flags);
-        dbg!(flags.intersects(alu::Flags::ZERO));
         let end = !condition_check_passes(flags, micro_code.cond);
-        dbg!(end);
         if end {
-            cpu.micro_code_v2_stack.clear();
+            cpu.micro_code_stack.clear();
         };
         end
     } else {
@@ -147,8 +143,7 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
 }
 
 fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
-    dbg!(code);
-
+    //dbg!(code);
     let current_regs = cpu.registers;
     let mut new_regs = current_regs;
 

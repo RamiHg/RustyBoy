@@ -49,8 +49,7 @@ bitfield! {
     pub has_lcdc, set_lcdc: 1;
     pub has_timer, set_timer: 2;
     pub has_serial_io_complete, set_serial_io_complete: 3;
-    // Transition from High to Low of Pin number P10-P13 (?? No clue).
-    pub has_transition, set_transition: 4;
+    pub has_joypad, set_joypad: 4;
 }
 
 /// Implements the Register trait.
@@ -68,9 +67,7 @@ macro_rules! from_u8 {
     ($x:ident) => {
         // Implement conversion from u8.
         impl core::convert::From<u8> for $x {
-            fn from(flag: u8) -> $x {
-                num_traits::FromPrimitive::from_u8(flag).unwrap()
-            }
+            fn from(flag: u8) -> $x { num_traits::FromPrimitive::from_u8(flag).unwrap() }
         }
     };
 }

@@ -1,9 +1,9 @@
 use crate::{
-    cart::test::ErrorCart,
     cpu::{alu::Flags, register::Register, *},
     memory::Memory,
-    system::System,
 };
+
+use crate::system;
 
 mod test_16bit_alu;
 mod test_8bit_alu;
@@ -80,25 +80,11 @@ impl TestDescriptor {
     }
 }
 
-pub struct TestSystem {
-    cpu: Cpu,
-    memory: Memory,
-    cycles: i64,
+pub struct TestContext {
+    system: Box<system::System>,
     desc: TestDescriptor,
+    cycles: i64,
 }
-
-impl System for TestSystem {
-    fn execute_cpu_cycle(&mut self) -> Result<Output> {
-        self.cycles += 1;
-        self.cpu.execute_machine_cycle_v2(&self.memory)
-    }
-
-    fn commit_memory_write(&mut self, raw_address: i32, value: i32) {
-        self.memory.store(raw_address, value);
-    }
-}
-
-pub struct TestContext(Box<TestSystem>);
 
 pub fn with_default() -> TestContext { TestContext::with_default() }
 
@@ -115,22 +101,19 @@ impl TestContext {
         // let name = first_non_setup.to_string();
         let name = "ignoreme".to_string();
 
-        let memory = Memory::new(Box::new(ErrorCart));
-        let cpu = Cpu::new();
-        TestContext(Box::new(TestSystem {
-            cpu,
-            memory,
-            cycles: 0,
+        TestContext {
+            system: Box::new(system::System::new_test_system()),
             desc: TestDescriptor {
                 name,
                 ..Default::default()
             },
-        }))
+            cycles: 0,
+        }
     }
 
     pub fn set_mem_range(mut self, address: usize, values: &[u8]) -> TestContext {
-        self.0.memory.mem()[address..address + values.len()].copy_from_slice(values);
-        self.0.desc.add_mem_range(address as i32, values);
+        self.system.memory_mut().mem()[address..address + values.len()].copy_from_slice(values);
+        self.desc.add_mem_range(address as i32, values);
         self
     }
 
@@ -139,15 +122,19 @@ impl TestContext {
     }
 
     pub fn set_reg(mut self, register: Register, value: i32) -> TestContext {
-        self.0.cpu.registers.set(register, value);
-        self.0.desc.reg_setup.push((register, value));
+        self.system.cpu_mut().registers.set(register, value);
+        self.desc.reg_setup.push((register, value));
         self
     }
 
     pub fn set_flag(mut self, flag: Flags, is_set: bool) -> TestContext {
-        let mut current_flags = Flags::from_bits(self.0.cpu.registers.get(Register::F)).unwrap();
+        let mut current_flags =
+            Flags::from_bits(self.system.cpu_mut().registers.get(Register::F)).unwrap();
         current_flags.set(flag, is_set);
-        self.0.cpu.registers.set(Register::F, current_flags.bits());
+        self.system
+            .cpu_mut()
+            .registers
+            .set(Register::F, current_flags.bits());
         self
     }
 
@@ -166,23 +153,27 @@ impl TestContext {
     ) -> TestContext {
         // Capture the flags at the time of execution, rather than each bit set. Can possible
         // do this for registers as well.
-        self.0
-            .desc
-            .reg_setup
-            .push((Register::F, self.0.cpu.registers.get(Register::F)));
-        self.0.desc.add_mem_range(0xC000, instructions);
-        self.0.desc.initial_pc = 0xC000;
-        self.0.desc.num_instructions = instructions.len() as i32;
+        self.desc.reg_setup.push((
+            Register::F,
+            self.system.cpu_mut().registers.get(Register::F),
+        ));
+        self.desc.add_mem_range(0xC000, instructions);
+        self.desc.initial_pc = 0xC000;
+        self.desc.num_instructions = instructions.len() as i32;
         // Copy over the instructions into internal RAM.
         self = self.set_mem_range(0xC000, instructions);
-        self.0.cpu.registers.set(Register::PC, 0xC000);
+        self.system.cpu_mut().registers.set(Register::PC, 0xC000);
         // Don't let any test go longer than 100 cycles.
         let mut num_cycles_left = if mcycles > 0 { mcycles } else { 100 };
-        while self.0.cpu.registers.get(Register::PC) != 0xC000 + instructions.len() as i32 {
-            while !self.0.execute_machine_cycle().unwrap().is_done {
-                num_cycles_left -= 1;
-            }
+        let mut has_completed_instruction = false;
+        while (self.system.cpu_mut().registers.get(Register::PC)
+            != 0xC000 + instructions.len() as i32)
+            || !has_completed_instruction
+        {
+            let cpu_output = self.system.execute_machine_cycle().unwrap();
+            self.cycles += 1;
             num_cycles_left -= 1;
+            has_completed_instruction = cpu_output.is_done;
             if num_cycles_left <= 0 {
                 if mcycles > 0 {
                     break;
@@ -199,10 +190,10 @@ impl TestContext {
     }
 
     pub fn assert_mcycles(mut self, cycles: i32) -> TestContext {
-        self.0.desc.assertions.push(Assertion::MCycles(cycles));
-        assert_eq!(self.0.cycles, cycles.into());
+        self.desc.assertions.push(Assertion::MCycles(cycles));
+        assert_eq!(self.cycles, cycles.into());
         // Serialize the nuggets! (TODO: Kinda hacky. Make test trait that just prints)
-        let data = self.0.desc.serialize();
+        let data = self.desc.serialize();
         use std::{fs::OpenOptions, io::prelude::*};
         let mut file = OpenOptions::new()
             .create(true)
@@ -214,18 +205,15 @@ impl TestContext {
     }
 
     pub fn assert_reg_eq(mut self, register: Register, value: i32) -> TestContext {
-        self.0
-            .desc
-            .assertions
-            .push(Assertion::RegEq(register, value));
-        let reg_value = self.0.cpu.registers.get(register);
+        self.desc.assertions.push(Assertion::RegEq(register, value));
+        let reg_value = self.system.cpu_mut().registers.get(register);
         assert_eq!(reg_value, value, "{:X?} != {:X?}", reg_value, value);
         self
     }
 
     /// Only used for nugget creation.
     fn make_assert_mem_nugget(&mut self, base: i32, values: &[u8]) {
-        self.0.desc.assertions.push(Assertion::MemRange {
+        self.desc.assertions.push(Assertion::MemRange {
             base,
             values: values.to_vec(),
         });
@@ -233,22 +221,21 @@ impl TestContext {
 
     pub fn assert_mem_8bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8]);
-        assert_eq!(self.0.memory.read(address), value);
+        assert_eq!(self.system.memory_mut().read(address), value);
         self
     }
 
     pub fn assert_mem_16bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8, (value >> 8) as u8]);
-        let mem_value = i32::from(self.0.memory.read_general_16(address as usize));
+        let mem_value = i32::from(self.system.memory_mut().read_general_16(address as usize));
         assert_eq!(mem_value, value, "{:X?} != {:X?}", mem_value, value);
         self
     }
 
     // Flags register.
     pub fn assert_flags(mut self, expected: Flags) -> TestContext {
-        let flags = Flags::from_bits(self.0.cpu.registers.get(Register::F)).unwrap();
-        self.0
-            .desc
+        let flags = Flags::from_bits(self.system.cpu_mut().registers.get(Register::F)).unwrap();
+        self.desc
             .assertions
             .push(Assertion::RegEq(Register::F, flags.bits()));
         assert_eq!(flags, expected);

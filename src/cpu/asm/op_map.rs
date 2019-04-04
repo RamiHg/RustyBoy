@@ -45,7 +45,6 @@ impl MCycleList {
     }
 
     pub fn remap_lhs_reg(&self, with: Register) -> MCycleList {
-        dbg!(self);
         let mapper = |x: &MaybeArg| {
             if let Some(Arg::Lhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
@@ -89,16 +88,9 @@ impl MCycleList {
         self.map_cmds(mapper)
     }
 
-    pub fn prune_ccend(&self) -> MCycleList {
-        let mapper = |cmd: &Command| {
-            if let Command::CCEND = cmd {
-                Command::NOP
-            } else {
-                *cmd
-            }
-        };
-        self.map_cmds(mapper)
-    }
+    pub fn prune_ccend(&self) -> MCycleList { self.map_cmds(self.pruner(Command::CCEND)) }
+
+    pub fn prune_ei(&self) -> MCycleList { self.map_cmds(self.pruner(Command::EI)) }
 
     pub fn remap_cond(&self, with: Condition) -> MCycleList {
         let mapper = |x: &MaybeArg| {
@@ -147,6 +139,10 @@ impl MCycleList {
 
     fn map_cmds(&self, mapper: impl Fn(&Command) -> Command) -> MCycleList {
         self.map_ops(|arg| arg.clone(), mapper)
+    }
+
+    fn pruner(&self, prune: Command) -> impl Fn(&Command) -> Command {
+        move |cmd: &Command| if *cmd == prune { Command::NOP } else { *cmd }
     }
 }
 

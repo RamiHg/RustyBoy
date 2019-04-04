@@ -9,7 +9,7 @@ use crate::util::{is_16bit, is_8bit};
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.
 /// They are stored in the order B,C,D,E,H,L,A,F,TEMP,SP,PC.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct File([i32; Register::NumRegisters as usize]);
 
 /// The logical list of possible registers and register combination.
@@ -55,9 +55,7 @@ impl Register {
         }
     }
 
-    pub fn is_single(self) -> bool {
-        !self.is_pair()
-    }
+    pub fn is_single(self) -> bool { !self.is_pair() }
 
     pub fn from_single_table(single_value: i32) -> Register {
         Register::from(SingleTable::from_i32(single_value).unwrap())
@@ -102,9 +100,7 @@ impl Register {
 }
 
 impl Default for Register {
-    fn default() -> Self {
-        Register::INVALID
-    }
+    fn default() -> Self { Register::INVALID }
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.
@@ -142,9 +138,7 @@ impl From<SingleTable> for Register {
 }
 
 impl File {
-    pub fn new(values: [i32; Register::NumRegisters as usize]) -> File {
-        File(values)
-    }
+    pub fn new(values: [i32; Register::NumRegisters as usize]) -> File { File(values) }
 
     pub fn get(&self, any: Register) -> i32 {
         let combine_any = |a, b| self.combine(a as usize, b as usize);
@@ -198,7 +192,22 @@ impl File {
         }
     }
 
-    fn combine(&self, i: usize, j: usize) -> i32 {
-        ((self.0[i] as i32) << 8) | (self.0[j] as i32)
+    fn combine(&self, i: usize, j: usize) -> i32 { ((self.0[i] as i32) << 8) | (self.0[j] as i32) }
+}
+
+impl core::fmt::Debug for File {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "\n")?;
+        for i in 0..=(Register::ALU_TMP as i32) {
+            writeln!(
+                f,
+                "{:>10}: {: <2X?}",
+                format!("{:?}", Register::from_i32(i).unwrap()),
+                self.0[i as usize]
+            )?;
+        }
+        writeln!(f, "{:>10}: {: <2X?}", "PC", self.get(Register::PC))?;
+        writeln!(f, "{:>10}: {: <2X?}", "WZ", self.get(Register::TEMP))?;
+        Ok(())
     }
 }

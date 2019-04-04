@@ -25,8 +25,8 @@ fn fetch_t2() -> MicroCode {
     }
 }
 
-pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
-    let (micro_code, mut next_state) = match cpu.state.decode_mode {
+pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
+    let (micro_code, mut next_mode) = match cpu.state.decode_mode {
         DecodeMode::Fetch => match cpu.state.t_state.get() {
             1 => (fetch_t1(), DecodeMode::Fetch),
             2 => (fetch_t2(), DecodeMode::Decode),
@@ -35,7 +35,11 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
         DecodeMode::Decode => match cpu.state.t_state.get() {
             3 => {
                 let opcode = cpu.state.data_latch;
-                cpu.micro_code_stack = cpu.decoder.decode(opcode, memory);
+                // TODO: Clean up
+                if !cpu.is_handling_interrupt {
+                    assert!(cpu.micro_code_stack.is_empty());
+                    cpu.micro_code_stack = cpu.decoder.decode(opcode, memory);
+                }
                 (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
             }
             _ => panic!("Invalid decode t-state"),
@@ -43,7 +47,7 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
         DecodeMode::Execute => (cpu.micro_code_stack.remove(0), DecodeMode::Execute),
     };
     // Execute the micro-code.
-    execute(&micro_code, cpu, memory);
+    let mut next_state = execute(&micro_code, cpu, memory);
     let is_end = if micro_code.is_cond_end {
         let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
         let end = !condition_check_passes(flags, micro_code.cond);
@@ -56,9 +60,11 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) {
     };
     if is_end {
         assert_eq!(cpu.state.t_state.get(), 4);
-        next_state = DecodeMode::Fetch;
+        next_mode = DecodeMode::Fetch;
     }
-    cpu.state.decode_mode = next_state;
+    next_state.t_state.inc();
+    next_state.decode_mode = next_mode;
+    next_state
 }
 
 /// Incrementer module.
@@ -142,7 +148,7 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
     };
 }
 
-fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
+fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> cpu::State {
     //dbg!(code);
     let current_regs = cpu.registers;
     let mut new_regs = current_regs;
@@ -163,8 +169,11 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         debug_assert!(!code.inc_to_addr_bus);
         debug_assert!(!code.addr_write_enable);
         next_state.address_latch = current_regs.get(code.addr_select);
+        dbg!(next_state.address_latch);
         if code.ff_to_addr_hi {
             next_state.address_latch |= 0xFF00;
+        } else if code.zero_to_addr_hi {
+            next_state.address_latch &= 0xFF;
         }
     }
 
@@ -203,6 +212,20 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
     }
     if code.alu_one_to_tmp {
         new_regs.set(Register::ALU_TMP, 1);
+    } else if code.alu_64_to_tmp {
+        new_regs.set(Register::ALU_TMP, 64);
+    } else if code.alu_zero_to_tmp {
+        new_regs.set(Register::ALU_TMP, 0);
+    }
+
+    // Handle interrupt flags.
+    if code.enable_interrupts {
+        next_state.enable_interrupts = true;
+        next_state.disable_interrupts = false;
+    }
+    if code.disable_interrupts {
+        next_state.disable_interrupts = true;
+        next_state.enable_interrupts = false;
     }
 
     // Copy to the data latch.
@@ -210,5 +233,5 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) {
         next_state.data_latch = data_bus_value;
     }
     cpu.registers = new_regs;
-    cpu.state = next_state;
+    next_state
 }

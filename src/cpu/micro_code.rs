@@ -72,6 +72,7 @@ pub struct MicroCode {
     /// into the address buffer register.
     pub reg_to_addr_buffer: bool,
     pub ff_to_addr_hi: bool,
+    pub zero_to_addr_hi: bool, // TODO: Not needed. Remove.
     pub addr_select: Register,
     /// If true, will overwrite the selected address register with the value in the address bus.
     pub addr_write_enable: bool,
@@ -89,8 +90,10 @@ pub struct MicroCode {
     pub alu_reg_write_enable: bool,
     pub alu_a_to_act: bool,
     pub alu_a_to_tmp: bool,
+    pub alu_zero_to_tmp: bool,
     pub alu_one_to_tmp: bool,
     pub alu_cse_to_tmp: bool,
+    pub alu_64_to_tmp: bool,
     pub alu_f_force_nz: bool,
     pub alu_write_f_mask: u8,
 
@@ -98,4 +101,8 @@ pub struct MicroCode {
     pub is_end: bool,
     pub is_cond_end: bool,
     pub cond: Condition,
+
+    // Interrupts.
+    pub enable_interrupts: bool,
+    pub disable_interrupts: bool,
 }

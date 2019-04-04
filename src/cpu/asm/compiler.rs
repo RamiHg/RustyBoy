@@ -30,7 +30,8 @@ fn compile_op(op: &Op) -> MicroCode {
     let compile_fn = match op.cmd {
         ADDR => compile_addr,
         RADDR => compile_raddr,
-        ADDR_H_FF => compile_addr_h_ff,
+        ADDR_H_FF => compile_addr_h,
+        // ADDR_H_00 => compile_addr_h,
         RD => compile_rd,
         WR => compile_wr,
         LD => compile_ld,
@@ -43,6 +44,8 @@ fn compile_op(op: &Op) -> MicroCode {
         END => compile_end,
         CCEND => compile_ccend,
         NOP => compile_nop,
+        EI => compile_ei,
+        DI => compile_di,
         _ => panic!("Implement {:?}", op.cmd),
     };
     compile_fn(op)
@@ -68,11 +71,13 @@ fn compile_raddr(op: &Op) -> MicroCode {
     }
 }
 
-fn compile_addr_h_ff(op: &Op) -> MicroCode {
+fn compile_addr_h(op: &Op) -> MicroCode {
+    // TODO: Put FF or 00 as an arg?
     op.lhs.expect_none();
     op.rhs.expect_none();
     MicroCode {
-        ff_to_addr_hi: true,
+        ff_to_addr_hi: op.cmd == Command::ADDR_H_FF,
+        zero_to_addr_hi: op.cmd == Command::ADDR_H_00,
         ..Default::default()
     }
 }
@@ -186,10 +191,21 @@ fn compile_ld(op: &Op) -> MicroCode {
             let value: i32 = string
                 .parse()
                 .unwrap_or_else(|_| panic!("Cannot parse {} as int", string));
-            if destination == AluOutSelect::Tmp && value == 1 {
-                MicroCode {
-                    alu_one_to_tmp: true,
-                    ..Default::default()
+            if destination == AluOutSelect::Tmp {
+                match value {
+                    0 => MicroCode {
+                        alu_zero_to_tmp: true,
+                        ..Default::default()
+                    },
+                    1 => MicroCode {
+                        alu_one_to_tmp: true,
+                        ..Default::default()
+                    },
+                    64 => MicroCode {
+                        alu_64_to_tmp: true,
+                        ..Default::default()
+                    },
+                    _ => panic!("Unexpected LD TMP constant: {:?}", value),
                 }
             } else {
                 panic!(
@@ -311,6 +327,24 @@ fn compile_ccend(op: &Op) -> MicroCode {
     }
 }
 
+fn compile_ei(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        enable_interrupts: true,
+        ..Default::default()
+    }
+}
+
+fn compile_di(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        disable_interrupts: true,
+        ..Default::default()
+    }
+}
+
 fn compile_nop(op: &Op) -> MicroCode { MicroCode::default() }
 
 // The second part of compilation is combining all the TCycle's microcodes into one. This also
@@ -348,6 +382,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(reg_to_data);
     move_if_unset!(reg_to_addr_buffer);
     move_if_unset!(ff_to_addr_hi);
+    move_if_unset!(zero_to_addr_hi);
     move_if_unset!(addr_select);
     move_if_unset!(addr_write_enable);
     move_if_unset!(inc_op);
@@ -358,13 +393,17 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_reg_write_enable);
     move_if_unset!(alu_a_to_act);
     move_if_unset!(alu_a_to_tmp);
+    move_if_unset!(alu_zero_to_tmp);
     move_if_unset!(alu_one_to_tmp);
     move_if_unset!(alu_cse_to_tmp);
+    move_if_unset!(alu_64_to_tmp);
     move_if_unset!(alu_f_force_nz);
     move_if_unset!(alu_write_f_mask);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
     move_if_unset!(cond);
+    move_if_unset!(enable_interrupts);
+    move_if_unset!(disable_interrupts);
 
     acc
 }
@@ -407,8 +446,12 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.alu_reg_write_enable
             && code.alu_out_select == AluOutSelect::Tmp
-            && (code.alu_a_to_tmp || code.alu_one_to_tmp || code.alu_cse_to_tmp)),
-        "Data hazard writing to ACT."
+            && (code.alu_a_to_tmp
+                || code.alu_zero_to_tmp
+                || code.alu_one_to_tmp
+                || code.alu_cse_to_tmp
+                || code.alu_64_to_tmp)),
+        "Data hazard writing to TMP."
     );
     // TODO: Fix this assert logic.
     assert!(
@@ -430,5 +473,13 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.is_end && code.is_cond_end),
         "End and CCEnd both set."
+    );
+    assert!(
+        !(code.enable_interrupts && code.disable_interrupts),
+        "Cannot enable and disable interrupts at the same time."
+    );
+    assert!(
+        !(code.ff_to_addr_hi && code.zero_to_addr_hi),
+        "Setting ADDR_H to both 0x00 and 0xFF"
     );
 }

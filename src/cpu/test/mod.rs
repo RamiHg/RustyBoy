@@ -3,11 +3,13 @@ use crate::{
     memory::Memory,
 };
 
+use crate::cart;
 use crate::system;
 
 mod test_16bit_alu;
 mod test_8bit_alu;
 mod test_flow;
+mod test_interrupts;
 mod test_load;
 mod test_store;
 
@@ -84,12 +86,17 @@ pub struct TestContext {
     system: Box<system::System>,
     desc: TestDescriptor,
     cycles: i64,
+    interrupt_fire_at_tcycle: i32,
+    interrupts_fired: i32,
 }
 
-pub fn with_default() -> TestContext { TestContext::with_default() }
+pub fn with_default() -> TestContext { TestContext::with_default(Box::new(cart::test::Cart {})) }
+pub fn with_dynamic_cart() -> TestContext {
+    TestContext::with_default(Box::new(cart::test::DynamicCart::new()))
+}
 
 impl TestContext {
-    fn with_default() -> TestContext {
+    fn with_default(cart: Box<dyn cart::Cart>) -> TestContext {
         // Figure out the test name.
         // let bt = backtrace::Backtrace::new();
         // let first_non_setup = bt.frames()[2..]
@@ -102,17 +109,22 @@ impl TestContext {
         let name = "ignoreme".to_string();
 
         TestContext {
-            system: Box::new(system::System::new_test_system()),
+            system: Box::new(system::System::new_test_system(cart)),
             desc: TestDescriptor {
                 name,
                 ..Default::default()
             },
             cycles: 0,
+            interrupt_fire_at_tcycle: -1,
+            interrupts_fired: 0,
         }
     }
 
     pub fn set_mem_range(mut self, address: usize, values: &[u8]) -> TestContext {
-        self.system.memory_mut().mem()[address..address + values.len()].copy_from_slice(values);
+        for (i, value) in (address..address + values.len()).zip(values.iter()) {
+            self.system.memory_mut().store(i as i32, *value as i32);
+        }
+        // self.system.memory_mut().mem()[address..address + values.len()].copy_from_slice(values);
         self.desc.add_mem_range(address as i32, values);
         self
     }
@@ -143,6 +155,12 @@ impl TestContext {
     pub fn set_zero(self, is_set: bool) -> TestContext { self.set_flag(Flags::ZERO, is_set) }
 
     pub fn set_sub(self, is_set: bool) -> TestContext { self.set_flag(Flags::SUB, is_set) }
+
+    pub fn fire_interrupts_at(mut self, tcycle: i32, interrupts_fired: i32) -> TestContext {
+        self.interrupt_fire_at_tcycle = tcycle;
+        self.interrupts_fired = interrupts_fired;
+        self
+    }
 
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the
     /// resulting system state.

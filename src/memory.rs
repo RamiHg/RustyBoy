@@ -161,6 +161,11 @@ impl Memory {
 
     pub fn read(&self, raw_address: i32) -> i32 {
         assert!(raw_address >= 0 && raw_address <= 0xFFFF);
+        println!(
+            "Reading {:X} from {:X?}",
+            self.read_general_8(raw_address as usize),
+            raw_address
+        );
         self.read_general_8(raw_address as usize).into()
     }
 
@@ -168,6 +173,7 @@ impl Memory {
     pub fn store(&mut self, raw_address: i32, value: i32) {
         debug_assert!(util::is_16bit(raw_address));
         debug_assert!(util::is_8bit(value));
+        println!("Storing {:X?} into {:X?}", value, raw_address);
         self.store_general_8(raw_address as usize, value as u8);
     }
 
@@ -187,9 +193,7 @@ impl Memory {
         }
     }
 
-    pub fn read_reg(&self, reg: RegisterAddr) -> u8 {
-        self.read_general_8(reg as usize)
-    }
+    pub fn read_reg(&self, reg: RegisterAddr) -> u8 { self.read_general_8(reg as usize) }
 
     pub fn read_register<A, T>(&self, cons: T) -> A
     where
@@ -224,12 +228,8 @@ impl Memory {
             | (u16::from(self.read_general_8(location + 1)) << 8)
     }
 
-    pub fn store_memory_8(&mut self, location: usize, value: u8) {
-        self.mem[location] = value;
-    }
+    pub fn store_memory_8(&mut self, location: usize, value: u8) { self.mem[location] = value; }
 
     #[cfg(test)]
-    pub fn mem(&mut self) -> &mut [u8; 0x10000] {
-        &mut self.mem
-    }
+    pub fn mem(&mut self) -> &mut [u8; 0x10000] { &mut self.mem }
 }

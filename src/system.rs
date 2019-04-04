@@ -8,7 +8,7 @@ pub struct System {
 
 impl System {
     fn execute_t_cycle(&mut self) -> Result<cpu::Output> {
-        let cpu_output = self.cpu.execute_t_cycle(&self.memory)?;
+        let cpu_output = self.cpu.execute_t_cycle(&mut self.memory)?;
         if let Some(cpu::SideEffect::Write { raw_address, value }) = cpu_output.side_effect {
             self.memory.store(raw_address, value);
         };
@@ -20,17 +20,16 @@ impl System {
         for i in 0..=3 {
             last_result = Some(self.execute_t_cycle()?);
         }
-        self.cpu.handle_interrupts(&self.memory)?;
         Ok(last_result.unwrap())
     }
 }
 
 #[cfg(test)]
 impl System {
-    pub fn new_test_system() -> System {
+    pub fn new_test_system(cart: Box<dyn cart::Cart>) -> System {
         System {
             cpu: cpu::Cpu::new(),
-            memory: Box::new(memory::Memory::new(Box::new(cart::test::Cart))),
+            memory: Box::new(memory::Memory::new(cart)),
         }
     }
 

@@ -57,6 +57,12 @@ impl Decoder {
 
     pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> { self.decode_op(op) }
 
+    pub fn interrupt_handler(&self) -> Vec<MicroCode> {
+        let handler = self.pla["INTERRUPT"].clone().compile();
+        debug_assert_eq!(handler.len(), 2 + 4 * 4);
+        handler
+    }
+
     fn decode_op(&self, opcode: i32) -> Vec<MicroCode> {
         // This method uses the amazing guide to decode instructions programatically:
         // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
@@ -192,7 +198,8 @@ impl Decoder {
                 1 => match op_q {
                     // q = 1
                     1 => match op_p {
-                        0 => self.pla["RET"].clone(),
+                        0 => self.pla["RET[I]"].prune_ei(),
+                        1 => self.pla["RET[I]"].clone(),
                         2 => self.pla["JPHL"].clone(),
                         3 => self.pla["LDSP,HL"].clone(),
                         _ => panic!("Implement {:X?}", opcode),
@@ -210,6 +217,8 @@ impl Decoder {
                 // z = 3
                 3 => match op_y {
                     0 => self.pla["JP[cc],i16"].prune_ccend(),
+                    6 => self.pla["DI"].clone(),
+                    7 => self.pla["EI"].clone(),
                     _ => panic!("Implement {:X?}", opcode),
                 },
                 // z = 4. CALL [cc], nn

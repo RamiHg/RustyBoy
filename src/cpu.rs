@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::error::Result;
+use crate::error::{self, Result};
 use crate::io_registers;
 use crate::memory::{Memory, MemoryError};
 use crate::util;
@@ -16,6 +16,7 @@ mod register;
 #[cfg(test)]
 mod test;
 
+#[derive(Debug)]
 pub enum SideEffect {
     Write { raw_address: i32, value: i32 },
 }
@@ -69,6 +70,8 @@ pub struct Cpu {
     pub micro_code_stack: Vec<MicroCode>,
 
     interrupts_enabled: bool,
+    is_handling_interrupt: bool,
+    interrupt_handle_mcycle: i32,
 }
 
 impl Cpu {
@@ -79,6 +82,8 @@ impl Cpu {
             decoder: decoder::Decoder::new(),
             micro_code_stack: Vec::new(),
             interrupts_enabled: false,
+            is_handling_interrupt: false,
+            interrupt_handle_mcycle: 0,
         }
     }
 
@@ -108,29 +113,129 @@ impl Cpu {
         None
     }
 
-    pub fn handle_interrupts(&mut self, memory: &mut Memory) -> Result<()> {
-        use io_registers::Register;
-        // Completely ignore interrupts if they're not enabled.
-        if !self.interrupts_enabled {
-            return Ok(());
-        }
-        // Otherwise, carry on.
-        let interrupt_fired_flag = memory.read(io_registers::InterruptFlag::ADDRESS as i32) & 0x1F;
-        assert_eq!(interrupt_fired_flag & !0x1F, 0);
-        // Re-use io_registers::InterruptFlag to get the IE register.
-        let interrupt_enabled_flag = memory.read(0xFFFF) & 0x1F;
-        let fired_interrupts = interrupt_fired_flag & interrupt_enabled_flag;
-        let interrupt_index = fired_interrupts.trailing_zeros();
-    }
-
-    pub fn execute_t_cycle(&mut self, memory: &Memory) -> Result<Output> {
+    pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<Output> {
+        // First step is to handle interrupts.
+        println!("PC: {:X?}", self.registers.get(register::Register::PC));
+        // dbg!(self.registers);
+        //dbg!(self.state);
+        self.handle_interrupts(memory)?;
+        // Then, run through the micro-code prelude.
         let side_effect = self.microcode_prelude(memory);
-        control_unit::cycle(self, memory);
-        self.state.t_state.inc();
-        let is_done = self.state.t_state.get() == 1 && self.state.decode_mode == DecodeMode::Fetch;
+        // Finally, execute the micro-code.
+        let mut next_state = control_unit::cycle(self, memory);
+        let is_done = next_state.t_state.get() == 1 && next_state.decode_mode == DecodeMode::Fetch;
+        // If we're done with an instruction, update the interrupt enable flag.
+        if is_done {
+            self.update_interrupt_enable(&mut next_state);
+        }
+        self.state = next_state;
         Ok(Output {
             side_effect,
             is_done,
         })
+    }
+
+    pub fn handle_interrupts(&mut self, memory: &mut Memory) -> Result<()> {
+        // If interrupts are enabled, check for any fired interrupts. Otherwise, check if we are
+        // currently handling an interrupt. If none of that, proceed as usual.
+        if self.interrupts_enabled {
+            assert!(!self.is_handling_interrupt);
+            self.check_for_interrupts(memory)?;
+        } else if self.is_handling_interrupt {
+            dbg!(self.interrupt_handle_mcycle);
+            // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read
+            // the fired interrupt flag AGAIN, and then decide on which interrupt to handle.
+            if self.state.t_state.get() == 4 {
+                if self.interrupt_handle_mcycle == 3 {
+                    self.select_fired_interrupt(memory)?;
+                }
+                self.interrupt_handle_mcycle += 1;
+            }
+            if self.interrupt_handle_mcycle == 5 {
+                // Done with handling the interrupt!
+                self.is_handling_interrupt = false;
+            }
+        }
+        Ok(())
+    }
+
+    fn check_for_interrupts(&mut self, memory: &Memory) -> Result<()> {
+        assert!(self.interrupts_enabled);
+        // Only look at interrupts in the beginning of T3, right before PC is incremented.
+        if self.state.decode_mode != DecodeMode::Fetch && self.state.t_state.get() != 3 {
+            return Ok(());
+        }
+        // In this stage, we only check IF there is an interrupt, not WHICH interrupt to fire.
+        let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
+        let ie_flag = memory.read(0xFFFF) & 0x1F;
+        if (interrupt_fired_flag & ie_flag) != 0 {
+            dbg!(interrupt_fired_flag & ie_flag);
+            // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
+            // interrupt handling routine micro-codes.
+            self.micro_code_stack = self.decoder.interrupt_handler();
+            assert!(!(self.state.enable_interrupts && self.state.disable_interrupts));
+            self.interrupts_enabled = false;
+            self.is_handling_interrupt = true;
+            self.interrupt_handle_mcycle = 0;
+        }
+        // Otherwise, do nothing.
+        Ok(())
+    }
+
+    fn select_fired_interrupt(&mut self, memory: &mut Memory) -> Result<()> {
+        debug_assert_eq!(self.interrupt_handle_mcycle, 3);
+        debug_assert_eq!(self.state.t_state.get(), 4);
+        let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
+        let ie_flag = memory.read(io_registers::Addresses::InterruptEnable as i32) & 0x1F;
+        let fired_interrupts = interrupt_fired_flag & ie_flag;
+        if fired_interrupts == 0 {
+            return Err(error::Type::InvalidOperation(
+                "In interrupt handling routine, but found no fired interrupts!".into(),
+            ));
+        }
+        // In hardware this would be a case statement, but let's be clean here.
+        let interrupt_index = fired_interrupts.trailing_zeros() as i32;
+        dbg!(interrupt_index);
+        assert!(interrupt_index <= 4);
+        self.registers
+            .set(register::Register::TEMP_LOW, interrupt_index * 8);
+        // Finally, issue a write to clear the fired bit.
+        let new_fired_interrupts = interrupt_fired_flag & !(1 << interrupt_index);
+        memory.store(
+            io_registers::Addresses::InterruptFired as i32,
+            new_fired_interrupts,
+        );
+        Ok(())
+    }
+
+    fn update_interrupt_enable(&mut self, next_state: &mut State) {
+        // This should only be called at the end of an instruction.
+        debug_assert_eq!(self.state.decode_mode, DecodeMode::Execute);
+        debug_assert_eq!(self.state.t_state.get(), 4);
+        if self.state.enable_interrupts {
+            assert!(!self.is_handling_interrupt);
+            assert!(!self.state.disable_interrupts);
+            self.interrupts_enabled = true;
+            next_state.enable_interrupts = false;
+        }
+        if self.state.disable_interrupts {
+            assert!(!self.is_handling_interrupt);
+            assert!(!self.state.enable_interrupts);
+            self.interrupts_enabled = false;
+            next_state.disable_interrupts = false;
+        }
+    }
+
+    fn interrupt_fired_flag(&mut self, memory: &Memory) -> Result<i32> {
+        let interrupt_fired_flag =
+            memory.read(io_registers::Addresses::InterruptFired as i32) & 0x1F;
+        if (interrupt_fired_flag & !0x1F) != 0 {
+            Err(error::Type::InvalidOperation(format!(
+                "Interrupt flag register is corrupt: {:X?}",
+                interrupt_fired_flag
+            )))
+        } else {
+            Ok(interrupt_fired_flag)
+        }
     }
 }

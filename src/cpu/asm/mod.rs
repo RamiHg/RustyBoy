@@ -29,6 +29,7 @@ pub enum Command {
     ADDR,
     RADDR,
     ADDR_H_FF,
+    ADDR_H_00,
     RD,
     WR,
     MOV,
@@ -42,8 +43,9 @@ pub enum Command {
     DEC,
     END,
     CCEND,
-
     NOP,
+    EI,
+    DI,
 }
 
 #[derive(Clone, Debug)]

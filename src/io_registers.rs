@@ -2,6 +2,11 @@ use bitfield::bitfield;
 use num_derive::FromPrimitive;
 use num_traits;
 
+pub enum Addresses {
+    InterruptFired = 0xFF0F,
+    InterruptEnable = 0xFFFF,
+}
+
 /// Base register trait. Describes registers: their location in memory, etc.
 pub trait Register {
     const ADDRESS: usize;
@@ -54,10 +59,10 @@ bitfield! {
 
 /// Implements the Register trait.
 macro_rules! declare_register {
-    ($x:ident, $address:literal) => {
+    ($x:ident, $address:expr) => {
         // Implement the Register trait.
         impl<T> Register for $x<T> {
-            const ADDRESS: usize = $address;
+            const ADDRESS: usize = $address as usize;
         }
     };
 }
@@ -74,6 +79,6 @@ macro_rules! from_u8 {
 
 declare_register!(LcdStatus, 0xFF41);
 declare_register!(LcdControl, 0xFF00);
-declare_register!(InterruptFlag, 0xFF0F);
+declare_register!(InterruptFlag, Addresses::InterruptFired);
 
 from_u8!(LcdcModeFlag);

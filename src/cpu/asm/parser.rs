@@ -4,7 +4,8 @@ use regex::Regex;
 use super::{AluCommand, Arg, Command, MaybeArg, Op};
 use crate::cpu::register::Register;
 
-const OP_PATTERN: &str = r"([A-Z_]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
+const OP_PATTERN: &str =
+    r"([A-Z_0-9]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
 
 pub fn parse_op(op: &str) -> Op {
     lazy_static! {
@@ -22,6 +23,7 @@ pub fn parse_op(op: &str) -> Op {
         "ADDR" => ADDR,
         "RADDR" => RADDR,
         "ADDR_H_FF" => ADDR_H_FF,
+        "ADDR_H_00" => ADDR_H_00,
         "RD" => RD,
         "WR" => WR,
         "MOV" => MOV,
@@ -30,6 +32,7 @@ pub fn parse_op(op: &str) -> Op {
         "ADD" => ALU(AluCommand::Add),
         "ADC" => ALU(AluCommand::Addc),
         "SUB" => ALU(AluCommand::Sub),
+        "AND" => ALU(AluCommand::And),
         "FMSK" => FMSK,
         "FZ" => FZ,
         "CSE" => CSE,
@@ -37,6 +40,8 @@ pub fn parse_op(op: &str) -> Op {
         "DEC" => DEC,
         "END" => END,
         "CCEND" => CCEND,
+        "EI" => EI,
+        "DI" => DI,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
     let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));

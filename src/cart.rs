@@ -221,6 +221,7 @@ mod mbc1 {
 #[cfg(test)]
 pub mod test {
     use super::Result;
+    use crate::error;
     use crate::memory::MemoryError;
 
     pub struct Cart;
@@ -231,6 +232,24 @@ pub mod test {
                 location: raw_address,
                 reason: "Cannot write to ErrorCart!",
             })
+        }
+    }
+
+    pub struct DynamicCart {
+        mem: Vec<u8>,
+    }
+    impl DynamicCart {
+        pub fn new() -> DynamicCart {
+            DynamicCart {
+                mem: vec![0; 0x8000],
+            }
+        }
+    }
+    impl super::Cart for DynamicCart {
+        fn read(&self, raw_address: usize) -> Result<u8> { Ok(self.mem[raw_address]) }
+        fn write(&mut self, raw_address: usize, value: u8) -> Result<()> {
+            self.mem[raw_address] = value;
+            Ok(())
         }
     }
 }

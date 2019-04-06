@@ -259,6 +259,90 @@ fn test_cp_a_r() {
         .assert_mcycles(1);
 }
 
+fn test_rotate_op(op: u8, a_val: i32, carry: bool, expected: i32, expected_carry: bool) {
+    with_default()
+        .set_reg(A, a_val)
+        .set_flag(Flags::CARRY, carry)
+        .execute_instructions(&[op])
+        .assert_reg_eq(A, expected)
+        .assert_flags(if expected_carry {
+            Flags::CARRY
+        } else {
+            Flags::empty()
+        })
+        .assert_mcycles(1);
+    // Make sure Z flag is off even when result is 0
+    with_default()
+        .set_reg(A, 0)
+        .execute_instructions(&[op])
+        .assert_reg_eq(A, 0)
+        .assert_flags(Flags::empty())
+        .assert_mcycles(1);
+}
+
+#[test]
+fn test_rotates() {
+    // RLCA
+    test_rotate_op(0x07, 0b1010_0101, false, 0b0100_1011, true);
+    test_rotate_op(0x07, 0b0010_0101, true, 0b0100_1010, false);
+    // RRCA
+    test_rotate_op(0x0F, 0b1010_0101, false, 0b1101_0010, true);
+    test_rotate_op(0x0F, 0b1010_0100, true, 0b0101_0010, false);
+    // RLA
+    test_rotate_op(0x17, 0b1010_0101, false, 0b0100_1010, true);
+    test_rotate_op(0x17, 0b0010_0101, true, 0b0100_1011, false);
+    // RRA
+    test_rotate_op(0x1F, 0b1010_0101, false, 0b0101_0010, true);
+    test_rotate_op(0x1F, 0b1010_0100, true, 0b1101_0010, false);
+}
+
+#[test]
+fn test_cpl() {
+    with_default()
+        .set_reg(A, 0b1010_0101)
+        .set_flag(Flags::ZERO, true)
+        .set_flag(Flags::CARRY, true)
+        .execute_instructions(&[0x2F])
+        .assert_reg_eq(A, 0b0101_1010)
+        .assert_flags(Flags::ZERO | Flags::CARRY | Flags::HCARRY | Flags::SUB)
+        .assert_mcycles(1);
+}
+
+#[test]
+fn test_scf() {
+    with_default()
+        .set_flag(Flags::ZERO, true)
+        .set_flag(Flags::SUB, true)
+        .set_flag(Flags::HCARRY, true)
+        .execute_instructions(&[0x37])
+        .assert_flags(Flags::ZERO | Flags::CARRY);
+}
+
+#[test]
+fn test_ccf() {
+    with_default()
+        .set_flag(Flags::ZERO, true)
+        .set_flag(Flags::SUB, true)
+        .set_flag(Flags::HCARRY, true)
+        .execute_instructions(&[0x3F])
+        .assert_flags(Flags::ZERO | Flags::CARRY);
+    with_default()
+        .set_flag(Flags::CARRY, true)
+        .execute_instructions(&[0x3F])
+        .assert_flags(Flags::empty());
+}
+
+#[test]
+fn test_daa() {
+    // Pick a random test case from verified results.
+    with_default()
+        .set_reg(A, 0x22)
+        .set_reg(F, 0b1101_0000)
+        .execute_instructions(&[0x27])
+        .assert_reg_eq(A, 0xC2)
+        .assert_reg_eq(F, 0b0101_0000);
+}
+
 #[test]
 fn test_inc() {
     for (&op, &reg) in [0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C]

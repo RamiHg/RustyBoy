@@ -41,15 +41,13 @@ impl Default for DecodeMode {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct State {
-    t_state: TState,
     decode_mode: DecodeMode,
     address_latch: i32,
     data_latch: i32,
     read_latch: bool,
     write_latch: bool,
 
-    enable_interrupts: bool,
-    disable_interrupts: bool,
+    interrupt_enable_counter: i32,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -69,6 +67,8 @@ pub struct Cpu {
     pub decoder: decoder::Decoder,
     pub micro_code_stack: Vec<MicroCode>,
 
+    pub t_state: TState,
+
     interrupts_enabled: bool,
     is_handling_interrupt: bool,
     interrupt_handle_mcycle: i32,
@@ -81,6 +81,7 @@ impl Cpu {
             registers: register::File::new([0; register::Register::NumRegisters as usize]),
             decoder: decoder::Decoder::new(),
             micro_code_stack: Vec::new(),
+            t_state: TState::default(),
             interrupts_enabled: false,
             is_handling_interrupt: false,
             interrupt_handle_mcycle: 0,
@@ -91,7 +92,7 @@ impl Cpu {
         assert!(!(self.state.read_latch && self.state.write_latch));
         // Service read requests at T=3's rising edge.
         if self.state.read_latch {
-            if self.state.t_state.get() == 3 {
+            if self.t_state.get() == 3 {
                 self.state.data_latch = memory.read(self.state.address_latch);
             } else {
                 // Write garbage in data latch to catch bad reads.
@@ -102,7 +103,7 @@ impl Cpu {
         if self.state.write_latch {
             assert!(util::is_16bit(self.state.address_latch));
             assert!(util::is_8bit(self.state.data_latch));
-            if self.state.t_state.get() == 4 {
+            if self.t_state.get() == 4 {
                 return Some(SideEffect::Write {
                     raw_address: self.state.address_latch,
                     value: self.state.data_latch,
@@ -115,20 +116,21 @@ impl Cpu {
 
     pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<Output> {
         // First step is to handle interrupts.
-        println!("PC: {:X?}", self.registers.get(register::Register::PC));
-        // dbg!(self.registers);
-        //dbg!(self.state);
         self.handle_interrupts(memory)?;
         // Then, run through the micro-code prelude.
         let side_effect = self.microcode_prelude(memory);
         // Finally, execute the micro-code.
-        let mut next_state = control_unit::cycle(self, memory);
-        let is_done = next_state.t_state.get() == 1 && next_state.decode_mode == DecodeMode::Fetch;
-        // If we're done with an instruction, update the interrupt enable flag.
-        if is_done {
-            self.update_interrupt_enable(&mut next_state);
-        }
+        let next_state = control_unit::cycle(self, memory);
+        let is_done = self.t_state.get() == 4 && next_state.decode_mode == DecodeMode::Fetch;
         self.state = next_state;
+        // This will be tricky to translate to hardware.
+        if is_done && self.state.interrupt_enable_counter > 0 {
+            if self.state.interrupt_enable_counter == 1 {
+                self.interrupts_enabled = true;
+            }
+            self.state.interrupt_enable_counter -= 1;
+        }
+        self.t_state.inc();
         Ok(Output {
             side_effect,
             is_done,
@@ -142,10 +144,9 @@ impl Cpu {
             assert!(!self.is_handling_interrupt);
             self.check_for_interrupts(memory)?;
         } else if self.is_handling_interrupt {
-            dbg!(self.interrupt_handle_mcycle);
             // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read
             // the fired interrupt flag AGAIN, and then decide on which interrupt to handle.
-            if self.state.t_state.get() == 4 {
+            if self.t_state.get() == 4 {
                 if self.interrupt_handle_mcycle == 3 {
                     self.select_fired_interrupt(memory)?;
                 }
@@ -162,7 +163,7 @@ impl Cpu {
     fn check_for_interrupts(&mut self, memory: &Memory) -> Result<()> {
         assert!(self.interrupts_enabled);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
-        if self.state.decode_mode != DecodeMode::Fetch && self.state.t_state.get() != 3 {
+        if self.state.decode_mode != DecodeMode::Fetch && self.t_state.get() != 3 {
             return Ok(());
         }
         // In this stage, we only check IF there is an interrupt, not WHICH interrupt to fire.
@@ -173,7 +174,6 @@ impl Cpu {
             // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
             // interrupt handling routine micro-codes.
             self.micro_code_stack = self.decoder.interrupt_handler();
-            assert!(!(self.state.enable_interrupts && self.state.disable_interrupts));
             self.interrupts_enabled = false;
             self.is_handling_interrupt = true;
             self.interrupt_handle_mcycle = 0;
@@ -184,7 +184,7 @@ impl Cpu {
 
     fn select_fired_interrupt(&mut self, memory: &mut Memory) -> Result<()> {
         debug_assert_eq!(self.interrupt_handle_mcycle, 3);
-        debug_assert_eq!(self.state.t_state.get(), 4);
+        debug_assert_eq!(self.t_state.get(), 4);
         let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
         let ie_flag = memory.read(io_registers::Addresses::InterruptEnable as i32) & 0x1F;
         let fired_interrupts = interrupt_fired_flag & ie_flag;
@@ -206,24 +206,6 @@ impl Cpu {
             new_fired_interrupts,
         );
         Ok(())
-    }
-
-    fn update_interrupt_enable(&mut self, next_state: &mut State) {
-        // This should only be called at the end of an instruction.
-        debug_assert_eq!(self.state.decode_mode, DecodeMode::Execute);
-        debug_assert_eq!(self.state.t_state.get(), 4);
-        if self.state.enable_interrupts {
-            assert!(!self.is_handling_interrupt);
-            assert!(!self.state.disable_interrupts);
-            self.interrupts_enabled = true;
-            next_state.enable_interrupts = false;
-        }
-        if self.state.disable_interrupts {
-            assert!(!self.is_handling_interrupt);
-            assert!(!self.state.enable_interrupts);
-            self.interrupts_enabled = false;
-            next_state.disable_interrupts = false;
-        }
     }
 
     fn interrupt_fired_flag(&mut self, memory: &Memory) -> Result<i32> {

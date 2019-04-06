@@ -1,10 +1,6 @@
 use super::*;
 use crate::cpu::register::Register::*;
 
-const JP: u8 = 0xC3;
-const INC_A: u8 = 0x3C;
-const DEC_A: u8 = 0x3D;
-
 #[rustfmt::skip]
 fn simple_destination(return_addr: usize) -> Vec<u8> {
     vec![

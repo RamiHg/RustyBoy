@@ -7,7 +7,7 @@ use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
 
 use super::decoder;
-use super::micro_code::{AluOp, AluOutSelect, Condition, IncOp, MicroCode};
+use super::micro_code::{AluOutSelect, Condition, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
     MicroCode {
@@ -27,12 +27,12 @@ fn fetch_t2() -> MicroCode {
 
 pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
     let (micro_code, mut next_mode) = match cpu.state.decode_mode {
-        DecodeMode::Fetch => match cpu.state.t_state.get() {
+        DecodeMode::Fetch => match cpu.t_state.get() {
             1 => (fetch_t1(), DecodeMode::Fetch),
             2 => (fetch_t2(), DecodeMode::Decode),
             _ => panic!("Invalid fetch t-state"),
         },
-        DecodeMode::Decode => match cpu.state.t_state.get() {
+        DecodeMode::Decode => match cpu.t_state.get() {
             3 => {
                 let opcode = cpu.state.data_latch;
                 // TODO: Clean up
@@ -59,10 +59,9 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
         micro_code.is_end
     };
     if is_end {
-        assert_eq!(cpu.state.t_state.get(), 4);
+        assert_eq!(cpu.t_state.get(), 4);
         next_mode = DecodeMode::Fetch;
     }
-    next_state.t_state.inc();
     next_state.decode_mode = next_mode;
     next_state
 }
@@ -95,19 +94,7 @@ fn alu_logic(
     let act = current_regs.get(Register::ACT);
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
-    use AluOp::*;
-    let (result, mut flags) = match code.alu_op {
-        Mov => (act, Flags::empty()),
-        Add => alu::BinaryOp::Add.execute(act, tmp, current_flags),
-        Addc => alu::BinaryOp::Adc.execute(act, tmp, current_flags),
-        Sub => alu::BinaryOp::Sub.execute(act, tmp, current_flags),
-        Subc => alu::BinaryOp::Sbc.execute(act, tmp, current_flags),
-        And => alu::BinaryOp::And.execute(act, tmp, current_flags),
-        Xor => alu::BinaryOp::Xor.execute(act, tmp, current_flags),
-        Or => alu::BinaryOp::Or.execute(act, tmp, current_flags),
-        Cp => alu::BinaryOp::Cp.execute(act, tmp, current_flags),
-        //_ => panic!("Implement {:?}", code.alu_op),
-    };
+    let (result, mut flags) = code.alu_op.execute(act, tmp, current_flags);
     if code.alu_cse_to_tmp {
         let is_negative = (tmp & 0x80) != 0;
         let is_carry = flags.intersects(alu::Flags::CARRY);
@@ -148,8 +135,17 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
     };
 }
 
+fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State) {
+    if code.enable_interrupts {
+        next_state.interrupt_enable_counter = 2;
+        cpu.interrupts_enabled = false;
+    } else if code.disable_interrupts {
+        cpu.interrupts_enabled = false;
+        next_state.interrupt_enable_counter = 0;
+    }
+}
+
 fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> cpu::State {
-    //dbg!(code);
     let current_regs = cpu.registers;
     let mut new_regs = current_regs;
 
@@ -219,14 +215,7 @@ fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> cpu::State {
     }
 
     // Handle interrupt flags.
-    if code.enable_interrupts {
-        next_state.enable_interrupts = true;
-        next_state.disable_interrupts = false;
-    }
-    if code.disable_interrupts {
-        next_state.disable_interrupts = true;
-        next_state.enable_interrupts = false;
-    }
+    interrupt_logic(code, cpu, &mut next_state);
 
     // Copy to the data latch.
     if code.mem_write_enable {

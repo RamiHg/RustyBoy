@@ -1,6 +1,6 @@
-use core::ops::Fn;
-
 use bitflags::bitflags;
+
+use crate::util;
 
 bitflags! {
     pub struct Flags: i32 {
@@ -12,7 +12,9 @@ bitflags! {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum BinaryOp {
+pub enum Op {
+    Invalid,
+    // Binary ops.
     Add,
     Adc,
     Sub,
@@ -21,67 +23,85 @@ pub enum BinaryOp {
     Xor,
     Or,
     Cp,
+    // Shifts and rotates.
+    Rlc,
+    Rl,
+    Rrc,
+    Rr,
+    Sl,
+    Sr,
+    // Unary ops.
+    Mov,
+    Cpl,
+    Scf,
+    Ccf,
+    Daa,
 }
 
-pub enum UnaryOp {
-    Inc,
-    Dec,
-    Swap,
+impl Default for Op {
+    fn default() -> Self { Op::Invalid }
 }
 
-impl BinaryOp {
+impl Op {
     pub fn execute(self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
-        use BinaryOp::*;
+        assert!(util::is_8bit(lhs));
+
+        let has_carry: i32 = flags.intersects(Flags::CARRY).into();
+
+        let adder = |x, y| x + y;
+        let subber = |x, y| x - y;
+        let rlcer = |x| (x << 1) | (x >> 7);
+        let rrcer = |x| (x >> 1) | ((x & 1) << 7);
+        let rler = |x| (x << 1) | has_carry;
+        let rrer = |x| (x >> 1) | (has_carry << 7);
+        let sler = |x| x << 1;
+        let srer = |x| x >> 1;
+
+        let last_bitter = |x| x & 0x80;
+        let first_bitter = |x| x & 0x01;
+        let zeroer = |x| 0;
+
+        use Op::*;
         match self {
-            Add => generic_8bit_math_op(lhs, rhs, 0, |x, y| x + y),
-            Adc => generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), |x, y| {
-                x + y
-            }),
+            Invalid => panic!("Attempting to execute invalid ALU op."),
+            Mov => (lhs, flags),
+            Add => generic_8bit_math_op(lhs, rhs, 0, adder),
+            Adc => generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), adder),
             Sub => {
-                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 0, |x, y| x - y);
+                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
                 flags |= Flags::SUB;
                 (result, flags)
             }
             Sbc => {
-                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 1, |x, y| x - y);
+                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 1, subber);
                 flags |= Flags::SUB;
                 (result, flags)
             }
             Cp => {
                 // CP is basically a subtract with the results being ignored.
-                let (_, mut flags) = generic_8bit_math_op(lhs, rhs, 0, |x, y| x - y);
+                let (_, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
                 flags |= Flags::SUB;
                 (lhs, flags)
             }
             And => generic_8bit_logical_op(lhs, rhs, true, |x, y| x & y),
             Xor => generic_8bit_logical_op(lhs, rhs, false, |x, y| x ^ y),
             Or => generic_8bit_logical_op(lhs, rhs, false, |x, y| x | y),
-        }
-    }
-}
-
-impl UnaryOp {
-    pub fn execute(&self, value: i32, flags: Flags) -> (i32, Flags) {
-        use UnaryOp::*;
-        match self {
-            Inc => {
-                // Reuse add functionality.
-                let (result, mut flags) = BinaryOp::Add.execute(value, 1, flags);
-                // Carry is not affected.
-                flags.remove(Flags::CARRY);
-                (result, flags)
+            Rlc => generic_unary_op(lhs, rlcer, last_bitter),
+            Rl => generic_unary_op(lhs, rler, last_bitter),
+            Rrc => generic_unary_op(lhs, rrcer, first_bitter),
+            Rr => generic_unary_op(lhs, rrer, first_bitter),
+            Sl => generic_unary_op(lhs, sler, last_bitter),
+            Sr => generic_unary_op(lhs, srer, first_bitter),
+            Cpl => {
+                let (result, _) = generic_unary_op(lhs, |x| !x, zeroer);
+                (result, flags | (Flags::SUB | Flags::HCARRY))
             }
-            Dec => {
-                // Reuse add functionality.
-                let (result, mut flags) = BinaryOp::Sub.execute(value, 1, flags);
-                // Carry is not affected.
-                flags.remove(Flags::CARRY);
-                (result, flags)
-            }
-            Swap => {
-                let swap = |x, _| (x << 4) | ((x & 0xF) >> 4);
-                generic_8bit_logical_op(value, value, false, swap)
-            }
+            Scf => (lhs, (flags & Flags::ZERO) | Flags::CARRY),
+            Ccf => (
+                lhs,
+                (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY),
+            ),
+            Daa => daa(lhs, flags),
         }
     }
 }
@@ -115,27 +135,34 @@ where
     (result, flags)
 }
 
-/*
+fn generic_unary_op<T, A>(lhs: i32, op: T, carry_op: A) -> (i32, Flags)
+where
+    T: Fn(i32) -> i32,
+    A: Fn(i32) -> i32,
+{
+    let result = op(lhs) & 0xFF;
+    let new_carry = carry_op(lhs);
+    let mut flags = Flags::empty();
+    flags.set(Flags::CARRY, new_carry != 0);
+    flags.set(Flags::ZERO, result == 0);
+    (result, flags)
+}
 
 // I have no idea how this works, so I just referenced an implementation in nesdev.com
 // http://forums.nesdev.com/viewtopic.php?t=9088
-pub fn daa(a_u8: u8, current_flags: &Flags) -> (u8, Flags) {
-    let mut a = a_u8 as i32;
-
-    if !current_flags.has_bit(FlagBits::Sub) {
-        if current_flags.has_bit(FlagBits::HCarry) || (a & 0xF) > 9 {
+fn daa(mut a: i32, flags: Flags) -> (i32, Flags) {
+    if !flags.intersects(Flags::SUB) {
+        if flags.intersects(Flags::HCARRY) || (a & 0xF) > 9 {
             a += 0x06;
         }
-
-        if current_flags.has_bit(FlagBits::Carry) || a > 0x9F {
+        if flags.intersects(Flags::CARRY) || a > 0x9F {
             a += 0x60;
         }
     } else {
-        if current_flags.has_bit(FlagBits::HCarry) {
+        if flags.intersects(Flags::HCARRY) {
             a = (a - 6) & 0xFF;
         }
-
-        if current_flags.has_bit(FlagBits::Carry) {
+        if flags.intersects(Flags::CARRY) {
             a -= 0x60;
         }
     }
@@ -144,97 +171,8 @@ pub fn daa(a_u8: u8, current_flags: &Flags) -> (u8, Flags) {
     a &= 0xFF;
 
     // Flags are a bit tricky
-    let flags = Flags::new(
-        current_flags.get_bit(FlagBits::Carry) as u32 | c as u32,
-        0,
-        current_flags.get_bit(FlagBits::Sub) as u32,
-        a == 0,
-    );
-
-    (a as u8, flags)
+    let mut new_flags = flags & Flags::SUB;
+    new_flags.set(Flags::CARRY, flags.intersects(Flags::CARRY) || c != 0);
+    new_flags.set(Flags::ZERO, a == 0);
+    (a, new_flags)
 }
-
-pub fn cpl_u8(a: u8, current_flags: &Flags) -> (u8, Flags) {
-    let result: u8 = !a;
-
-    let flags = Flags::new(
-        current_flags.get_bit(FlagBits::Carry) as u32,
-        1,
-        1,
-        current_flags.has_bit(FlagBits::Zero),
-    );
-
-    (result, flags)
-}
-
-pub fn ccf_u8(current_flags: &Flags) -> (Flags) {
-    let c = if current_flags.has_bit(FlagBits::Carry) {
-        0
-    } else {
-        1
-    };
-    Flags::new(c, 0, 0, current_flags.has_bit(FlagBits::Zero))
-}
-
-pub fn rotate_left_high_to_carry_u8(a: u8, _: &Flags) -> (u8, Flags) {
-    let c = a & 0x80;
-    let result: u8 = (a << 1) | (c >> 7);
-    let flags = Flags::new(c as u32, 0, 0, result == 0);
-    (result, flags)
-}
-
-pub fn rotate_left_through_carry_u8(a: u8, current_flags: &Flags) -> (u8, Flags) {
-    let c = a & 0x80;
-    let old_c = if current_flags.has_bit(FlagBits::Carry) {
-        1
-    } else {
-        0
-    }; // todo: refactor get_bit
-    let result: u8 = (a << 1) | old_c;
-    let flags = Flags::new(c as u32, 0, 0, result == 0);
-    (result, flags)
-}
-
-pub fn rotate_right_low_to_carry_u8(a: u8, _: &Flags) -> (u8, Flags) {
-    let c = a & 0x1;
-    let result: u8 = (a >> 1) | (c << 7);
-    let flags = Flags::new(c as u32, 0, 0, result == 0);
-    (result, flags)
-}
-
-pub fn rotate_right_through_carry_u8(a: u8, current_flags: &Flags) -> (u8, Flags) {
-    let c = a & 0x1;
-    let old_c = if current_flags.has_bit(FlagBits::Carry) {
-        0x80
-    } else {
-        0
-    }; // todo: refactor get_bit
-    let result: u8 = (a >> 1) | old_c;
-    let flags = Flags::new(c as u32, 0, 0, result == 0);
-    (result, flags)
-}
-
-pub fn shift_left_u8(a: u8, _: &Flags) -> (u8, Flags) {
-    let c = a & 0x80;
-    let result: u8 = a << 1;
-    (result, Flags::new(c as u32, 0, 0, result == 0))
-}
-
-pub fn shift_right_preserve_high_u8(a: u8, _: &Flags) -> (u8, Flags) {
-    let c = a & 0x1;
-    let result: u8 = (a >> 1) | (a & 0x80);
-    (result, Flags::new(c as u32, 0, 0, result == 0))
-}
-
-pub fn shift_right_u8(a: u8, _: &Flags) -> (u8, Flags) {
-    let c = a & 0x1;
-    let result = a >> 1;
-    (result, Flags::new(c as u32, 0, 0, result == 0))
-}
-
-pub fn bit_test_u8(a: u8, bit: u8, current_flags: &Flags) -> (Flags) {
-    let is_zero = (a & (1 << bit)) == 0;
-
-    Flags::new(current_flags.get_bit(FlagBits::Carry) as u32, 1, 0, is_zero)
-}
-*/

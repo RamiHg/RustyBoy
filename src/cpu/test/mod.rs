@@ -11,7 +11,23 @@ mod test_8bit_alu;
 mod test_flow;
 mod test_interrupts;
 mod test_load;
+mod test_push_pop;
 mod test_store;
+
+pub mod instructions {
+    pub const ADD_IMM: u8 = 0xC6;
+    pub const RET: u8 = 0xC9;
+    pub const RETI: u8 = 0xD9;
+    pub const EI: u8 = 0xFB;
+    pub const DI: u8 = 0xF3;
+    pub const LD_A_IMM: u8 = 0x3E;
+    pub const LD_A_A: u8 = 0x7F;
+    pub const JP: u8 = 0xC3;
+    pub const INC_A: u8 = 0x3C;
+    pub const DEC_A: u8 = 0x3D;
+}
+
+pub use instructions::*;
 
 /// Stores information about what was done at each step of each
 /// test. This is then later used to be able to export the tests

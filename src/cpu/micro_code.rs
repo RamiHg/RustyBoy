@@ -1,5 +1,6 @@
 use num_derive::FromPrimitive;
 
+use crate::cpu::alu;
 use crate::cpu::register::Register;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -11,23 +12,6 @@ pub enum IncOp {
 
 impl Default for IncOp {
     fn default() -> Self { IncOp::Mov }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AluOp {
-    Mov,
-    Add,
-    Addc,
-    Sub,
-    Subc,
-    And,
-    Xor,
-    Or,
-    Cp,
-}
-
-impl Default for AluOp {
-    fn default() -> Self { AluOp::Mov }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -83,7 +67,7 @@ pub struct MicroCode {
     pub inc_to_addr_bus: bool,
 
     // Alu control.
-    pub alu_op: AluOp,
+    pub alu_op: alu::Op,
     pub alu_out_select: AluOutSelect,
     pub alu_to_data: bool,
     /// Overwrites the selected ALU register with the value in the data bus (or a constant).

@@ -5,23 +5,9 @@ pub mod csv_loader;
 pub mod op_map;
 mod parser;
 
+use crate::cpu::alu;
 use crate::cpu::micro_code;
 use crate::cpu::register::Register;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum AluCommand {
-    Mov,
-    Add,
-    Addc,
-    Sub,
-    Subc,
-    And,
-    Xor,
-    Or,
-    Cp,
-    Cpl,
-    Daa,
-}
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,8 +20,8 @@ pub enum Command {
     WR,
     MOV,
     LD,
-    ALUPlaceholder,
-    ALU(AluCommand),
+    AluPlaceholder,
+    AluOp(alu::Op),
     FMSK,
     FZ,
     CSE,

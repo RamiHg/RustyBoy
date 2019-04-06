@@ -42,6 +42,7 @@ pub enum Register {
     BC,
     DE,
     HL,
+    AF,
     TEMP,
     INVALID = -1,
 }
@@ -50,7 +51,7 @@ impl Register {
     pub fn is_pair(self) -> bool {
         use Register::*;
         match self {
-            BC | DE | HL | SP | PC | TEMP => true,
+            BC | DE | HL | SP | PC | TEMP | AF => true,
             _ => false,
         }
     }
@@ -80,6 +81,7 @@ impl Register {
             BC => (B, C),
             DE => (D, E),
             HL => (H, L),
+            AF => (A, F),
             SP => (SP_HIGH, SP_LOW),
             PC => (PC_HIGH, PC_LOW),
             TEMP => (TEMP_HIGH, TEMP_LOW),
@@ -150,6 +152,7 @@ impl File {
             BC => combine_any(B, C),
             DE => combine_any(D, E),
             HL => combine_any(H, L),
+            AF => combine_any(A, F),
             TEMP => combine_any(TEMP_HIGH, TEMP_LOW),
             INVALID => panic!("Attempting to get invalid register."),
             _ => panic!("Non-exhaustive pattern."),
@@ -174,6 +177,10 @@ impl File {
             HL => {
                 self.0[H as usize] = value_high;
                 self.0[L as usize] = value_u8;
+            }
+            AF => {
+                self.0[A as usize] = value_high;
+                self.0[F as usize] = value_u8;
             }
             SP => {
                 self.0[SP_HIGH as usize] = value_high;

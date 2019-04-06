@@ -1,15 +1,6 @@
 use super::*;
 use crate::cpu::register::Register::*;
 use crate::io_registers;
-
-const ADD_IMM: u8 = 0xC6;
-const RET: u8 = 0xC9;
-const RETI: u8 = 0xD9;
-const EI: u8 = 0xFB;
-const DI: u8 = 0xF3;
-const LD_A_IMM: u8 = 0x3E;
-const LD_A_A: u8 = 0x7F;
-
 const IE: i32 = io_registers::Addresses::InterruptEnable as i32;
 const IF: i32 = io_registers::Addresses::InterruptFired as i32;
 
@@ -87,4 +78,14 @@ fn test_eidi_chain() {
         .set_mem_8bit(0xFF0F, 1)
         .execute_instructions(&END_WITH_EI)
         .assert_reg_eq(A, interrupt_handler_result(0));
+}
+
+#[test]
+fn test_ei_chain() {
+    #[rustfmt::skip]
+    const EI_CHAIN: [u8; 7] = [
+        EI, EI, EI, EI, EI,
+        LD_A_A,
+        LD_A_A,
+    ];
 }

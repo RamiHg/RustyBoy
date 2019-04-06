@@ -3,7 +3,6 @@
   "debug.allowBreakpointsEverywhere": true,
   "editor.tabSize": 4,
   "rust-client.disableRustup": true,
-  "workbench.editor.enablePreview": false,
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
   "rust.jobs": 8,

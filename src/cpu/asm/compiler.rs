@@ -1,5 +1,6 @@
-use super::micro_code::{AluOp, AluOutSelect, IncOp, MicroCode};
-use super::{AluCommand, Arg, Command, Op};
+use super::micro_code::{AluOutSelect, IncOp, MicroCode};
+use super::{Arg, Command, Op};
+use crate::cpu::alu;
 use crate::cpu::register::Register;
 
 impl AluOutSelect {
@@ -35,7 +36,7 @@ fn compile_op(op: &Op) -> MicroCode {
         RD => compile_rd,
         WR => compile_wr,
         LD => compile_ld,
-        ALU(_) | MOV => compile_alu,
+        AluOp(_) | MOV => compile_alu,
         CSE => compile_cse,
         FMSK => compile_fmsk,
         FZ => compile_f,
@@ -97,6 +98,11 @@ fn compile_rd(op: &Op) -> MicroCode {
             alu_reg_write_enable: true,
             ..Default::default()
         },
+        Register::F => MicroCode {
+            alu_out_select: AluOutSelect::F,
+            alu_reg_write_enable: true,
+            ..Default::default()
+        },
         _ => MicroCode {
             reg_select: dst,
             reg_write_enable: true,
@@ -122,7 +128,7 @@ fn compile_mov(op: &Op) -> MicroCode {
     op.rhs.expect_none();
     if dst.is_single() {
         let as_alu = Op {
-            cmd: Command::ALU(AluCommand::Mov),
+            cmd: Command::AluOp(alu::Op::Mov),
             lhs: op.lhs.clone(),
             rhs: op.rhs.clone(),
         };
@@ -219,29 +225,16 @@ fn compile_ld(op: &Op) -> MicroCode {
 }
 
 fn compile_alu(op: &Op) -> MicroCode {
-    let alu_command = match &op.cmd {
-        Command::ALU(command) => command,
-        Command::MOV => &AluCommand::Mov,
+    let dst = op.lhs.expect_as_register();
+    let alu_op = match &op.cmd {
+        &Command::AluOp(alu_op) => alu_op,
+        Command::MOV => alu::Op::Mov,
         _ => panic!(),
     };
-    // Revisit if this mapping should even exist.
-    let alu_op = match alu_command {
-        AluCommand::Mov => AluOp::Mov,
-        AluCommand::Add => AluOp::Add,
-        AluCommand::Addc => AluOp::Addc,
-        AluCommand::Sub => AluOp::Sub,
-        AluCommand::Subc => AluOp::Subc,
-        AluCommand::And => AluOp::And,
-        AluCommand::Xor => AluOp::Xor,
-        AluCommand::Or => AluOp::Or,
-        AluCommand::Cp => AluOp::Cp,
-        _ => panic!("Implement {:?}", alu_command),
-    };
-    if alu_op == AluOp::Mov && op.lhs.expect_as_register().is_pair() {
+    if alu_op == alu::Op::Mov && dst.is_pair() {
         // This is actually an incrementer operation!
         return compile_incdec(op);
     }
-    let dst = op.lhs.expect_as_register();
     assert!(dst.is_single());
     if let Register::A = dst {
         MicroCode {

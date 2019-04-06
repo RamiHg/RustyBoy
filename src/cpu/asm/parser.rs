@@ -1,7 +1,8 @@
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use super::{AluCommand, Arg, Command, MaybeArg, Op};
+use super::{Arg, Command, MaybeArg, Op};
+use crate::cpu::alu;
 use crate::cpu::register::Register;
 
 const OP_PATTERN: &str =
@@ -28,11 +29,11 @@ pub fn parse_op(op: &str) -> Op {
         "WR" => WR,
         "MOV" => MOV,
         "LD" => LD,
-        "ALU" => ALUPlaceholder,
-        "ADD" => ALU(AluCommand::Add),
-        "ADC" => ALU(AluCommand::Addc),
-        "SUB" => ALU(AluCommand::Sub),
-        "AND" => ALU(AluCommand::And),
+        "ALU" => AluPlaceholder,
+        "ADD" => AluOp(alu::Op::Add),
+        "ADC" => AluOp(alu::Op::Adc),
+        "SUB" => AluOp(alu::Op::Sub),
+        "AND" => AluOp(alu::Op::And),
         "FMSK" => FMSK,
         "FZ" => FZ,
         "CSE" => CSE,

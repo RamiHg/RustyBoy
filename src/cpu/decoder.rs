@@ -96,9 +96,7 @@ pub struct Decoder {
 impl Decoder {
     pub fn new() -> Decoder {
         Decoder {
-            pla: csv_loader::parse_csv(
-                r"/Users/Ramy/Downloads/CPU Design - Instruction Breakdown.csv",
-            ),
+            pla: csv_loader::parse_csv(r"./instructions.csv"),
         }
     }
 

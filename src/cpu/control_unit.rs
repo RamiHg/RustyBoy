@@ -25,7 +25,7 @@ fn fetch_t2() -> MicroCode {
     }
 }
 
-pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
+pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> (cpu::State, bool) {
     let (micro_code, mut next_mode) = match cpu.state.decode_mode {
         DecodeMode::Fetch => match cpu.t_state.get() {
             1 => (fetch_t1(), DecodeMode::Fetch),
@@ -38,7 +38,7 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
                 // TODO: Clean up
                 if !cpu.is_handling_interrupt {
                     assert!(cpu.micro_code_stack.is_empty());
-                    cpu.micro_code_stack = cpu.decoder.decode(opcode, memory);
+                    cpu.micro_code_stack = cpu.decoder.decode(opcode, memory, cpu.state.in_cb_mode);
                 }
                 (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
             }
@@ -58,12 +58,17 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> cpu::State {
     } else {
         micro_code.is_end
     };
-    if is_end {
+    if micro_code.enter_cb_mode {
+        next_state.in_cb_mode = true;
+    } else if is_end {
+        next_state.in_cb_mode = false;
+    }
+    if is_end || micro_code.enter_cb_mode {
         assert_eq!(cpu.t_state.get(), 4);
         next_mode = DecodeMode::Fetch;
     }
     next_state.decode_mode = next_mode;
-    next_state
+    (next_state, is_end)
 }
 
 /// Incrementer module.
@@ -94,7 +99,13 @@ fn alu_logic(
     let act = current_regs.get(Register::ACT);
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
-    let (result, mut flags) = code.alu_op.execute(act, tmp, current_flags);
+    let (result, mut flags) = match code.alu_op {
+        alu::Op::Bit | alu::Op::Res | alu::Op::Set => {
+            code.alu_op
+                .execute(act, i32::from(code.alu_bit_select), current_flags)
+        }
+        _ => code.alu_op.execute(act, tmp, current_flags),
+    };
     if code.alu_cse_to_tmp {
         let is_negative = (tmp & 0x80) != 0;
         let is_carry = flags.intersects(alu::Flags::CARRY);

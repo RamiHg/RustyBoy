@@ -42,6 +42,7 @@ impl Default for DecodeMode {
 #[derive(Copy, Clone, Debug, Default)]
 pub struct State {
     decode_mode: DecodeMode,
+    in_cb_mode: bool,
     address_latch: i32,
     data_latch: i32,
     read_latch: bool,
@@ -120,8 +121,7 @@ impl Cpu {
         // Then, run through the micro-code prelude.
         let side_effect = self.microcode_prelude(memory);
         // Finally, execute the micro-code.
-        let next_state = control_unit::cycle(self, memory);
-        let is_done = self.t_state.get() == 4 && next_state.decode_mode == DecodeMode::Fetch;
+        let (next_state, is_done) = control_unit::cycle(self, memory);
         self.state = next_state;
         // This will be tricky to translate to hardware.
         if is_done && self.state.interrupt_enable_counter > 0 {

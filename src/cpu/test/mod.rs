@@ -8,6 +8,7 @@ use crate::system;
 
 mod test_16bit_alu;
 mod test_8bit_alu;
+mod test_cb_alu;
 mod test_flow;
 mod test_interrupts;
 mod test_load;
@@ -15,6 +16,8 @@ mod test_push_pop;
 mod test_store;
 
 pub mod instructions {
+    use super::Register::{self, *};
+
     pub const ADD_IMM: u8 = 0xC6;
     pub const RET: u8 = 0xC9;
     pub const RETI: u8 = 0xD9;
@@ -25,6 +28,8 @@ pub mod instructions {
     pub const JP: u8 = 0xC3;
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;
+
+    pub const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
 }
 
 pub use instructions::*;

@@ -89,10 +89,6 @@ impl MCycleList {
         self.map_cmds(mapper)
     }
 
-    pub fn prune_ccend(&self) -> MCycleList { self.map_cmds(self.pruner(Command::CCEND)) }
-
-    pub fn prune_ei(&self) -> MCycleList { self.map_cmds(self.pruner(Command::EI)) }
-
     pub fn remap_cond(&self, with: Condition) -> MCycleList {
         let mapper = |x: &MaybeArg| {
             if let Some(Arg::CCPlaceholder) = x.0 {
@@ -103,6 +99,21 @@ impl MCycleList {
         };
         self.map_args(mapper)
     }
+
+    pub fn remap_i32_placeholder(&self, with: i32) -> MCycleList {
+        let mapper = |x: &MaybeArg| {
+            if let Some(Arg::IntegerPlaceholder) = x.0 {
+                MaybeArg(Some(Arg::Integer(with)))
+            } else {
+                x.clone()
+            }
+        };
+        self.map_args(mapper)
+    }
+
+    pub fn prune_ccend(&self) -> MCycleList { self.map_cmds(self.pruner(Command::CCEND)) }
+    pub fn prune_ei(&self) -> MCycleList { self.map_cmds(self.pruner(Command::EI)) }
+    pub fn prune_bit(&self) -> MCycleList { self.map_cmds(self.pruner(Command::BIT)) }
 
     fn map_ops(
         &self,

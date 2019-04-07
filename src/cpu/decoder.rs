@@ -13,10 +13,6 @@ use crate::{
     memory::Memory,
 };
 
-pub struct Decoder {
-    pla: MCycleMap,
-}
-
 #[derive(FromPrimitive)]
 enum AluOpTable {
     AddA,
@@ -46,6 +42,34 @@ impl Into<alu::Op> for AluOpTable {
 }
 
 #[derive(FromPrimitive)]
+pub enum RotShiftTable {
+    RLC,
+    RRC,
+    RL,
+    RR,
+    SLA,
+    SRA,
+    SWAP,
+    SRL,
+}
+
+impl Into<alu::Op> for RotShiftTable {
+    fn into(self) -> alu::Op {
+        use alu::Op::*;
+        match self {
+            RotShiftTable::RLC => Rlc,
+            RotShiftTable::RRC => Rrc,
+            RotShiftTable::RL => Rl,
+            RotShiftTable::RR => Rr,
+            RotShiftTable::SLA => Sla,
+            RotShiftTable::SRA => Sra,
+            RotShiftTable::SWAP => Swap,
+            RotShiftTable::SRL => Srl,
+        }
+    }
+}
+
+#[derive(FromPrimitive)]
 pub enum AFPairTable {
     BC,
     DE,
@@ -65,6 +89,10 @@ impl Into<Register> for AFPairTable {
     }
 }
 
+pub struct Decoder {
+    pla: MCycleMap,
+}
+
 impl Decoder {
     pub fn new() -> Decoder {
         Decoder {
@@ -74,7 +102,13 @@ impl Decoder {
         }
     }
 
-    pub fn decode(&self, op: i32, memory: &Memory) -> Vec<MicroCode> { self.decode_op(op) }
+    pub fn decode(&self, op: i32, memory: &Memory, in_cb_mode: bool) -> Vec<MicroCode> {
+        if in_cb_mode {
+            self.decode_cb_op(op)
+        } else {
+            self.decode_op(op)
+        }
+    }
 
     pub fn interrupt_handler(&self) -> Vec<MicroCode> {
         let handler = self.pla["INTERRUPT"].clone().compile();
@@ -255,6 +289,7 @@ impl Decoder {
                 // z = 3
                 3 => match op_y {
                     0 => self.pla["JP[cc],i16"].prune_ccend(),
+                    1 => self.pla["CB"].clone(),
                     6 => self.pla["DI"].clone(),
                     7 => self.pla["EI"].clone(),
                     _ => panic!("Implement {:X?}", opcode),
@@ -282,5 +317,36 @@ impl Decoder {
         // Compile the MCyle assembly.
         let micro_codes = mcycle_list.compile();
         micro_codes
+    }
+
+    fn decode_cb_op(&self, opcode: i32) -> Vec<MicroCode> {
+        // Deconstruct the op into its components.
+        let op_z = opcode & 0b0000_0111;
+        let op_y = (opcode & 0b0011_1000) >> 3;
+        let op_x = (opcode & 0b1100_0000) >> 6;
+        let op_q = op_y & 0b001;
+        let op_p = (op_y & 0b110) >> 1;
+
+        let is_hl = op_z == 6;
+        let alu_key = if is_hl { "alu(HL)(CB)" } else { "alur(CB)" };
+
+        let alu_op = match op_x {
+            0 => RotShiftTable::from_i32(op_y).unwrap().into(),
+            1 => alu::Op::Bit,
+            2 => alu::Op::Res,
+            3 | _ => alu::Op::Set,
+        };
+
+        match op_x {
+            0 => self.pla[alu_key]
+                .remap_alu_placeholder(alu_op)
+                .remap_lhs_reg(Register::from_single_table(op_z))
+                .prune_bit(),
+            _ => self.pla[alu_key]
+                .remap_alu_placeholder(alu_op)
+                .remap_lhs_reg(Register::from_single_table(op_z))
+                .remap_i32_placeholder(op_y),
+        }
+        .compile()
     }
 }

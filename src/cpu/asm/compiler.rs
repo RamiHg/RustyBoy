@@ -47,6 +47,8 @@ fn compile_op(op: &Op) -> MicroCode {
         NOP => compile_nop,
         EI => compile_ei,
         DI => compile_di,
+        CB => compile_cb,
+        BIT => compile_bit,
         _ => panic!("Implement {:?}", op.cmd),
     };
     compile_fn(op)
@@ -340,6 +342,28 @@ fn compile_di(op: &Op) -> MicroCode {
 
 fn compile_nop(op: &Op) -> MicroCode { MicroCode::default() }
 
+fn compile_cb(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        enter_cb_mode: true,
+        ..Default::default()
+    }
+}
+
+fn compile_bit(op: &Op) -> MicroCode {
+    op.rhs.expect_none();
+    let bit = if let Some(Arg::Integer(index)) = op.lhs.0 {
+        index
+    } else {
+        panic!("Invalid BIT argument: {:?}", op.lhs)
+    };
+    MicroCode {
+        alu_bit_select: bit as u8,
+        ..Default::default()
+    }
+}
+
 // The second part of compilation is combining all the TCycle's microcodes into one. This also
 // checks for potential hazards and invalid operations.
 
@@ -392,9 +416,11 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_64_to_tmp);
     move_if_unset!(alu_f_force_nz);
     move_if_unset!(alu_write_f_mask);
+    move_if_unset!(alu_bit_select);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
     move_if_unset!(cond);
+    move_if_unset!(enter_cb_mode);
     move_if_unset!(enable_interrupts);
     move_if_unset!(disable_interrupts);
 
@@ -475,4 +501,9 @@ fn verify_micro_code(code: &MicroCode) {
         !(code.ff_to_addr_hi && code.zero_to_addr_hi),
         "Setting ADDR_H to both 0x00 and 0xFF"
     );
+    assert!(
+        !(code.enter_cb_mode && (code.is_end || code.is_cond_end)),
+        "Can't enter CB mode while ending an instruction."
+    );
+    assert!(code.alu_bit_select < 8);
 }

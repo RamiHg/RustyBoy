@@ -28,14 +28,20 @@ pub enum Op {
     Rl,
     Rrc,
     Rr,
-    Sl,
-    Sr,
+    Sla,
+    Sra,
+    Srl,
     // Unary ops.
     Mov,
     Cpl,
     Scf,
     Ccf,
+    Swap,
     Daa,
+    // Bit ops.
+    Bit,
+    Res,
+    Set,
 }
 
 impl Default for Op {
@@ -55,7 +61,9 @@ impl Op {
         let rler = |x| (x << 1) | has_carry;
         let rrer = |x| (x >> 1) | (has_carry << 7);
         let sler = |x| x << 1;
-        let srer = |x| x >> 1;
+        let sraer = |x| (x >> 1) | (x & 0x80);
+        let srler = |x| x >> 1;
+        let swapper = |x| (x << 4) | ((x >> 4) & 0xF);
 
         let last_bitter = |x| x & 0x80;
         let first_bitter = |x| x & 0x01;
@@ -90,8 +98,9 @@ impl Op {
             Rl => generic_unary_op(lhs, rler, last_bitter),
             Rrc => generic_unary_op(lhs, rrcer, first_bitter),
             Rr => generic_unary_op(lhs, rrer, first_bitter),
-            Sl => generic_unary_op(lhs, sler, last_bitter),
-            Sr => generic_unary_op(lhs, srer, first_bitter),
+            Sla => generic_unary_op(lhs, sler, last_bitter),
+            Sra => generic_unary_op(lhs, sraer, first_bitter),
+            Srl => generic_unary_op(lhs, srler, first_bitter),
             Cpl => {
                 let (result, _) = generic_unary_op(lhs, |x| !x, zeroer);
                 (result, flags | (Flags::SUB | Flags::HCARRY))
@@ -102,6 +111,17 @@ impl Op {
                 (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY),
             ),
             Daa => daa(lhs, flags),
+            Swap => {
+                let (result, flags) = generic_unary_op(lhs, swapper, zeroer);
+                (result, flags & Flags::ZERO)
+            }
+            Bit => {
+                let mut flags = (flags & Flags::CARRY) | Flags::HCARRY;
+                flags.set(Flags::ZERO, (lhs & (1 << rhs)) == 0);
+                (lhs, flags)
+            }
+            Res => (lhs & !(1 << rhs), flags),
+            Set => (lhs | (1 << rhs), flags),
         }
     }
 }

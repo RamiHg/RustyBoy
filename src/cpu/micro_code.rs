@@ -80,11 +80,13 @@ pub struct MicroCode {
     pub alu_64_to_tmp: bool,
     pub alu_f_force_nz: bool,
     pub alu_write_f_mask: u8,
+    pub alu_bit_select: u8,
 
     // Control flow.
     pub is_end: bool,
     pub is_cond_end: bool,
     pub cond: Condition,
+    pub enter_cb_mode: bool,
 
     // Interrupts.
     pub enable_interrupts: bool,

@@ -34,6 +34,7 @@ pub fn parse_op(op: &str) -> Op {
         "ADC" => AluOp(alu::Op::Adc),
         "SUB" => AluOp(alu::Op::Sub),
         "AND" => AluOp(alu::Op::And),
+        "BIT" => BIT,
         "FMSK" => FMSK,
         "FZ" => FZ,
         "CSE" => CSE,
@@ -43,6 +44,7 @@ pub fn parse_op(op: &str) -> Op {
         "CCEND" => CCEND,
         "EI" => EI,
         "DI" => DI,
+        "CB" => CB,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
     let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));
@@ -82,6 +84,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "LHS_L" => Arg::LhsLow,
         "LHS_H" => Arg::LhsHigh,
         "CC" => Arg::CCPlaceholder,
+        "i32" => Arg::IntegerPlaceholder,
         _ => Arg::ConstantPlaceholder(arg.into()),
     })
 }

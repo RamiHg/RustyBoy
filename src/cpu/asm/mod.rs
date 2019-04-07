@@ -22,6 +22,7 @@ pub enum Command {
     LD,
     AluPlaceholder,
     AluOp(alu::Op),
+    BIT,
     FMSK,
     FZ,
     CSE,
@@ -30,6 +31,7 @@ pub enum Command {
     END,
     CCEND,
     NOP,
+    CB,
     EI,
     DI,
 }
@@ -38,6 +40,7 @@ pub enum Command {
 pub enum Arg {
     Register(Register),
     CC(micro_code::Condition),
+    Integer(i32),
     Rhs,
     RhsLow,
     RhsHigh,
@@ -45,6 +48,7 @@ pub enum Arg {
     LhsLow,
     LhsHigh,
     ConstantPlaceholder(String),
+    IntegerPlaceholder,
     CCPlaceholder,
 }
 

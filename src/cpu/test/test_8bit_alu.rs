@@ -4,7 +4,6 @@ use crate::cpu::register::Register;
 use Register::*;
 
 const SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, PC];
-const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
 
 fn setup_lhs_rhs_carry(
     op: i32,
@@ -263,6 +262,8 @@ fn test_rotate_op(op: u8, a_val: i32, carry: bool, expected: i32, expected_carry
     with_default()
         .set_reg(A, a_val)
         .set_flag(Flags::CARRY, carry)
+        .set_flag(Flags::SUB, true)
+        .set_flag(Flags::HCARRY, true)
         .execute_instructions(&[op])
         .assert_reg_eq(A, expected)
         .assert_flags(if expected_carry {

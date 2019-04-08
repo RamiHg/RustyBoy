@@ -5,6 +5,10 @@ use num_traits;
 pub enum Addresses {
     InterruptFired = 0xFF0F,
     InterruptEnable = 0xFFFF,
+    TimerDiv = 0xFF04,     // DIV
+    TimerCounter = 0xFF05, // TIMA
+    TimerModulo = 0xFF06,  // TMA
+    TimerControl = 0xFF07, // TAC
 }
 
 /// Base register trait. Describes registers: their location in memory, etc.
@@ -18,6 +22,14 @@ pub enum LcdcModeFlag {
     VBlank,
     ReadingOAM,
     TransferingToLCD,
+}
+
+#[derive(FromPrimitive)]
+pub enum TimerFrequency {
+    Every1024 = 0, // 4kHz
+    Every16 = 1,   // ~262kHz
+    Every64 = 2,   // 64kHz
+    Every256 = 3,  // 16kHz
 }
 
 /// LCD Status Register (STAT). 0xFF41.
@@ -57,6 +69,14 @@ bitfield! {
     pub has_joypad, set_joypad: 4;
 }
 
+/// Timer Control register (TAC). 0xFF07
+bitfield! {
+    pub struct TimerControl([u8]);
+    u8;
+    pub frequency, set_frequency: 1, 0;
+    pub enabled, set_enabled: 2;
+}
+
 /// Implements the Register trait.
 macro_rules! declare_register {
     ($x:ident, $address:expr) => {
@@ -80,5 +100,7 @@ macro_rules! from_u8 {
 declare_register!(LcdStatus, 0xFF41);
 declare_register!(LcdControl, 0xFF00);
 declare_register!(InterruptFlag, Addresses::InterruptFired);
+declare_register!(TimerControl, Addresses::TimerControl);
 
 from_u8!(LcdcModeFlag);
+from_u8!(TimerFrequency);

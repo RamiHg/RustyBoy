@@ -1,7 +1,5 @@
 use std::{fs::File, io::prelude::Read};
 
-use crate::memory::Result;
-
 #[derive(Debug)]
 enum MbcVersion {
     None,
@@ -73,8 +71,6 @@ fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn Cart> {
 }
 
 mod none {
-    use crate::memory::Result;
-
     pub struct Cart {
         mem: Vec<u8>,
     }
@@ -97,8 +93,6 @@ mod none {
 }
 
 mod mbc1 {
-    use crate::memory::{MemoryError, Result};
-
     pub struct Cart {
         mem: Vec<u8>,
         ram_size: usize,

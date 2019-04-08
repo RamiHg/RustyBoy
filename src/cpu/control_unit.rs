@@ -1,5 +1,4 @@
 use crate::cpu;
-use crate::memory::Memory;
 
 use cpu::alu;
 use cpu::alu::Flags;
@@ -25,7 +24,7 @@ fn fetch_t2() -> MicroCode {
     }
 }
 
-pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> (cpu::State, bool) {
+pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
     let (micro_code, mut next_mode) = match cpu.state.decode_mode {
         DecodeMode::Fetch => match cpu.t_state.get() {
             1 => (fetch_t1(), DecodeMode::Fetch),
@@ -38,7 +37,7 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> (cpu::State, bool) {
                 // TODO: Clean up
                 if !cpu.is_handling_interrupt {
                     assert!(cpu.micro_code_stack.is_empty());
-                    cpu.micro_code_stack = cpu.decoder.decode(opcode, memory, cpu.state.in_cb_mode);
+                    cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
                 (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
             }
@@ -47,7 +46,7 @@ pub fn cycle(cpu: &mut Cpu, memory: &Memory) -> (cpu::State, bool) {
         DecodeMode::Execute => (cpu.micro_code_stack.remove(0), DecodeMode::Execute),
     };
     // Execute the micro-code.
-    let mut next_state = execute(&micro_code, cpu, memory);
+    let mut next_state = execute(&micro_code, cpu);
     let is_end = if micro_code.is_cond_end {
         let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
         let end = !condition_check_passes(flags, micro_code.cond);
@@ -156,7 +155,7 @@ fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State)
     }
 }
 
-fn execute(code: &MicroCode, cpu: &mut Cpu, memory: &Memory) -> cpu::State {
+fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     let current_regs = cpu.registers;
     let mut new_regs = current_regs;
 

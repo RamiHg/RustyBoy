@@ -1,11 +1,8 @@
 use core::fmt;
 
-use crate::memory;
-
 pub enum Type {
     InvalidOperation(String),
     InvalidOpcode(i32),
-    Memory(memory::MemoryError),
 }
 
 pub type Result<T> = core::result::Result<T, Type>;

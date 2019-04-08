@@ -100,7 +100,7 @@ impl Decoder {
         }
     }
 
-    pub fn decode(&self, op: i32, memory: &Memory, in_cb_mode: bool) -> Vec<MicroCode> {
+    pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
         if in_cb_mode {
             self.decode_cb_op(op)
         } else {

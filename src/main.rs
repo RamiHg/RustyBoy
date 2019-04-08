@@ -18,8 +18,9 @@ mod cpu;
 mod error;
 mod gpu;
 mod io_registers;
-mod memory;
+mod mmu;
 mod system;
+mod timer;
 mod util;
 
 #[allow(unused_imports)]

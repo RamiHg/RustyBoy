@@ -8,10 +8,7 @@ use super::asm::{csv_loader, op_map::MCycleMap};
 use super::micro_code::{Condition, MicroCode};
 use crate::cpu::alu;
 
-use crate::{
-    cpu::{register::Register, Cpu},
-    memory::Memory,
-};
+use crate::cpu::{register::Register, Cpu};
 
 #[derive(FromPrimitive)]
 enum AluOpTable {
@@ -133,7 +130,7 @@ impl Decoder {
                 // z = 0
                 0 => match op_y {
                     // JR d
-                    0 => self.pla["nop"].clone(),
+                    0 => self.pla["NOP"].clone(),
                     1 => self.pla["LD(i16),SP"].clone(),
                     3 => self.pla["JR[cc],i8"].prune_ccend(),
                     4..=7 | _ => {

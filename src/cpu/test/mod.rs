@@ -1,9 +1,10 @@
 use crate::{
     cpu::{alu::Flags, register::Register, *},
-    memory::Memory,
+    mmu::Memory,
 };
 
 use crate::cart;
+use crate::mmu;
 use crate::system;
 
 mod test_16bit_alu;
@@ -111,13 +112,15 @@ pub struct TestContext {
     interrupts_fired: i32,
 }
 
-pub fn with_default() -> TestContext { TestContext::with_default(Box::new(cart::test::Cart {})) }
+pub fn with_default() -> TestContext {
+    TestContext::with_default(Box::new(cart::test::DynamicCart::new()))
+}
 pub fn with_dynamic_cart() -> TestContext {
     TestContext::with_default(Box::new(cart::test::DynamicCart::new()))
 }
 
 impl TestContext {
-    fn with_default(cart: Box<dyn cart::Cart>) -> TestContext {
+    fn with_default(cart: Box<dyn mmu::MemoryMapped>) -> TestContext {
         // Figure out the test name.
         // let bt = backtrace::Backtrace::new();
         // let first_non_setup = bt.frames()[2..]
@@ -143,7 +146,7 @@ impl TestContext {
 
     pub fn set_mem_range(mut self, address: usize, values: &[u8]) -> TestContext {
         for (i, value) in (address..address + values.len()).zip(values.iter()) {
-            self.system.memory_mut().store(i as i32, *value as i32);
+            self.system.memory_write(i as i32, *value as i32);
         }
         // self.system.memory_mut().mem()[address..address + values.len()].copy_from_slice(values);
         self.desc.add_mem_range(address as i32, values);
@@ -260,13 +263,13 @@ impl TestContext {
 
     pub fn assert_mem_8bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8]);
-        assert_eq!(self.system.memory_mut().read(address), value);
+        assert_eq!(self.system.memory_read(address), value);
         self
     }
 
     pub fn assert_mem_16bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8, (value >> 8) as u8]);
-        let mem_value = i32::from(self.system.memory_mut().read_general_16(address as usize));
+        let mem_value = i32::from(self.system.memory_read_16(address));
         assert_eq!(mem_value, value, "{:X?} != {:X?}", mem_value, value);
         self
     }

@@ -16,7 +16,6 @@ impl fmt::Display for Type {
         match self {
             Type::InvalidOpcode(op) => write!(f, "Invalid opcode: 0x{:X?}.", op),
             Type::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
-            _ => write!(f, "Buzz off"),
         }
     }
 }

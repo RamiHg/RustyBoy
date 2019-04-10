@@ -16,11 +16,11 @@ use gl::types::GLuint;
 mod cart;
 mod cpu;
 mod error;
-mod gpu;
+//mod gpu;
 mod io_registers;
 mod mmu;
 mod system;
-mod timer;
+//mod timer;
 mod util;
 
 #[allow(unused_imports)]

@@ -15,12 +15,7 @@ use crate::error::{self, Result};
 //     InterruptEnable = 0xFFFF,
 // }
 
-pub struct Memory {
-    mem: [u8; 0x10000],
-    pub cart: Box<Cart>,
-}
-
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Location {
     // 0000 to 8000. Mbc ROM.
     MbcRom,
@@ -42,7 +37,8 @@ pub enum Location {
     HighRam,
 }
 
-pub struct Address(Location, i32);
+#[derive(Clone, Copy)]
+pub struct Address(pub Location, pub i32);
 
 impl Address {
     pub fn from_raw(raw: i32) -> Result<Address> {
@@ -68,26 +64,46 @@ impl Address {
 }
 
 pub trait MemoryMapped {
-    fn handles(&self, address: Address) -> bool;
+    //fn handles(&self, address: Address) -> bool;
     fn read(&self, address: Address) -> Option<i32>;
     fn write(&mut self, address: Address, value: i32) -> Option<Result<()>>;
+
+    // fn read_register<A, T>(&self, cons: T) -> Option<A>
+    // where
+    //     A: Register,
+    //     T: core::ops::FnOnce([u8; 1]) -> A,
+    // {
+    //     let address = Address::from_raw(A::ADDRESS).unwrap();
+    //     self.read(address).map(|x| cons([x as u8]))
+    // }
+
+    // pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
+    // where
+    //     A: Register,
+    //     T: core::ops::FnOnce(&'a mut [u8]) -> A,
+    // {
+    //     // I need to be able to return multiple mutable references to different registers when I
+    //     // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
+    //     // Let me know if you can think of a better way!
+    //     cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
+    // }
 }
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their
 /// components directly.
-pub struct Ram {
+pub struct Memory {
     mem: [u8; 0x10000],
 }
 
-impl MemoryMapped for Ram {
-    fn handles(&self, address: Address) -> bool {
-        let Address(location, raw) = address;
-        use Location::*;
-        match location {
-            VRam | InternalRam | OAM | Registers | HighRam => true,
-            _ => false,
-        }
-    }
+impl MemoryMapped for Memory {
+    // fn handles(&self, address: Address) -> bool {
+    //     let Address(location, raw) = address;
+    //     use Location::*;
+    //     match location {
+    //         VRam | InternalRam | OAM | Registers | HighRam => true,
+    //         _ => false,
+    //     }
+    // }
 
     fn read(&self, address: Address) -> Option<i32> {
         let Address(location, raw) = address;
@@ -112,7 +128,29 @@ impl MemoryMapped for Ram {
     }
 }
 
+// #[cfg(test)]
+// impl Memory {
+//     pub fn raw_read(&self, addr: i32) -> i32 { self.mem[addr as usize] as i32 }
+//     pub fn raw_read_16(&self, addr: i32) -> i32 {
+//         self.raw_read(addr) | (self.raw_read(addr + 1) << 8)
+//     }
+
+//     pub fn raw_store(&mut self, addr: i32, value: i32) { self.mem[addr as usize] = value as u8; }
+// }
+
 impl Memory {
+    pub fn new() -> Memory { Memory { mem: [0; 0x10000] } }
+
+    /// Temporary while the entire system moves away form direct memory access.
+    pub fn read(&self, raw_address: i32) -> i32 {
+        let address = Address::from_raw(raw_address).unwrap();
+        MemoryMapped::read(self, address).unwrap()
+    }
+    pub fn store(&mut self, raw_address: i32, value: i32) {
+        let address = Address::from_raw(raw_address).unwrap();
+        MemoryMapped::write(self, address, value).unwrap().unwrap();
+    }
+
     // pub fn set_starting_sequence(&mut self) {
     //     self.mem[0xFF05] = 0;
     //     self.mem[0xFF06] = 0;
@@ -146,64 +184,4 @@ impl Memory {
     //     self.mem[0xFF4B] = 0x00;
     //     self.mem[0xFFFF] = 0x00;
     // }
-
-    pub fn read_general_8(&self, raw_address: usize) -> u8 {
-        match self.translate_readable_address(raw_address).unwrap() {
-            ReadableAddress::WriteableAddress(WriteableAddress(location, addr)) => {
-                match location {
-                    WriteableLocation::Mbc => self.cart.read(addr).unwrap(),
-                    WriteableLocation::UnusedOAM => {
-                        // TODO: Manual says this location is restricted to when OAM is not being
-                        // accessed by hardware. Enforce this somehow.
-                        0
-                    }
-                    WriteableLocation::UnknownRegisters => 0xFF,
-                    _ => self.mem[addr],
-                }
-            }
-        }
-    }
-
-    pub fn store_general_8(&mut self, raw: usize, value: u8) {
-        let WriteableAddress(location, addr) = self.translate_writeable_address(raw).unwrap();
-        if addr == 0xFF01 {
-            print!("{}", value as char);
-        }
-        match location {
-            WriteableLocation::Mbc => self.cart.write(raw, value).unwrap(),
-            _ => self.mem[addr] = value,
-        }
-    }
-
-    pub fn read_register<A, T>(&self, cons: T) -> A
-    where
-        A: Register,
-        T: core::ops::FnOnce([u8; 1]) -> A,
-    {
-        cons([self.read_general_8(A::ADDRESS)])
-    }
-
-    pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
-    where
-        A: Register,
-        T: core::ops::FnOnce(&'a mut [u8]) -> A,
-    {
-        // I need to be able to return multiple mutable references to different registers when I
-        // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
-        // Let me know if you can think of a better way!
-        cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
-    }
-
-    pub fn store_general_16(&mut self, location: usize, value: u16) {
-        self.store_general_8(location, (value & 0xFF) as u8);
-        self.store_general_8(location + 1, ((value >> 8) & 0xFF) as u8);
-    }
-
-    pub fn read_general_16(&self, location: usize) -> u16 {
-        u16::from(self.read_general_8(location))
-            | (u16::from(self.read_general_8(location + 1)) << 8)
-    }
-
-    #[cfg(test)]
-    pub fn mem(&mut self) -> &mut [u8; 0x10000] { &mut self.mem }
 }

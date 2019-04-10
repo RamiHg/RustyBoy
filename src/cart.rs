@@ -1,5 +1,7 @@
 use std::{fs::File, io::prelude::Read};
 
+use crate::error::Result;
+
 #[derive(Debug)]
 enum MbcVersion {
     None,
@@ -10,6 +12,11 @@ enum MbcVersion {
 struct CartType {
     mbc: MbcVersion,
     has_ram: bool,
+}
+
+pub trait Cart {
+    fn read(&self, raw_address: usize) -> Result<u8>;
+    fn write(&mut self, raw_address: usize, value: u8) -> Result<()>;
 }
 
 impl CartType {
@@ -42,34 +49,30 @@ fn get_ram_size(setting: u8) -> usize {
     }
 }
 
-pub trait Cart {
-    fn read(&self, raw_address: usize) -> Result<u8>;
-    fn write(&mut self, raw_address: usize, value: u8) -> Result<()>;
-}
+// pub fn from_file(file_name: &str) -> Box<dyn Cart> {
+//     let mut f = File::open(file_name).unwrap();
+//     let mut file_contents = Vec::<u8>::new();
+//     f.read_to_end(&mut file_contents).unwrap();
+//     from_file_contents(file_contents)
+// }
 
-pub fn from_file(file_name: &str) -> Box<dyn Cart> {
-    let mut f = File::open(file_name).unwrap();
-    let mut file_contents = Vec::<u8>::new();
-    f.read_to_end(&mut file_contents).unwrap();
-    from_file_contents(file_contents)
-}
+// fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn Cart> {
+//     let cart_type = CartType::from_setting(file_contents[0x0147]);
+//     let rom_size = get_rom_size(file_contents[0x148]);
+//     let ram_size = get_ram_size(file_contents[0x149]);
+//     let mut mem = vec![0; rom_size];
+//     // Copy over contents from file into memory.
+//     mem[0..file_contents.len()].copy_from_slice(file_contents.as_slice());
+//     assert_eq!(mem[0x148], file_contents[0x148]);
 
-fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn Cart> {
-    let cart_type = CartType::from_setting(file_contents[0x0147]);
-    let rom_size = get_rom_size(file_contents[0x148]);
-    let ram_size = get_ram_size(file_contents[0x149]);
-    let mut mem = vec![0; rom_size];
-    // Copy over contents from file into memory.
-    mem[0..file_contents.len()].copy_from_slice(file_contents.as_slice());
-    assert_eq!(mem[0x148], file_contents[0x148]);
+//     println!("{:?}", file_contents[0x0147]);
+//     match cart_type.mbc {
+//         MbcVersion::None => Box::new(none::Cart::from_mem(mem, ram_size)),
+//         MbcVersion::Mbc1 => Box::new(mbc1::Cart::from_mem(mem, ram_size)),
+//     }
+// }
 
-    println!("{:?}", file_contents[0x0147]);
-    match cart_type.mbc {
-        MbcVersion::None => Box::new(none::Cart::from_mem(mem, ram_size)),
-        MbcVersion::Mbc1 => Box::new(mbc1::Cart::from_mem(mem, ram_size)),
-    }
-}
-
+/*
 mod none {
     pub struct Cart {
         mem: Vec<u8>,
@@ -211,23 +214,13 @@ mod mbc1 {
         }
     }
 }
+*/
 
 #[cfg(test)]
 pub mod test {
     use super::Result;
     use crate::error;
-    use crate::memory::MemoryError;
-
-    pub struct Cart;
-    impl super::Cart for Cart {
-        fn read(&self, raw_address: usize) -> Result<u8> { Ok(0xFF) }
-        fn write(&mut self, raw_address: usize, _: u8) -> Result<()> {
-            Err(MemoryError {
-                location: raw_address,
-                reason: "Cannot write to ErrorCart!",
-            })
-        }
-    }
+    use crate::mmu;
 
     pub struct DynamicCart {
         mem: Vec<u8>,
@@ -235,15 +228,29 @@ pub mod test {
     impl DynamicCart {
         pub fn new() -> DynamicCart {
             DynamicCart {
-                mem: vec![0; 0x8000],
+                mem: vec![0; 0xC000],
             }
         }
     }
-    impl super::Cart for DynamicCart {
-        fn read(&self, raw_address: usize) -> Result<u8> { Ok(self.mem[raw_address]) }
-        fn write(&mut self, raw_address: usize, value: u8) -> Result<()> {
-            self.mem[raw_address] = value;
-            Ok(())
+    impl mmu::MemoryMapped for DynamicCart {
+        fn read(&self, address: mmu::Address) -> Option<i32> {
+            let mmu::Address(location, raw) = address;
+            match location {
+                mmu::Location::MbcRom | mmu::Location::MbcRam => {
+                    Some(self.mem[raw as usize] as i32)
+                }
+                _ => None,
+            }
+        }
+        fn write(&mut self, address: mmu::Address, value: i32) -> Option<Result<()>> {
+            let mmu::Address(location, raw) = address;
+            match location {
+                mmu::Location::MbcRom | mmu::Location::MbcRam => {
+                    self.mem[raw as usize] = value as u8;
+                    Some(Ok(()))
+                }
+                _ => None,
+            }
         }
     }
 }

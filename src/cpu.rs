@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::error::{self, Result};
 use crate::io_registers;
-use crate::memory::{Memory, MemoryError};
+use crate::mmu::Memory;
 use crate::util;
 use micro_code::MicroCode;
 
@@ -43,10 +43,10 @@ impl Default for DecodeMode {
 pub struct State {
     decode_mode: DecodeMode,
     in_cb_mode: bool,
-    address_latch: i32,
-    data_latch: i32,
-    read_latch: bool,
-    write_latch: bool,
+    pub address_latch: i32,
+    pub data_latch: i32,
+    pub read_latch: bool,
+    pub write_latch: bool,
 
     interrupt_enable_counter: i32,
 }
@@ -89,39 +89,39 @@ impl Cpu {
         }
     }
 
-    fn microcode_prelude(&mut self, memory: &Memory) -> Option<SideEffect> {
-        assert!(!(self.state.read_latch && self.state.write_latch));
-        // Service read requests at T=3's rising edge.
-        if self.state.read_latch {
-            if self.t_state.get() == 3 {
-                self.state.data_latch = memory.read(self.state.address_latch);
-            } else {
-                // Write garbage in data latch to catch bad reads.
-                self.state.data_latch = -1;
-            }
-        }
-        // Service write requests at T=4's rising edge.
-        if self.state.write_latch {
-            assert!(util::is_16bit(self.state.address_latch));
-            assert!(util::is_8bit(self.state.data_latch));
-            if self.t_state.get() == 4 {
-                return Some(SideEffect::Write {
-                    raw_address: self.state.address_latch,
-                    value: self.state.data_latch,
-                });
-            }
-        }
+    // fn microcode_prelude(&mut self, memory: &Memory) -> Option<SideEffect> {
+    //     assert!(!(self.state.read_latch && self.state.write_latch));
+    //     // Service read requests at T=3's rising edge.
+    //     if self.state.read_latch {
+    //         if self.t_state.get() == 3 {
+    //             self.state.data_latch = memory.read(self.state.address_latch);
+    //         } else {
+    //             // Write garbage in data latch to catch bad reads.
+    //             self.state.data_latch = -1;
+    //         }
+    //     }
+    //     // Service write requests at T=4's rising edge.
+    //     if self.state.write_latch {
+    //         assert!(util::is_16bit(self.state.address_latch));
+    //         assert!(util::is_8bit(self.state.data_latch));
+    //         if self.t_state.get() == 4 {
+    //             return Some(SideEffect::Write {
+    //                 raw_address: self.state.address_latch,
+    //                 value: self.state.data_latch,
+    //             });
+    //         }
+    //     }
 
-        None
-    }
+    //     None
+    // }
 
     pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<Output> {
         // First step is to handle interrupts.
         self.handle_interrupts(memory)?;
         // Then, run through the micro-code prelude.
-        let side_effect = self.microcode_prelude(memory);
-        // Finally, execute the micro-code.
-        let (next_state, is_done) = control_unit::cycle(self, memory);
+        let side_effect = None; // self.microcode_prelude(memory);
+                                // Finally, execute the micro-code.
+        let (next_state, is_done) = control_unit::cycle(self);
         self.state = next_state;
         // This will be tricky to translate to hardware.
         if is_done && self.state.interrupt_enable_counter > 0 {
@@ -146,10 +146,11 @@ impl Cpu {
         } else if self.is_handling_interrupt {
             // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read
             // the fired interrupt flag AGAIN, and then decide on which interrupt to handle.
-            if self.t_state.get() == 4 {
+            if self.t_state.get() == 3 {
                 if self.interrupt_handle_mcycle == 3 {
                     self.select_fired_interrupt(memory)?;
                 }
+            } else if self.t_state.get() == 4 {
                 self.interrupt_handle_mcycle += 1;
             }
             if self.interrupt_handle_mcycle == 5 {
@@ -184,7 +185,7 @@ impl Cpu {
 
     fn select_fired_interrupt(&mut self, memory: &mut Memory) -> Result<()> {
         debug_assert_eq!(self.interrupt_handle_mcycle, 3);
-        debug_assert_eq!(self.t_state.get(), 4);
+        debug_assert_eq!(self.t_state.get(), 3);
         let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
         let ie_flag = memory.read(io_registers::Addresses::InterruptEnable as i32) & 0x1F;
         let fired_interrupts = interrupt_fired_flag & ie_flag;

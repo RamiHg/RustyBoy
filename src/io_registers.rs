@@ -13,7 +13,7 @@ pub enum Addresses {
 
 /// Base register trait. Describes registers: their location in memory, etc.
 pub trait Register {
-    const ADDRESS: usize;
+    const ADDRESS: i32;
 }
 
 #[derive(FromPrimitive, PartialEq, Debug)]
@@ -82,7 +82,7 @@ macro_rules! declare_register {
     ($x:ident, $address:expr) => {
         // Implement the Register trait.
         impl<T> Register for $x<T> {
-            const ADDRESS: usize = $address as usize;
+            const ADDRESS: i32 = $address as i32;
         }
     };
 }

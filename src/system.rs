@@ -1,4 +1,6 @@
 use crate::error::{self, Result};
+use crate::io_registers;
+use crate::timer;
 use crate::{cart, cpu, mmu, util};
 
 enum MemoryModules {
@@ -10,12 +12,13 @@ pub struct System {
     cpu: cpu::Cpu,
 
     memory: mmu::Memory,
+    timer: timer::Timer,
     cart: Box<mmu::MemoryMapped>,
 }
 
 impl System {
     fn read_request(&self, raw_address: i32) -> Result<i32> {
-        let modules = [&self.memory, self.cart.as_ref()];
+        let modules = [&self.timer, self.cart.as_ref(), &self.memory];
         let address = mmu::Address::from_raw(raw_address)?;
         for module in &modules {
             if let Some(result) = module.read(address) {
@@ -29,7 +32,7 @@ impl System {
     }
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
-        let mut modules = [&mut self.memory, self.cart.as_mut()];
+        let mut modules = [&mut self.timer, self.cart.as_mut(), &mut self.memory];
         let address = mmu::Address::from_raw(raw_address)?;
         for module in &mut modules {
             if let Some(result) = module.write(address, value) {
@@ -68,18 +71,39 @@ impl System {
         Ok(())
     }
 
-    fn execute_t_cycle(&mut self) -> Result<cpu::Output> {
-        self.handle_cpu_memory_reads()?;
+    fn handle_timer(&mut self) -> Result<timer::Timer> {
+        // Execute the timer at the rise of TCycle 4, such that it can control writes coming in from
+        // the CPU.
+        if self.cpu.t_state.get() == 4 {
+            let (new_timer, should_interrupt) = self.timer.execute_mcycle();
+            if should_interrupt.0 {
+                // Immediately set the interrupt fired flag. In real hardware, we would simply
+                // assert a flag for the interrupt handler. This is so that the CPU can override it
+                // if it wants to.
+                let mut interrupt_fired = self.memory.get_mut_register(io_registers::InterruptFlag);
+                interrupt_fired.set_timer(true);
+            }
+            Ok(new_timer)
+        } else {
+            Ok(self.timer)
+        }
+    }
 
+    fn execute_t_cycle(&mut self) -> Result<cpu::Output> {
+        // Do all the rising edge sampling operations.
+        self.handle_cpu_memory_reads()?;
+        let new_timer = self.handle_timer()?;
         let cpu_output = self.cpu.execute_t_cycle(&mut self.memory)?;
+        // Finally, do all the next state replacement.
         self.handle_cpu_memory_writes()?;
+        self.timer = new_timer;
 
         Ok(cpu_output)
     }
 
     pub fn execute_machine_cycle(&mut self) -> Result<cpu::Output> {
         let mut last_result = None;
-        for i in 0..=3 {
+        for i in 0..4 {
             last_result = Some(self.execute_t_cycle()?);
         }
         Ok(last_result.unwrap())
@@ -93,6 +117,7 @@ impl System {
             cpu: cpu::Cpu::new(),
             memory: mmu::Memory::new(),
             cart: cart,
+            timer: timer::Timer::new(),
         }
     }
 

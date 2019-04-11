@@ -20,7 +20,7 @@ mod error;
 mod io_registers;
 mod mmu;
 mod system;
-//mod timer;
+mod timer;
 mod util;
 
 #[allow(unused_imports)]

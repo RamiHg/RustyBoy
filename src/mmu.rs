@@ -68,13 +68,13 @@ pub trait MemoryMapped {
     fn read(&self, address: Address) -> Option<i32>;
     fn write(&mut self, address: Address, value: i32) -> Option<Result<()>>;
 
-    // fn read_register<A, T>(&self, cons: T) -> Option<A>
+    // fn read_register<A, T>(&self, cons: &T) -> Option<Box<A>>
     // where
     //     A: Register,
-    //     T: core::ops::FnOnce([u8; 1]) -> A,
+    //     T: core::ops::FnMut([u8; 1]) -> A,
     // {
     //     let address = Address::from_raw(A::ADDRESS).unwrap();
-    //     self.read(address).map(|x| cons([x as u8]))
+    //     Box::new(self.read(address).map(|x| cons([x as u8])))
     // }
 
     // pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
@@ -149,6 +149,19 @@ impl Memory {
     pub fn store(&mut self, raw_address: i32, value: i32) {
         let address = Address::from_raw(raw_address).unwrap();
         MemoryMapped::write(self, address, value).unwrap().unwrap();
+    }
+
+    pub fn get_mut_8(&mut self, raw_address: i32) -> &mut u8 { &mut self.mem[raw_address as usize] }
+
+    pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
+    where
+        A: Register,
+        T: core::ops::FnOnce(&'a mut [u8]) -> A,
+    {
+        // I need to be able to return multiple mutable references to different registers when I
+        // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
+        // Let me know if you can think of a better way!
+        cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
     }
 
     // pub fn set_starting_sequence(&mut self) {

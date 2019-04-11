@@ -21,6 +21,11 @@ pub enum SideEffect {
     Write { raw_address: i32, value: i32 },
 }
 
+pub struct WriteRequest {
+    raw_address: i32,
+    value: i32,
+}
+
 /// The output of a micro code execution.
 /// Legacy. Should probably be removed eventually.
 pub struct Output {

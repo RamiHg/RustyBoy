@@ -2,6 +2,7 @@ use bitfield::bitfield;
 use num_derive::FromPrimitive;
 use num_traits;
 
+#[derive(FromPrimitive)]
 pub enum Addresses {
     InterruptFired = 0xFF0F,
     InterruptEnable = 0xFFFF,
@@ -71,7 +72,7 @@ bitfield! {
 
 /// Timer Control register (TAC). 0xFF07
 bitfield! {
-    pub struct TimerControl([u8]);
+    pub struct TimerControl(u8);
     u8;
     pub frequency, set_frequency: 1, 0;
     pub enabled, set_enabled: 2;
@@ -84,6 +85,20 @@ macro_rules! declare_register {
         impl<T> Register for $x<T> {
             const ADDRESS: i32 = $address as i32;
         }
+    };
+}
+
+macro_rules! declare_register_u8 {
+    ($x:ident, $address:expr) => {
+        // Implement the Register trait.
+        impl Register for $x {
+            const ADDRESS: i32 = $address as i32;
+        }
+
+        impl Clone for $x {
+            fn clone(&self) -> Self { $x(self.0) }
+        }
+        impl Copy for $x {}
     };
 }
 
@@ -100,7 +115,7 @@ macro_rules! from_u8 {
 declare_register!(LcdStatus, 0xFF41);
 declare_register!(LcdControl, 0xFF00);
 declare_register!(InterruptFlag, Addresses::InterruptFired);
-declare_register!(TimerControl, Addresses::TimerControl);
+declare_register_u8!(TimerControl, Addresses::TimerControl);
 
 from_u8!(LcdcModeFlag);
 from_u8!(TimerFrequency);

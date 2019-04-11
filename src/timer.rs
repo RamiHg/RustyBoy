@@ -1,42 +1,69 @@
-use crate::cpu::SideEffect;
+use crate::cpu::WriteRequest;
+use crate::error::Result;
 use crate::io_registers;
-use crate::memory::Memory;
+use crate::mmu;
 use crate::util::is_bit_set;
+
+use num_traits::FromPrimitive;
 
 #[derive(Copy, Clone)]
 pub struct Timer {
+    // DIV.
     counter: i32,
-    is_tima_overflow: bool,
+    tac: io_registers::TimerControl,
+    /// 9-bit register. Exposes only 8 bits.
+    tima: i32,
+    tma: i32,
+    /// Simulates delay between overflow and interrupt.
+    should_interrupt: bool,
 }
 
+pub struct FireInterrupt(pub bool);
+
 impl Timer {
-    pub fn execute_cycle(&mut self, memory: &Memory) -> Option<Vec<SideEffect>> {
-        let mut side_effects = Vec::new();
-        // Gather the register values.
-        let tac = memory.read_register(io_registers::TimerControl);
-        if !tac.enabled() {
-            return None;
+    pub fn new() -> Timer {
+        Timer {
+            counter: 0,
+            tac: io_registers::TimerControl(0xFF),
+            tima: 0,
+            tma: 0,
+            should_interrupt: false,
+        }
+    }
+
+    pub fn execute_mcycle(&self) -> (Timer, FireInterrupt) {
+        // If we're not enabled, don't do anything.
+        if !self.tac.enabled() {
+            return (*self, FireInterrupt(false));
         }
         let mut new_state = *self;
-        new_state.counter += 1;
-        let old_bit = self.edge_detector_input(memory);
-        let new_bit = new_state.edge_detector_input(memory);
+        let mut fire_interrupt = FireInterrupt(false);
+        new_state.counter = (new_state.counter + 4) & 0xFFFF;
+        let old_bit = self.edge_detector_input();
+        let new_bit = new_state.edge_detector_input();
         if old_bit && !new_bit {
-            // Increment timer register!
-            let tima_address = io_registers::Addresses::TimerCounter as i32;
-            side_effects.push(SideEffect {
-                raw_address: time_address,
-                valu,
-            })
+            // Negative edge detector fired! Increase TIMA.
+            new_state.tima += 1;
         }
+        // Check for TIMA overflow.
+        let tima_overflows = (self.tima & 0x100) != 0;
+        if tima_overflows {
+            new_state.should_interrupt = true;
+        }
+        if tima_overflows && self.should_interrupt {
+            fire_interrupt.0 = true;
+            new_state.tima = new_state.tma;
+        }
+        if self.should_interrupt {
+            new_state.should_interrupt = false;
+        }
+        (new_state, fire_interrupt)
     }
 
     /// Tries to emulate the internal behavior of the timer as much possible (mostly to accurately
     /// implement unintended consequences and glitches!).
-    fn edge_detector_input(&self, memory: &Memory) -> bool {
-        let tac = memory.read(io_registers::Addresses::TimerControl as i32);
-        assert!(tac < 8);
-
+    fn edge_detector_input(&self) -> bool {
+        let tac = self.tac.0 as i32;
         let freq_0 = is_bit_set(tac, 0);
         let freq_1 = is_bit_set(tac, 1);
         let freq_1_a = if freq_0 {
@@ -53,6 +80,46 @@ impl Timer {
             freq_1_a
         } else {
             freq_1_b
+        }
+    }
+}
+
+impl mmu::MemoryMapped for Timer {
+    fn read(&self, address: mmu::Address) -> Option<i32> {
+        let mmu::Address(_, raw) = address;
+        match io_registers::Addresses::from_i32(raw) {
+            Some(io_registers::Addresses::TimerDiv) => Some(self.counter >> 8),
+            Some(io_registers::Addresses::TimerControl) => Some(((self.tac.0 & 0x7) | 0xF8) as i32),
+            Some(io_registers::Addresses::TimerCounter) => Some(self.tima & 0xFF),
+            Some(io_registers::Addresses::TimerModulo) => Some(self.tma),
+            _ => None,
+        }
+    }
+
+    fn write(&mut self, address: mmu::Address, value: i32) -> Option<Result<()>> {
+        let mmu::Address(_, raw) = address;
+        match io_registers::Addresses::from_i32(raw) {
+            Some(io_registers::Addresses::TimerDiv) => {
+                self.counter = 0;
+                Some(Ok(()))
+            }
+            Some(io_registers::Addresses::TimerControl) => {
+                self.tac.0 = value as u8;
+                Some(Ok(()))
+            }
+            Some(io_registers::Addresses::TimerCounter) => {
+                // If we're setting TIMA to TMA in this cycle, ignore any other request coming from
+                // the CPU.
+                if !(self.should_interrupt && (self.tima & 0x100) != 0) {
+                    self.tima = value;
+                }
+                Some(Ok(()))
+            }
+            Some(io_registers::Addresses::TimerModulo) => {
+                self.tma = value;
+                Some(Ok(()))
+            }
+            _ => None,
         }
     }
 }

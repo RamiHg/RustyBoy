@@ -15,6 +15,7 @@ mod test_interrupts;
 mod test_load;
 mod test_push_pop;
 mod test_store;
+mod test_timer;
 
 pub mod instructions {
     use super::Register::{self, *};
@@ -27,6 +28,7 @@ pub mod instructions {
     pub const LD_A_IMM: u8 = 0x3E;
     pub const LD_A_A: u8 = 0x7F;
     pub const JP: u8 = 0xC3;
+    pub const JR: u8 = 0x18;
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;
 

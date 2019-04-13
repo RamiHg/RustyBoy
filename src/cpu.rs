@@ -176,7 +176,6 @@ impl Cpu {
         let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
         let ie_flag = memory.read(0xFFFF) & 0x1F;
         if (interrupt_fired_flag & ie_flag) != 0 {
-            dbg!(interrupt_fired_flag & ie_flag);
             // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
             // interrupt handling routine micro-codes.
             self.micro_code_stack = self.decoder.interrupt_handler();
@@ -201,7 +200,6 @@ impl Cpu {
         }
         // In hardware this would be a case statement, but let's be clean here.
         let interrupt_index = fired_interrupts.trailing_zeros() as i32;
-        dbg!(interrupt_index);
         assert!(interrupt_index <= 4);
         self.registers
             .set(register::Register::TEMP_LOW, interrupt_index * 8);

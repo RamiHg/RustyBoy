@@ -175,8 +175,6 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         debug_assert!(!code.inc_to_addr_bus);
         debug_assert!(!code.addr_write_enable);
         next_state.address_latch = current_regs.get(code.addr_select);
-        println!("{:X?}", next_state.address_latch);
-        dbg!(next_state.address_latch);
         if code.ff_to_addr_hi {
             next_state.address_latch |= 0xFF00;
         } else if code.zero_to_addr_hi {

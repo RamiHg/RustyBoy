@@ -25,7 +25,7 @@ pub enum LcdcModeFlag {
     TransferingToLCD,
 }
 
-#[derive(FromPrimitive)]
+#[derive(Clone, Copy, Debug, FromPrimitive)]
 pub enum TimerFrequency {
     Every1024 = 0, // 4kHz
     Every16 = 1,   // ~262kHz
@@ -73,8 +73,9 @@ bitfield! {
 /// Timer Control register (TAC). 0xFF07
 bitfield! {
     pub struct TimerControl(u8);
+    impl Debug;
     u8;
-    pub frequency, set_frequency: 1, 0;
+    pub into TimerFrequency, frequency, set_frequency: 1, 0;
     pub enabled, set_enabled: 2;
 }
 

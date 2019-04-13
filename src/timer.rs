@@ -6,7 +6,7 @@ use crate::util::is_bit_set;
 
 use num_traits::FromPrimitive;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Timer {
     // DIV.
     counter: i32,

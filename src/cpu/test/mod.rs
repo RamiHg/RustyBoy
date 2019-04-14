@@ -1,7 +1,4 @@
-use crate::{
-    cpu::{alu::Flags, register::Register, *},
-    mmu::Memory,
-};
+use crate::cpu::{alu::Flags, register::Register, *};
 
 use crate::cart;
 use crate::mmu;
@@ -17,6 +14,7 @@ mod test_push_pop;
 mod test_store;
 mod test_timer;
 
+#[allow(dead_code)]
 pub mod instructions {
     use super::Register::{self, *};
 
@@ -110,8 +108,6 @@ pub struct TestContext {
     system: Box<system::System>,
     desc: TestDescriptor,
     cycles: i64,
-    interrupt_fire_at_tcycle: i32,
-    interrupts_fired: i32,
 }
 
 pub fn with_default() -> TestContext {
@@ -141,8 +137,6 @@ impl TestContext {
                 ..Default::default()
             },
             cycles: 0,
-            interrupt_fire_at_tcycle: -1,
-            interrupts_fired: 0,
         }
     }
 
@@ -182,12 +176,6 @@ impl TestContext {
 
     pub fn set_sub(self, is_set: bool) -> TestContext { self.set_flag(Flags::SUB, is_set) }
 
-    pub fn fire_interrupts_at(mut self, tcycle: i32, interrupts_fired: i32) -> TestContext {
-        self.interrupt_fire_at_tcycle = tcycle;
-        self.interrupts_fired = interrupts_fired;
-        self
-    }
-
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the
     /// resulting system state.
     pub fn execute_instructions_for_mcycles(
@@ -209,15 +197,13 @@ impl TestContext {
         self.system.cpu_mut().registers.set(Register::PC, 0xC000);
         // Don't let any test go longer than 100 cycles.
         let mut num_cycles_left = if mcycles > 0 { mcycles } else { 100 };
-        let mut has_completed_instruction = false;
         while (self.system.cpu_mut().registers.get(Register::PC)
             != 0xC000 + instructions.len() as i32)
-            || !has_completed_instruction
+            || !self.system.is_fetching()
         {
-            let cpu_output = self.system.execute_machine_cycle().unwrap();
+            self.system.execute_machine_cycle().unwrap();
             self.cycles += 1;
             num_cycles_left -= 1;
-            has_completed_instruction = cpu_output.is_done;
             if num_cycles_left <= 0 {
                 if mcycles > 0 {
                     break;

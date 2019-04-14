@@ -34,11 +34,11 @@ fn test_add_hl_rr() {
 #[test]
 fn test_add_sp_i8() {
     with_default()
-        .set_reg(SP, 0xFF00)
+        .set_reg(SP, 0x00FF)
         .set_zero(true)
         .set_sub(true)
         .execute_instructions(&[0xE8, 0xFF])
-        .assert_reg_eq(SP, 0xFEFF)
+        .assert_reg_eq(SP, 0xFE)
         .assert_flags(Flags::HCARRY | Flags::CARRY)
         .assert_mcycles(4);
     with_default()

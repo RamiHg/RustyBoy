@@ -1,8 +1,5 @@
 use super::*;
 use crate::cpu::register::Register::*;
-use crate::io_registers;
-const IE: i32 = io_registers::Addresses::InterruptEnable as i32;
-const IF: i32 = io_registers::Addresses::InterruptFired as i32;
 
 #[rustfmt::skip]
 const INTERRUPT_HANDLERS: [u8; 40] = [
@@ -80,6 +77,7 @@ fn test_eidi_chain() {
         .assert_reg_eq(A, interrupt_handler_result(0));
 }
 
+#[allow(dead_code)]
 #[test]
 fn test_ei_chain() {
     #[rustfmt::skip]

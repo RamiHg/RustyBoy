@@ -1,7 +1,7 @@
-use crate::cpu::WriteRequest;
-use crate::error::Result;
 use crate::io_registers;
 use crate::mmu;
+use crate::system::FireInterrupt;
+use crate::util;
 use crate::util::is_bit_set;
 
 use num_traits::FromPrimitive;
@@ -14,11 +14,8 @@ pub struct Timer {
     /// 9-bit register. Exposes only 8 bits.
     tima: i32,
     tma: i32,
-    /// Simulates delay between overflow and interrupt.
     should_interrupt: bool,
 }
-
-pub struct FireInterrupt(pub bool);
 
 impl Timer {
     pub fn new() -> Timer {
@@ -31,30 +28,28 @@ impl Timer {
         }
     }
 
+    #[allow(warnings)]
     pub fn execute_mcycle(&self) -> (Timer, FireInterrupt) {
         // If we're not enabled, don't do anything.
-        if !self.tac.enabled() {
-            return (*self, FireInterrupt(false));
-        }
         let mut new_state = *self;
         let mut fire_interrupt = FireInterrupt(false);
-        new_state.counter = (new_state.counter + 4) & 0xFFFF;
+        new_state.counter = (self.counter + 4) & 0xFFFF;
         let old_bit = self.edge_detector_input();
         let new_bit = new_state.edge_detector_input();
-        if old_bit && !new_bit {
+        if old_bit && !new_bit && self.tac.enabled() {
             // Negative edge detector fired! Increase TIMA.
             new_state.tima += 1;
         }
+        //dbg!(self);
         // Check for TIMA overflow.
         let tima_overflows = (self.tima & 0x100) != 0;
         if tima_overflows {
+            //fire_interrupt.0 = true;
+            new_state.tima = new_state.tma;
             new_state.should_interrupt = true;
         }
-        if tima_overflows && self.should_interrupt {
-            fire_interrupt.0 = true;
-            new_state.tima = new_state.tma;
-        }
         if self.should_interrupt {
+            fire_interrupt.0 = true;
             new_state.should_interrupt = false;
         }
         (new_state, fire_interrupt)
@@ -96,28 +91,29 @@ impl mmu::MemoryMapped for Timer {
         }
     }
 
-    fn write(&mut self, address: mmu::Address, value: i32) -> Option<Result<()>> {
+    fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
+        assert!(util::is_8bit(value));
         let mmu::Address(_, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
             Some(io_registers::Addresses::TimerDiv) => {
                 self.counter = 0;
-                Some(Ok(()))
+                Some(())
             }
             Some(io_registers::Addresses::TimerControl) => {
                 self.tac.0 = value as u8;
-                Some(Ok(()))
+                Some(())
             }
             Some(io_registers::Addresses::TimerCounter) => {
                 // If we're setting TIMA to TMA in this cycle, ignore any other request coming from
                 // the CPU.
-                if !(self.should_interrupt && (self.tima & 0x100) != 0) {
-                    self.tima = value;
-                }
-                Some(Ok(()))
+                //if !(self.should_interrupt && (self.tima & 0x100) != 0) {
+                self.tima = value;
+                // }
+                Some(())
             }
             Some(io_registers::Addresses::TimerModulo) => {
                 self.tma = value;
-                Some(Ok(()))
+                Some(())
             }
             _ => None,
         }

@@ -8,8 +8,6 @@
 #![allow(unused_doc_comments)]
 // Remove when this file is uncommented out.
 #![allow(unused_variables)]
-// Temp.
-#![allow(unused_imports)]
 
 use gl::types::GLuint;
 
@@ -19,6 +17,7 @@ mod error;
 //mod gpu;
 mod io_registers;
 mod mmu;
+mod serial;
 mod system;
 mod timer;
 mod util;
@@ -132,30 +131,8 @@ fn load_all_shaders() -> GLuint {
     }
 }
 
-fn main() {
+fn main() -> error::Result<()> {
     use glutin::GlContext;
-
-    // http://gbdev.gg8.se/wiki/articles/Test_ROMs
-    //let cart = "/Users/ramy/Desktop/opus5.gb";
-    //let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/cpu_instrs.gb";
-    let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/03-op sp,hl.gb";
-    //let cart = "/Users/ramy/Desktop/testroms/cpu_instrs/individual/04-op r,imm.gb";
-
-    //let mut system = System::new(cart);
-    //system.start_system();
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/02-interrupts.gb");
-    //system.start_system("");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/04-op r,imm.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/05-op rp.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/06-ld r,r.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/07-jr,jp,call,ret,rst.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/08-misc instrs.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/09-op r,r.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/10-bit ops.gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/11-op a,(hl).gb");
-    //system.start_system("/Users/ramy/Downloads/cpu_instrs/individual/01-special.gb");
-
-    //system.start_system();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
@@ -200,9 +177,14 @@ fn main() {
         ));
     }
 
+    // Load the gameboy cart.
+    //let cart = cart::from_file("./instr_timing.gb");
+    let cart = cart::from_file("./individual/01-special.gb");
+    let mut system = system::System::new_with_cart(cart);
+
     loop {
-        for _ in 0..2000 {
-            // system.execute_instruction();
+        for _ in 0..20000 {
+            system.execute_machine_cycle()?;
         }
 
         //if system.gpu.mode == GpuMode::VBlank {
@@ -256,4 +238,6 @@ fn main() {
 
         gl_window.swap_buffers().unwrap();
     }
+
+    Ok(())
 }

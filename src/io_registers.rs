@@ -6,10 +6,12 @@ use num_traits;
 pub enum Addresses {
     InterruptFired = 0xFF0F,
     InterruptEnable = 0xFFFF,
-    TimerDiv = 0xFF04,     // DIV
-    TimerCounter = 0xFF05, // TIMA
-    TimerModulo = 0xFF06,  // TMA
-    TimerControl = 0xFF07, // TAC
+    TimerDiv = 0xFF04,      // DIV
+    TimerCounter = 0xFF05,  // TIMA
+    TimerModulo = 0xFF06,   // TMA
+    TimerControl = 0xFF07,  // TAC
+    SerialData = 0xFF01,    // SB
+    SerialControl = 0xFF02, // SC
 }
 
 /// Base register trait. Describes registers: their location in memory, etc.
@@ -66,7 +68,7 @@ bitfield! {
     pub has_v_blank, set_v_blank: 0;
     pub has_lcdc, set_lcdc: 1;
     pub has_timer, set_timer: 2;
-    pub has_serial_io_complete, set_serial_io_complete: 3;
+    pub has_serial, set_serial: 3;
     pub has_joypad, set_joypad: 4;
 }
 
@@ -77,6 +79,13 @@ bitfield! {
     u8;
     pub into TimerFrequency, frequency, set_frequency: 1, 0;
     pub enabled, set_enabled: 2;
+}
+
+bitfield! {
+    pub struct SerialControl(u8);
+    impl Debug;
+    u8;
+    pub is_transferring, set_transferring: 7;
 }
 
 /// Implements the Register trait.
@@ -117,6 +126,7 @@ declare_register!(LcdStatus, 0xFF41);
 declare_register!(LcdControl, 0xFF00);
 declare_register!(InterruptFlag, Addresses::InterruptFired);
 declare_register_u8!(TimerControl, Addresses::TimerControl);
+declare_register_u8!(SerialControl, Addresses::SerialControl);
 
 from_u8!(LcdcModeFlag);
 from_u8!(TimerFrequency);

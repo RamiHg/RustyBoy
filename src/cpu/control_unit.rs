@@ -5,7 +5,6 @@ use cpu::alu::Flags;
 use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
 
-use super::decoder;
 use super::micro_code::{AluOutSelect, Condition, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
@@ -37,6 +36,7 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                 // TODO: Clean up
                 if !cpu.is_handling_interrupt {
                     assert!(cpu.micro_code_stack.is_empty());
+                    cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
                 (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
@@ -177,8 +177,6 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         next_state.address_latch = current_regs.get(code.addr_select);
         if code.ff_to_addr_hi {
             next_state.address_latch |= 0xFF00;
-        } else if code.zero_to_addr_hi {
-            next_state.address_latch &= 0xFF;
         }
     }
 
@@ -211,6 +209,10 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     if code.alu_a_to_act {
         debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::ACT));
         new_regs.set(Register::ACT, current_regs.get(Register::A));
+    }
+    if code.alu_opymul8_to_act {
+        let op_y = (current_regs.get(Register::INSTR) & 0b0011_1000) >> 3;
+        new_regs.set(Register::ACT, op_y * 8);
     }
     if code.alu_a_to_tmp {
         new_regs.set(Register::ALU_TMP, current_regs.get(Register::A));

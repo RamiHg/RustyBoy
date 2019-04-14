@@ -1,9 +1,5 @@
-use std::collections::HashMap;
-
-use super::parser;
-use crate::cpu::register::Register;
-
 use super::op_map::{MCycle, MCycleList, MCycleMap, SourceOpList};
+use super::parser;
 
 fn extract_tcycle(i: usize, num_ops: usize, record: &csv::StringRecord) -> SourceOpList {
     let mut result = Vec::new();

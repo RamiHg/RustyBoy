@@ -157,7 +157,3 @@ impl MCycleList {
         move |cmd: &Command| if *cmd == prune { Command::NOP } else { *cmd }
     }
 }
-
-impl SourceOpList {
-    pub fn ops(&self) -> &[Op] { &self.0 }
-}

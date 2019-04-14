@@ -1,9 +1,6 @@
-use core::fmt;
-
 use crate::error::{self, Result};
 use crate::io_registers;
 use crate::mmu::Memory;
-use crate::util;
 use micro_code::MicroCode;
 
 mod alu;
@@ -15,23 +12,6 @@ mod register;
 
 #[cfg(test)]
 mod test;
-
-#[derive(Debug)]
-pub enum SideEffect {
-    Write { raw_address: i32, value: i32 },
-}
-
-pub struct WriteRequest {
-    raw_address: i32,
-    value: i32,
-}
-
-/// The output of a micro code execution.
-/// Legacy. Should probably be removed eventually.
-pub struct Output {
-    pub side_effect: Option<SideEffect>,
-    pub is_done: bool,
-}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DecodeMode {
@@ -46,7 +26,7 @@ impl Default for DecodeMode {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct State {
-    decode_mode: DecodeMode,
+    pub decode_mode: DecodeMode,
     in_cb_mode: bool,
     pub address_latch: i32,
     pub data_latch: i32,
@@ -94,38 +74,9 @@ impl Cpu {
         }
     }
 
-    // fn microcode_prelude(&mut self, memory: &Memory) -> Option<SideEffect> {
-    //     assert!(!(self.state.read_latch && self.state.write_latch));
-    //     // Service read requests at T=3's rising edge.
-    //     if self.state.read_latch {
-    //         if self.t_state.get() == 3 {
-    //             self.state.data_latch = memory.read(self.state.address_latch);
-    //         } else {
-    //             // Write garbage in data latch to catch bad reads.
-    //             self.state.data_latch = -1;
-    //         }
-    //     }
-    //     // Service write requests at T=4's rising edge.
-    //     if self.state.write_latch {
-    //         assert!(util::is_16bit(self.state.address_latch));
-    //         assert!(util::is_8bit(self.state.data_latch));
-    //         if self.t_state.get() == 4 {
-    //             return Some(SideEffect::Write {
-    //                 raw_address: self.state.address_latch,
-    //                 value: self.state.data_latch,
-    //             });
-    //         }
-    //     }
-
-    //     None
-    // }
-
-    pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<Output> {
+    pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<()> {
         // First step is to handle interrupts.
         self.handle_interrupts(memory)?;
-        // Then, run through the micro-code prelude.
-        let side_effect = None; // self.microcode_prelude(memory);
-                                // Finally, execute the micro-code.
         let (next_state, is_done) = control_unit::cycle(self);
         self.state = next_state;
         // This will be tricky to translate to hardware.
@@ -136,10 +87,7 @@ impl Cpu {
             self.state.interrupt_enable_counter -= 1;
         }
         self.t_state.inc();
-        Ok(Output {
-            side_effect,
-            is_done,
-        })
+        Ok(())
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) -> Result<()> {

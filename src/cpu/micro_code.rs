@@ -56,7 +56,6 @@ pub struct MicroCode {
     /// into the address buffer register.
     pub reg_to_addr_buffer: bool,
     pub ff_to_addr_hi: bool,
-    pub zero_to_addr_hi: bool, // TODO: Not needed. Remove.
     pub addr_select: Register,
     /// If true, will overwrite the selected address register with the value in the address bus.
     pub addr_write_enable: bool,
@@ -73,6 +72,7 @@ pub struct MicroCode {
     /// Overwrites the selected ALU register with the value in the data bus (or a constant).
     pub alu_reg_write_enable: bool,
     pub alu_a_to_act: bool,
+    pub alu_opymul8_to_act: bool,
     pub alu_a_to_tmp: bool,
     pub alu_zero_to_tmp: bool,
     pub alu_one_to_tmp: bool,

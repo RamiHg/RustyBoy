@@ -1,24 +1,33 @@
 use crate::error::{self, Result};
 use crate::io_registers;
+use crate::serial;
 use crate::timer;
-use crate::{cart, cpu, mmu, util};
+use crate::{cpu, mmu, util};
 
-enum MemoryModules {
-    Cart,
-    Ram,
-}
+pub struct FireInterrupt(pub bool);
 
 pub struct System {
     cpu: cpu::Cpu,
 
     memory: mmu::Memory,
     timer: timer::Timer,
+    serial: serial::Controller,
     cart: Box<mmu::MemoryMapped>,
 }
 
 impl System {
+    pub fn new_with_cart(cart: Box<mmu::MemoryMapped>) -> System {
+        System {
+            cpu: cpu::Cpu::new(),
+            memory: mmu::Memory::new(),
+            timer: timer::Timer::new(),
+            serial: serial::Controller::new(),
+            cart,
+        }
+    }
+
     fn read_request(&self, raw_address: i32) -> Result<i32> {
-        let modules = [&self.timer, self.cart.as_ref(), &self.memory];
+        let modules = [&self.timer, self.cart.as_ref(), &self.serial, &self.memory];
         let address = mmu::Address::from_raw(raw_address)?;
         for module in &modules {
             if let Some(result) = module.read(address) {
@@ -32,11 +41,16 @@ impl System {
     }
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
-        let mut modules = [&mut self.timer, self.cart.as_mut(), &mut self.memory];
+        let mut modules = [
+            &mut self.timer,
+            self.cart.as_mut(),
+            &mut self.serial,
+            &mut self.memory,
+        ];
         let address = mmu::Address::from_raw(raw_address)?;
         for module in &mut modules {
-            if let Some(result) = module.write(address, value) {
-                return result;
+            if let Some(()) = module.write(address, value) {
+                return Ok(());
             }
         }
         return Err(error::Type::InvalidOperation(format!(
@@ -74,7 +88,7 @@ impl System {
     fn handle_timer(&mut self) -> Result<timer::Timer> {
         // Execute the timer at the rise of TCycle 4, such that it can control writes coming in from
         // the CPU.
-        if self.cpu.t_state.get() == 4 {
+        if self.cpu.t_state.get() == 1 {
             let (new_timer, should_interrupt) = self.timer.execute_mcycle();
             if should_interrupt.0 {
                 // Immediately set the interrupt fired flag. In real hardware, we would simply
@@ -89,25 +103,38 @@ impl System {
         }
     }
 
-    fn execute_t_cycle(&mut self) -> Result<cpu::Output> {
+    fn handle_serial(&mut self) -> serial::Controller {
+        let (new_serial, should_interrupt) = self.serial.execute_tcycle();
+        if should_interrupt.0 {
+            let mut interrupt_fired = self.memory.get_mut_register(io_registers::InterruptFlag);
+            interrupt_fired.set_serial(true);
+        }
+        new_serial
+    }
+
+    fn execute_t_cycle(&mut self) -> Result<()> {
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;
-        let cpu_output = self.cpu.execute_t_cycle(&mut self.memory)?;
+        let new_serial = self.handle_serial();
+        self.cpu.execute_t_cycle(&mut self.memory)?;
         // Finally, do all the next state replacement.
-        self.handle_cpu_memory_writes()?;
         self.timer = new_timer;
+        self.serial = new_serial;
+        self.handle_cpu_memory_writes()?;
 
-        Ok(cpu_output)
+        Ok(())
     }
 
-    pub fn execute_machine_cycle(&mut self) -> Result<cpu::Output> {
-        let mut last_result = None;
+    pub fn execute_machine_cycle(&mut self) -> Result<()> {
         for i in 0..4 {
-            last_result = Some(self.execute_t_cycle()?);
+            self.execute_t_cycle()?;
         }
-        Ok(last_result.unwrap())
+        Ok(())
     }
+
+    #[cfg(test)]
+    pub fn is_fetching(&self) -> bool { self.cpu.state.decode_mode == cpu::DecodeMode::Fetch }
 }
 
 #[cfg(test)]
@@ -118,6 +145,7 @@ impl System {
             memory: mmu::Memory::new(),
             cart: cart,
             timer: timer::Timer::new(),
+            serial: serial::Controller::new(),
         }
     }
 

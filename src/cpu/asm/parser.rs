@@ -24,7 +24,6 @@ pub fn parse_op(op: &str) -> Op {
         "ADDR" => ADDR,
         "RADDR" => RADDR,
         "ADDR_H_FF" => ADDR_H_FF,
-        "ADDR_H_00" => ADDR_H_00,
         "RD" => RD,
         "WR" => WR,
         "MOV" => MOV,
@@ -85,8 +84,7 @@ fn parse_arg(arg: &str) -> Option<Arg> {
         "LHS_H" => Arg::LhsHigh,
         "CC" => Arg::CCPlaceholder,
         "i32" => Arg::IntegerPlaceholder,
+        "OP_Y8" => Arg::OpYMul8,
         _ => Arg::ConstantPlaceholder(arg.into()),
     })
 }
-
-fn is_constant(value: &str) -> bool { value.parse::<i32>().is_ok() }

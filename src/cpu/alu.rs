@@ -81,7 +81,8 @@ impl Op {
                 (result, flags)
             }
             Sbc => {
-                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 1, subber);
+                let (result, mut flags) =
+                    generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), subber);
                 flags |= Flags::SUB;
                 (result, flags)
             }

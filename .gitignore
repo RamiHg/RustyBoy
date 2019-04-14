@@ -1,3 +1,6 @@
 target
 Cargo.lock
 test_data.txt
+individual/
+cpu_instrs.gb
+timer/

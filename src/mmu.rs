@@ -1,4 +1,4 @@
-use crate::{cart::Cart, io_registers::Register, util};
+use crate::{io_registers::Register, util};
 
 use crate::error::{self, Result};
 
@@ -66,7 +66,7 @@ impl Address {
 pub trait MemoryMapped {
     //fn handles(&self, address: Address) -> bool;
     fn read(&self, address: Address) -> Option<i32>;
-    fn write(&mut self, address: Address, value: i32) -> Option<Result<()>>;
+    fn write(&mut self, address: Address, value: i32) -> Option<()>;
 
     // fn read_register<A, T>(&self, cons: &T) -> Option<Box<A>>
     // where
@@ -75,17 +75,6 @@ pub trait MemoryMapped {
     // {
     //     let address = Address::from_raw(A::ADDRESS).unwrap();
     //     Box::new(self.read(address).map(|x| cons([x as u8])))
-    // }
-
-    // pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
-    // where
-    //     A: Register,
-    //     T: core::ops::FnOnce(&'a mut [u8]) -> A,
-    // {
-    //     // I need to be able to return multiple mutable references to different registers when I
-    //     // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
-    //     // Let me know if you can think of a better way!
-    //     cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
     // }
 }
 
@@ -96,33 +85,28 @@ pub struct Memory {
 }
 
 impl MemoryMapped for Memory {
-    // fn handles(&self, address: Address) -> bool {
-    //     let Address(location, raw) = address;
-    //     use Location::*;
-    //     match location {
-    //         VRam | InternalRam | OAM | Registers | HighRam => true,
-    //         _ => false,
-    //     }
-    // }
-
     fn read(&self, address: Address) -> Option<i32> {
         let Address(location, raw) = address;
         use Location::*;
         match location {
             VRam | InternalRam | OAM | Registers | HighRam => Some(self.mem[raw as usize].into()),
+            UnusedOAM => Some(0),
+            UnknownRegisters => Some(0xFF),
             _ => None,
         }
     }
 
-    fn write(&mut self, address: Address, value: i32) -> Option<Result<()>> {
-        debug_assert!(util::is_8bit(value));
+    fn write(&mut self, address: Address, value: i32) -> Option<()> {
+        assert!(util::is_8bit(value));
         let Address(location, raw) = address;
         use Location::*;
         match location {
             VRam | InternalRam | OAM | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
-                Some(Ok(()))
+                Some(())
             }
+            UnknownRegisters => Some(()),
+            UnusedOAM => Some(()),
             _ => None,
         }
     }
@@ -148,7 +132,7 @@ impl Memory {
     }
     pub fn store(&mut self, raw_address: i32, value: i32) {
         let address = Address::from_raw(raw_address).unwrap();
-        MemoryMapped::write(self, address, value).unwrap().unwrap();
+        MemoryMapped::write(self, address, value).unwrap();
     }
 
     pub fn get_mut_8(&mut self, raw_address: i32) -> &mut u8 { &mut self.mem[raw_address as usize] }

@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use super::asm;
 use super::asm::{csv_loader, op_map::MCycleMap};
 use super::micro_code::{Condition, MicroCode};
 use crate::cpu::alu;
 
-use crate::cpu::{register::Register, Cpu};
+use crate::cpu::register::Register;
 
 #[derive(FromPrimitive)]
 enum AluOpTable {
@@ -87,12 +84,48 @@ impl Into<Register> for AFPairTable {
 }
 
 pub struct Decoder {
-    pla: MCycleMap,
+    op_codes: Vec<Vec<MicroCode>>,
+    cb_op_codes: Vec<Vec<MicroCode>>,
+    interrupt_opcodes: Vec<MicroCode>,
 }
 
 impl Decoder {
     pub fn new() -> Decoder {
+        let builder = DecoderBuilder::new();
+        let mut op_codes = Vec::<Vec<MicroCode>>::new();
+        for i in 0..256 {
+            op_codes.push(builder.decode(i, false));
+        }
+        let mut cb_op_codes = Vec::<Vec<MicroCode>>::new();
+        for i in 0..256 {
+            cb_op_codes.push(builder.decode(i, true));
+        }
+        let interrupt_opcodes = builder.interrupt_handler();
         Decoder {
+            op_codes,
+            cb_op_codes,
+            interrupt_opcodes,
+        }
+    }
+
+    pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
+        if in_cb_mode {
+            self.cb_op_codes[op as usize].clone()
+        } else {
+            self.op_codes[op as usize].clone()
+        }
+    }
+
+    pub fn interrupt_handler(&self) -> Vec<MicroCode> { self.interrupt_opcodes.clone() }
+}
+
+struct DecoderBuilder {
+    pla: MCycleMap,
+}
+
+impl DecoderBuilder {
+    pub fn new() -> DecoderBuilder {
+        DecoderBuilder {
             pla: csv_loader::parse_csv(r"./instructions.csv"),
         }
     }
@@ -123,6 +156,7 @@ impl Decoder {
         let op_p = (op_y & 0b110) >> 1;
 
         let maybe_alu_op = AluOpTable::from_i32(op_y);
+        let nop = self.pla["NOP"].clone();
 
         let mcycle_list = match op_x {
             // x = 0
@@ -130,8 +164,9 @@ impl Decoder {
                 // z = 0
                 0 => match op_y {
                     // JR d
-                    0 => self.pla["NOP"].clone(),
+                    0 => nop,
                     1 => self.pla["LD(i16),SP"].clone(),
+                    2 => nop, // TODO: IMPLEMENT STOP
                     3 => self.pla["JR[cc],i8"].prune_ccend(),
                     4..=7 | _ => {
                         self.pla["JR[cc],i8"].remap_cond(Condition::from_i32(op_y - 4).unwrap())
@@ -231,7 +266,8 @@ impl Decoder {
             // x = 1
             1 => {
                 let op = if op_y == 6 && op_z == 6 {
-                    panic!("Implement HALT")
+                    //panic!("Implement HALT")
+                    "NOP"
                 } else if op_y == 6 {
                     "LD(rr),r"
                 } else if op_z == 6 {
@@ -287,25 +323,25 @@ impl Decoder {
                     1 => self.pla["CB"].clone(),
                     6 => self.pla["DI"].clone(),
                     7 => self.pla["EI"].clone(),
-                    _ => panic!("Implement {:X?}", opcode),
+                    _ => nop,
                 },
                 // z = 4. CALL [cc], nn
                 4 => match op_y {
                     0..=3 => {
                         self.pla["CALL[cc],i16"].remap_cond(Condition::from_i32(op_y).unwrap())
                     }
-                    _ => panic!("Implement {:X?}", opcode),
+                    _ => nop,
                 },
                 // z = 5.
                 5 => match op_q {
                     0 => self.pla["PUSHrr"]
                         .remap_lhs_reg(AFPairTable::from_i32(op_p).unwrap().into()),
                     1 if op_p == 0 => self.pla["CALL[cc],i16"].prune_ccend(),
-                    _ => panic!(),
+                    _ => nop,
                 },
                 // z = 6. ALU A, n
                 6 => self.pla["aluA,i8"].remap_alu_placeholder(maybe_alu_op.unwrap().into()),
-                _ => panic!("Implement {:X?}", opcode),
+                7 | _ => self.pla["RST"].clone(),
             },
         };
 

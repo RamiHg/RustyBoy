@@ -89,6 +89,7 @@ impl Register {
         }
     }
 
+    #[allow(dead_code)]
     pub fn overlaps(self, rhs: Register) -> bool {
         if self.is_pair() ^ rhs.is_pair() {
             self == rhs
@@ -143,9 +144,10 @@ impl File {
     pub fn new(values: [i32; Register::NumRegisters as usize]) -> File { File(values) }
 
     pub fn get(&self, any: Register) -> i32 {
-        let combine_any = |a, b| self.combine(a as usize, b as usize);
+        let combine_any = |a, b| (self.get(a) << 8) | self.get(b);
         use Register::*;
         match any {
+            F => self.0[F as usize] & 0xF0,
             _ if (any as usize) <= (PC_HIGH as usize) => self.0[any as usize],
             SP => combine_any(SP_HIGH, SP_LOW),
             PC => combine_any(PC_HIGH, PC_LOW),

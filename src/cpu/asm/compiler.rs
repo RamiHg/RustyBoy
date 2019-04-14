@@ -32,7 +32,6 @@ fn compile_op(op: &Op) -> MicroCode {
         ADDR => compile_addr,
         RADDR => compile_raddr,
         ADDR_H_FF => compile_addr_h,
-        // ADDR_H_00 => compile_addr_h,
         RD => compile_rd,
         WR => compile_wr,
         LD => compile_ld,
@@ -80,7 +79,6 @@ fn compile_addr_h(op: &Op) -> MicroCode {
     op.rhs.expect_none();
     MicroCode {
         ff_to_addr_hi: op.cmd == Command::ADDR_H_FF,
-        zero_to_addr_hi: op.cmd == Command::ADDR_H_00,
         ..Default::default()
     }
 }
@@ -122,28 +120,6 @@ fn compile_wr(op: &Op) -> MicroCode {
         reg_select: src,
         reg_to_data: true,
         ..Default::default()
-    }
-}
-
-fn compile_mov(op: &Op) -> MicroCode {
-    let dst = op.lhs.expect_as_register();
-    op.rhs.expect_none();
-    if dst.is_single() {
-        let as_alu = Op {
-            cmd: Command::AluOp(alu::Op::Mov),
-            lhs: op.lhs.clone(),
-            rhs: op.rhs.clone(),
-        };
-        compile_alu(&as_alu)
-    } else {
-        // This is actually an incrementer operation.
-        MicroCode {
-            inc_op: IncOp::Mov,
-            inc_to_addr_bus: true,
-            addr_select: dst,
-            addr_write_enable: true,
-            ..Default::default()
-        }
     }
 }
 
@@ -220,6 +196,13 @@ fn compile_ld(op: &Op) -> MicroCode {
                     "Unsupported constant {} to load to {:?}",
                     string, destination
                 )
+            }
+        }
+        Some(Arg::OpYMul8) => {
+            assert_eq!(destination, AluOutSelect::ACT);
+            MicroCode {
+                alu_opymul8_to_act: true,
+                ..Default::default()
             }
         }
         _ => panic!("Unexpected LD RHS: {:?}", op.rhs.0),
@@ -399,7 +382,6 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(reg_to_data);
     move_if_unset!(reg_to_addr_buffer);
     move_if_unset!(ff_to_addr_hi);
-    move_if_unset!(zero_to_addr_hi);
     move_if_unset!(addr_select);
     move_if_unset!(addr_write_enable);
     move_if_unset!(inc_op);
@@ -409,6 +391,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_to_data);
     move_if_unset!(alu_reg_write_enable);
     move_if_unset!(alu_a_to_act);
+    move_if_unset!(alu_opymul8_to_act);
     move_if_unset!(alu_a_to_tmp);
     move_if_unset!(alu_zero_to_tmp);
     move_if_unset!(alu_one_to_tmp);
@@ -459,7 +442,7 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.alu_reg_write_enable
             && code.alu_out_select == AluOutSelect::ACT
-            && code.alu_a_to_act),
+            && (code.alu_a_to_act || code.alu_opymul8_to_act)),
         "Data hazard writing to ACT."
     );
     assert!(
@@ -471,6 +454,10 @@ fn verify_micro_code(code: &MicroCode) {
                 || code.alu_cse_to_tmp
                 || code.alu_64_to_tmp)),
         "Data hazard writing to TMP."
+    );
+    assert!(
+        !(code.alu_a_to_act && code.alu_opymul8_to_act),
+        "Data hazard writing to ACT."
     );
     // TODO: Fix this assert logic.
     assert!(
@@ -496,10 +483,6 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.enable_interrupts && code.disable_interrupts),
         "Cannot enable and disable interrupts at the same time."
-    );
-    assert!(
-        !(code.ff_to_addr_hi && code.zero_to_addr_hi),
-        "Setting ADDR_H to both 0x00 and 0xFF"
     );
     assert!(
         !(code.enter_cb_mode && (code.is_end || code.is_cond_end)),

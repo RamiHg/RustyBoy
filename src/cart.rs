@@ -61,8 +61,7 @@ fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn mmu::MemoryMapped> {
     // Copy over contents from file into memory.
     mem[0..file_contents.len()].copy_from_slice(file_contents.as_slice());
     assert_eq!(mem[0x148], file_contents[0x148]);
-
-    println!("{:?}", file_contents[0x0147]);
+    dbg!(&cart_type);
     match cart_type.mbc {
         MbcVersion::None => Box::new(none::Cart::from_mem(mem, ram_size)),
         MbcVersion::Mbc1 => Box::new(mbc1::Cart::from_mem(mem, ram_size)),

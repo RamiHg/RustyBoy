@@ -12,19 +12,23 @@ pub enum Addresses {
     TimerControl = 0xFF07,  // TAC
     SerialData = 0xFF01,    // SB
     SerialControl = 0xFF02, // SC
+    // GPU Registers.
+    LcdControl = 0xFF40,     // LCDC
+    LcdStatus = 0xFF41,      // STAT
+    ScrollY = 0xFF42,        // SCY
+    ScrollX = 0xFF43,        // SCX
+    LcdY = 0xFF44,           // LY
+    LcdYCompare = 0xFF45,    // LYC
+    BgPallette = 0xFF47,     // BGP
+    SpritePalette0 = 0xFF48, // OBP0
+    SpritePalette1 = 0xFF49, // OBP1
+    WindowYPos = 0xFF4A,     // WY
+    WindowXPos = 0xFF4B,     // WX
 }
 
 /// Base register trait. Describes registers: their location in memory, etc.
 pub trait Register {
     const ADDRESS: i32;
-}
-
-#[derive(FromPrimitive, PartialEq, Debug)]
-pub enum LcdcModeFlag {
-    HBlank,
-    VBlank,
-    ReadingOAM,
-    TransferingToLCD,
 }
 
 #[derive(Clone, Copy, Debug, FromPrimitive)]
@@ -35,36 +39,9 @@ pub enum TimerFrequency {
     Every256 = 3,  // 16kHz
 }
 
-/// LCD Status Register (STAT). 0xFF41.
-bitfield! {
-    pub struct LcdStatus([u8]);
-    u8;
-    pub into LcdcModeFlag, mode, set_mode: 1, 0;
-    is_coincidence_flag, set_is_coincidence_flag: 2;
-    pub enable_hblank_int, set_enable_hblank_int: 3;
-    pub enable_vblank_int, set_vnable_hblank_int: 4;
-    pub enable_oam_int, set_enable_oam_int: 5;
-    pub enable_coincident_int, set_enable_coincident_int: 6;
-}
-
-/// LCD Control Register (LCDC). 0xFF00.
-bitfield! {
-    pub struct LcdControl([u8]);
-    u8;
-    enable_bg, _: 0;
-    enable_sprites, _: 1;
-    sprite_size_select, _: 2;
-    pub bg_map_select, _: 3;
-    pub bg_set_select, _: 4;
-    enable_window, _: 5;
-    window_map_select, _: 6;
-    // Stopping display must be performed during vblank only.
-    pub enable_display, _: 7;
-}
-
 /// Interrupt Flag register (IF). 0xFF0F
 bitfield! {
-    pub struct InterruptFlag([u8]);
+    pub struct InterruptFlag(u8);
     pub has_v_blank, set_v_blank: 0;
     pub has_lcdc, set_lcdc: 1;
     pub has_timer, set_timer: 2;
@@ -89,19 +66,21 @@ bitfield! {
 }
 
 /// Implements the Register trait.
+#[macro_export]
 macro_rules! declare_register {
     ($x:ident, $address:expr) => {
         // Implement the Register trait.
-        impl<T> Register for $x<T> {
+        impl<T> crate::io_registers::Register for $x<T> {
             const ADDRESS: i32 = $address as i32;
         }
     };
 }
 
+#[macro_export]
 macro_rules! declare_register_u8 {
     ($x:ident, $address:expr) => {
         // Implement the Register trait.
-        impl Register for $x {
+        impl crate::io_registers::Register for $x {
             const ADDRESS: i32 = $address as i32;
         }
 
@@ -122,11 +101,8 @@ macro_rules! from_u8 {
     };
 }
 
-declare_register!(LcdStatus, 0xFF41);
-declare_register!(LcdControl, 0xFF00);
-declare_register!(InterruptFlag, Addresses::InterruptFired);
+declare_register_u8!(InterruptFlag, Addresses::InterruptFired);
 declare_register_u8!(TimerControl, Addresses::TimerControl);
 declare_register_u8!(SerialControl, Addresses::SerialControl);
 
-from_u8!(LcdcModeFlag);
 from_u8!(TimerFrequency);

@@ -8,14 +8,18 @@
 #![allow(unused_doc_comments)]
 // Remove when this file is uncommented out.
 #![allow(unused_variables)]
+// Temp
+#![allow(unused_imports)]
 
 use gl::types::GLuint;
+
+#[macro_use]
+mod io_registers;
 
 mod cart;
 mod cpu;
 mod error;
-//mod gpu;
-mod io_registers;
+mod gpu;
 mod mmu;
 mod serial;
 mod system;
@@ -178,26 +182,27 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
+    let cart = cart::from_file("./opus5.gb");
+    //let cart = cart::from_file("./individual/01-special.gb");
     //let cart = cart::from_file("./instr_timing.gb");
-    let cart = cart::from_file("./individual/01-special.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
-        for _ in 0..20000 {
+        for _ in 0..2000 {
             system.execute_machine_cycle()?;
         }
 
         //if system.gpu.mode == GpuMode::VBlank {
         {
-            let /*mut*/ data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
+            let mut data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
 
             for j in 0..144_usize {
                 for i in 0..160_usize {
-                    // let pixel = system.gpu.get_pixel(i as u32, j as u32);
+                    let pixel = system.gpu().get_pixel(i as i32, j as i32);
 
-                    // data[(i + j * 160) * 3] = pixel.r;
-                    // data[(i + j * 160) * 3 + 1] = pixel.g;
-                    // data[(i + j * 160) * 3 + 2] = pixel.b;
+                    data[(i + j * 160) * 3] = pixel.r;
+                    data[(i + j * 160) * 3 + 1] = pixel.g;
+                    data[(i + j * 160) * 3 + 2] = pixel.b;
                 }
             }
 

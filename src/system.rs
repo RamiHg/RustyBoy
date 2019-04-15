@@ -1,13 +1,23 @@
 use crate::error::{self, Result};
+use crate::gpu;
 use crate::io_registers;
 use crate::serial;
 use crate::timer;
 use crate::{cpu, mmu, util};
 
-pub struct FireInterrupt(pub bool);
+pub struct FireInterrupt(i32);
+
+impl FireInterrupt {
+    fn new() -> FireInterrupt { FireInterrupt(0) }
+    pub fn vblank() -> FireInterrupt { FireInterrupt(0b1) }
+    pub fn lcdc() -> FireInterrupt { FireInterrupt(0b10) }
+    pub fn timer() -> FireInterrupt { FireInterrupt(0b100) }
+    pub fn serial() -> FireInterrupt { FireInterrupt(0b1000) }
+}
 
 pub struct System {
     cpu: cpu::Cpu,
+    gpu: gpu::Gpu,
 
     memory: mmu::Memory,
     timer: timer::Timer,
@@ -19,6 +29,7 @@ impl System {
     pub fn new_with_cart(cart: Box<mmu::MemoryMapped>) -> System {
         System {
             cpu: cpu::Cpu::new(),
+            gpu: gpu::Gpu::new(),
             memory: mmu::Memory::new(),
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
@@ -26,8 +37,16 @@ impl System {
         }
     }
 
+    pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
+
     fn read_request(&self, raw_address: i32) -> Result<i32> {
-        let modules = [&self.timer, self.cart.as_ref(), &self.serial, &self.memory];
+        let modules = [
+            &self.timer,
+            self.cart.as_ref(),
+            &self.serial,
+            &self.gpu,
+            &self.memory,
+        ];
         let address = mmu::Address::from_raw(raw_address)?;
         for module in &modules {
             if let Some(result) = module.read(address) {
@@ -45,6 +64,7 @@ impl System {
             &mut self.timer,
             self.cart.as_mut(),
             &mut self.serial,
+            &mut self.gpu,
             &mut self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -76,6 +96,10 @@ impl System {
     fn handle_cpu_memory_writes(&mut self) -> Result<()> {
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
+            // println!(
+            //     "Writing {:X?} to {:X}",
+            //     self.cpu.state.data_latch, self.cpu.state.address_latch
+            // );
             assert!(util::is_16bit(self.cpu.state.address_latch));
             assert!(util::is_8bit(self.cpu.state.data_latch));
             if self.cpu.t_state.get() == 4 {
@@ -85,18 +109,23 @@ impl System {
         Ok(())
     }
 
+    fn maybe_fire_interrupt(&mut self, maybe_fire: Option<FireInterrupt>) {
+        let mut current_if = self
+            .memory
+            .read(io_registers::Addresses::InterruptFired as i32);
+        if let Some(value) = maybe_fire {
+            current_if |= value.0;
+        }
+        self.memory
+            .store(io_registers::Addresses::InterruptFired as i32, current_if);
+    }
+
     fn handle_timer(&mut self) -> Result<timer::Timer> {
         // Execute the timer at the rise of TCycle 4, such that it can control writes coming in from
         // the CPU.
-        if self.cpu.t_state.get() == 1 {
+        if self.cpu.t_state.get() != 100 {
             let (new_timer, should_interrupt) = self.timer.execute_mcycle();
-            if should_interrupt.0 {
-                // Immediately set the interrupt fired flag. In real hardware, we would simply
-                // assert a flag for the interrupt handler. This is so that the CPU can override it
-                // if it wants to.
-                let mut interrupt_fired = self.memory.get_mut_register(io_registers::InterruptFlag);
-                interrupt_fired.set_timer(true);
-            }
+            self.maybe_fire_interrupt(should_interrupt);
             Ok(new_timer)
         } else {
             Ok(self.timer)
@@ -105,10 +134,7 @@ impl System {
 
     fn handle_serial(&mut self) -> serial::Controller {
         let (new_serial, should_interrupt) = self.serial.execute_tcycle();
-        if should_interrupt.0 {
-            let mut interrupt_fired = self.memory.get_mut_register(io_registers::InterruptFlag);
-            interrupt_fired.set_serial(true);
-        }
+        self.maybe_fire_interrupt(should_interrupt);
         new_serial
     }
 
@@ -117,6 +143,8 @@ impl System {
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
+        // TODO: Implement next_state for Gpu.
+        self.gpu.execute_t_cycle();
         self.cpu.execute_t_cycle(&mut self.memory)?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;
@@ -142,6 +170,7 @@ impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
         System {
             cpu: cpu::Cpu::new(),
+            gpu: gpu::Gpu::new(),
             memory: mmu::Memory::new(),
             cart: cart,
             timer: timer::Timer::new(),

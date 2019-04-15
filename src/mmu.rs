@@ -37,7 +37,7 @@ pub enum Location {
     HighRam,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Address(pub Location, pub i32);
 
 impl Address {

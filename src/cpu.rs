@@ -62,7 +62,7 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new() -> Cpu {
-        Cpu {
+        let mut cpu = Cpu {
             state: State::default(),
             registers: register::File::new([0; register::Register::NumRegisters as usize]),
             decoder: decoder::Decoder::new(),
@@ -71,7 +71,9 @@ impl Cpu {
             interrupts_enabled: false,
             is_handling_interrupt: false,
             interrupt_handle_mcycle: 0,
-        }
+        };
+        cpu.registers.set(register::Register::PC, 0x100);
+        cpu
     }
 
     pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<()> {
@@ -120,6 +122,11 @@ impl Cpu {
         if self.state.decode_mode != DecodeMode::Fetch && self.t_state.get() != 3 {
             return Ok(());
         }
+        if self.state.write_latch && self.state.address_latch == 0xFF0F {
+            println!("It aint good");
+        }
+        // TODO: All interrupts can be disabled if CPU writes to IF in the same cycle. Somehow
+        // support this.
         // In this stage, we only check IF there is an interrupt, not WHICH interrupt to fire.
         let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
         let ie_flag = memory.read(0xFFFF) & 0x1F;

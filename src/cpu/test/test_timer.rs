@@ -50,6 +50,6 @@ fn test_simple() {
             .set_mem_8bit(io_registers::Addresses::InterruptEnable as i32, 0xFF)
             .set_reg(SP, 0xFFFF)
             .execute_instructions_for_mcycles(&PRELUDE, for_cycles(freq as i32))
-            .assert_reg_eq(A, 2);
+            .assert_reg_eq(A, 1);
     }
 }

@@ -109,6 +109,7 @@ impl Decoder {
     }
 
     pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
+        //println!("op: {:X?}", op);
         if in_cb_mode {
             self.cb_op_codes[op as usize].clone()
         } else {

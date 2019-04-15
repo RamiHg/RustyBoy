@@ -15,6 +15,7 @@ pub struct Timer {
     tima: i32,
     tma: i32,
     should_interrupt: bool,
+    rly: bool,
 }
 
 impl Timer {
@@ -25,22 +26,22 @@ impl Timer {
             tima: 0,
             tma: 0,
             should_interrupt: false,
+            rly: false,
         }
     }
 
     #[allow(warnings)]
-    pub fn execute_mcycle(&self) -> (Timer, FireInterrupt) {
+    pub fn execute_mcycle(&self) -> (Timer, Option<FireInterrupt>) {
         // If we're not enabled, don't do anything.
         let mut new_state = *self;
-        let mut fire_interrupt = FireInterrupt(false);
-        new_state.counter = (self.counter + 4) & 0xFFFF;
+        let mut fire_interrupt = None;
+        new_state.counter = (self.counter + 1) & 0xFFFF;
         let old_bit = self.edge_detector_input();
         let new_bit = new_state.edge_detector_input();
         if old_bit && !new_bit && self.tac.enabled() {
             // Negative edge detector fired! Increase TIMA.
             new_state.tima += 1;
         }
-        //dbg!(self);
         // Check for TIMA overflow.
         let tima_overflows = (self.tima & 0x100) != 0;
         if tima_overflows {
@@ -49,8 +50,14 @@ impl Timer {
             new_state.should_interrupt = true;
         }
         if self.should_interrupt {
-            fire_interrupt.0 = true;
+            assert!(self.tac.enabled());
+            new_state.rly = true;
+            //fire_interrupt = Some(FireInterrupt::timer());
             new_state.should_interrupt = false;
+        }
+        if self.rly {
+            fire_interrupt = Some(FireInterrupt::timer());
+            new_state.rly = false;
         }
         (new_state, fire_interrupt)
     }
@@ -107,6 +114,7 @@ impl mmu::MemoryMapped for Timer {
                 // If we're setting TIMA to TMA in this cycle, ignore any other request coming from
                 // the CPU.
                 //if !(self.should_interrupt && (self.tima & 0x100) != 0) {
+                assert!(!self.should_interrupt);
                 self.tima = value;
                 // }
                 Some(())

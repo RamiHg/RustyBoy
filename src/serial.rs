@@ -3,6 +3,7 @@ use crate::mmu;
 use crate::system;
 
 use num_traits::FromPrimitive;
+use system::Interrupts;
 
 #[derive(Clone)]
 pub struct Controller {
@@ -27,9 +28,9 @@ impl Controller {
         }
     }
 
-    pub fn execute_tcycle(&self) -> (Controller, Option<system::FireInterrupt>) {
+    pub fn execute_tcycle(&self) -> (Controller, Interrupts) {
         let mut next_state = self.clone();
-        let mut fire_interrupt = None;
+        let mut fire_interrupt = Interrupts::empty();
         if self.control.is_transferring() {
             next_state.counter = self.counter + 1;
 
@@ -50,7 +51,7 @@ impl Controller {
                     next_state.bytes.push(self.buffer as u8 as char);
                     //print!("{}", self.buffer as u8 as char);
                     next_state.control.set_transferring(false);
-                    fire_interrupt = Some(system::FireInterrupt::serial());
+                    fire_interrupt = Interrupts::SERIAL;
                     next_state.counter = 0;
                     next_state.buffer = 0;
                 }

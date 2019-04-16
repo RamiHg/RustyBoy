@@ -102,11 +102,19 @@ pub enum LcdMode {
     TransferringToLcd,
 }
 
+#[derive(Clone, Copy)]
+pub enum InterruptType {
+    HBlank = 0b1000,
+    VBlank = 0b10000,
+    Oam = 0b100000,
+    LyIsLyc = 0b1000000,
+}
+
 bitfield! {
     pub struct LcdStatus(u8);
     u8;
     pub into LcdMode, mode, set_mode: 1, 0;
-    is_coincidence_flag, set_is_coincidence_flag: 2;
+    pub ly_is_lyc, set_ly_is_lyc: 2;
     pub enable_hblank_int, set_enable_hblank_int: 3;
     pub enable_vblank_int, set_vnable_hblank_int: 4;
     pub enable_oam_int, set_enable_oam_int: 5;

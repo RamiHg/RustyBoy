@@ -4,14 +4,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Cargo test",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run"
-                ],
-            },
-            "program": "${cargo:program}",
+            "name": "Debug",
+            // "cargo": {
+            //     "args": [],
+            // },
+            "program": "${workspaceRoot}/target/debug/rusty_boy",
             "args": [],
             "sourceLanguages": [
                 "rust"

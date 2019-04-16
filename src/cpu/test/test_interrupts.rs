@@ -62,6 +62,35 @@ fn test_single_interrupt() {
 }
 
 #[test]
+fn test_reti_timing() {
+    #[rustfmt::skip]
+    const RETURN_BODY: [u8; 2] = [
+        // Should never execute, as it would interrupt immediately.
+        LD_A_IMM, 0xBE
+    ];
+    #[rustfmt::skip]
+    const INTERRUPT_HANDLER: [u8; 3] = [
+        // Jump to after our instruction body.
+        JP, 0x01, 0xC0,
+    ];
+    const INITIAL_OPS: [u8; 1] = [RETI];
+    with_default()
+        // Set the interrupt handling routine.
+        .set_mem_range(0x40, &INTERRUPT_HANDLER)
+        // Set the instructions that RETI will return to.
+        .set_mem_range(0xD000, &RETURN_BODY)
+        // Save RETURN_BODY's address on the stack.
+        .set_mem_range(0xFF80, &[0x00, 0xD0])
+        .set_reg(SP, 0xFF82)
+        .set_reg(A, 0xDA)
+        // Enable the interrupt.
+        .set_mem_8bit(0xFFFF, 1)
+        .set_mem_8bit(0xFF0F, 1)
+        .execute_instructions(&INITIAL_OPS)
+        .assert_reg_eq(A, 0xDA);
+}
+
+#[test]
 fn test_eidi_chain() {
     #[rustfmt::skip]
     const END_WITH_EI: [u8; 10] = [

@@ -24,8 +24,10 @@ pub mod instructions {
     pub const EI: u8 = 0xFB;
     pub const DI: u8 = 0xF3;
     pub const LD_A_IMM: u8 = 0x3E;
+    pub const LD_HL_IMM: u8 = 0x21;
     pub const LD_A_A: u8 = 0x7F;
     pub const JP: u8 = 0xC3;
+    pub const JP_HL: u8 = 0xE9;
     pub const JR: u8 = 0x18;
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;

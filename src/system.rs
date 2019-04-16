@@ -5,14 +5,15 @@ use crate::serial;
 use crate::timer;
 use crate::{cpu, mmu, util};
 
-pub struct FireInterrupt(i32);
+use bitflags::bitflags;
 
-impl FireInterrupt {
-    fn new() -> FireInterrupt { FireInterrupt(0) }
-    pub fn vblank() -> FireInterrupt { FireInterrupt(0b1) }
-    pub fn lcdc() -> FireInterrupt { FireInterrupt(0b10) }
-    pub fn timer() -> FireInterrupt { FireInterrupt(0b100) }
-    pub fn serial() -> FireInterrupt { FireInterrupt(0b1000) }
+bitflags! {
+    pub struct Interrupts: i32 {
+        const VBLANK = 0b0001;
+        const STAT   = 0b0010;
+        const TIMER  = 0b0100;
+        const SERIAL = 0b1000;
+    }
 }
 
 pub struct System {
@@ -85,6 +86,10 @@ impl System {
         if self.cpu.state.read_latch {
             if t_state == 3 {
                 self.cpu.state.data_latch = self.read_request(self.cpu.state.address_latch)?;
+            // println!(
+            //     "Reading {:X?} from {:X?}",
+            //     self.cpu.state.data_latch, self.cpu.state.address_latch
+            // );
             } else {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
@@ -109,13 +114,11 @@ impl System {
         Ok(())
     }
 
-    fn maybe_fire_interrupt(&mut self, maybe_fire: Option<FireInterrupt>) {
+    fn maybe_fire_interrupt(&mut self, maybe_fire: Interrupts) {
         let mut current_if = self
             .memory
             .read(io_registers::Addresses::InterruptFired as i32);
-        if let Some(value) = maybe_fire {
-            current_if |= value.0;
-        }
+        current_if |= maybe_fire.bits();
         self.memory
             .store(io_registers::Addresses::InterruptFired as i32, current_if);
     }
@@ -138,13 +141,18 @@ impl System {
         new_serial
     }
 
+    fn handle_gpu(&mut self) {
+        let should_interrupt = self.gpu.execute_t_cycle();
+        self.maybe_fire_interrupt(should_interrupt);
+    }
+
     fn execute_t_cycle(&mut self) -> Result<()> {
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         // TODO: Implement next_state for Gpu.
-        self.gpu.execute_t_cycle();
+        self.handle_gpu();
         self.cpu.execute_t_cycle(&mut self.memory)?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;

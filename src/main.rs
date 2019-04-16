@@ -182,13 +182,13 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./opus5.gb");
+    let cart = cart::from_file("./tetris.gb");
     //let cart = cart::from_file("./individual/01-special.gb");
     //let cart = cart::from_file("./instr_timing.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
-        for _ in 0..2000 {
+        for _ in 0..20000 {
             system.execute_machine_cycle()?;
         }
 
@@ -200,9 +200,9 @@ fn main() -> error::Result<()> {
                 for i in 0..160_usize {
                     let pixel = system.gpu().get_pixel(i as i32, j as i32);
 
-                    data[(i + j * 160) * 3] = pixel.r;
-                    data[(i + j * 160) * 3 + 1] = pixel.g;
-                    data[(i + j * 160) * 3 + 2] = pixel.b;
+                    data[(i + (143 - j) * 160) * 3] = pixel.r;
+                    data[(i + (143 - j) * 160) * 3 + 1] = pixel.g;
+                    data[(i + (143 - j) * 160) * 3 + 2] = pixel.b;
                 }
             }
 

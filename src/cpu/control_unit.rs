@@ -147,9 +147,11 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
 
 fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State) {
     if code.enable_interrupts {
+        println!("Im enabling");
         next_state.interrupt_enable_counter = 2;
         cpu.interrupts_enabled = false;
     } else if code.disable_interrupts {
+        println!("Im disabling");
         cpu.interrupts_enabled = false;
         next_state.interrupt_enable_counter = 0;
     }

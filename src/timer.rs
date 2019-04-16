@@ -1,6 +1,6 @@
 use crate::io_registers;
 use crate::mmu;
-use crate::system::FireInterrupt;
+use crate::system::Interrupts;
 use crate::util;
 use crate::util::is_bit_set;
 
@@ -31,10 +31,10 @@ impl Timer {
     }
 
     #[allow(warnings)]
-    pub fn execute_mcycle(&self) -> (Timer, Option<FireInterrupt>) {
+    pub fn execute_mcycle(&self) -> (Timer, Interrupts) {
         // If we're not enabled, don't do anything.
         let mut new_state = *self;
-        let mut fire_interrupt = None;
+        let mut fire_interrupt = Interrupts::empty();
         new_state.counter = (self.counter + 1) & 0xFFFF;
         let old_bit = self.edge_detector_input();
         let new_bit = new_state.edge_detector_input();
@@ -56,7 +56,7 @@ impl Timer {
             new_state.should_interrupt = false;
         }
         if self.rly {
-            fire_interrupt = Some(FireInterrupt::timer());
+            fire_interrupt = Interrupts::TIMER;
             new_state.rly = false;
         }
         (new_state, fire_interrupt)

@@ -18,6 +18,7 @@ mod io_registers;
 
 mod cart;
 mod cpu;
+// mod debug;
 mod error;
 mod gpu;
 mod mmu;

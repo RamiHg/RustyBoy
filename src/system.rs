@@ -147,6 +147,25 @@ impl System {
     }
 
     fn execute_t_cycle(&mut self) -> Result<()> {
+        if self.cpu.t_state.get() == 3
+            && self.cpu.state.decode_mode == cpu::DecodeMode::Decode
+            && !self.cpu.is_handling_interrupt
+        {
+            let pc_plus =
+                |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
+            let disas =
+                gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
+            if let core::result::Result::Ok(op) = disas {
+                println!(
+                    "{:04X?}\t{}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    op
+                );
+            } else {
+                println!("Bad opcode");
+            }
+        }
+
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;

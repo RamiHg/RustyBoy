@@ -8,7 +8,7 @@ mod asm;
 mod control_unit;
 mod decoder;
 mod micro_code;
-mod register;
+pub mod register;
 
 #[cfg(test)]
 mod test;
@@ -55,8 +55,8 @@ pub struct Cpu {
 
     pub t_state: TState,
 
+    pub is_handling_interrupt: bool,
     interrupts_enabled: bool,
-    is_handling_interrupt: bool,
     interrupt_handle_mcycle: i32,
 }
 

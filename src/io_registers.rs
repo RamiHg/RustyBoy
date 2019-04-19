@@ -85,7 +85,7 @@ macro_rules! declare_register_u8 {
         }
 
         impl Clone for $x {
-            fn clone(&self) -> Self { $x(self.0) }
+            fn clone(&self) -> Self { *self }
         }
         impl Copy for $x {}
     };

@@ -94,7 +94,7 @@ impl LcdControl {
 }
 
 /// LCD Status Register (STAT). 0xFF41.
-#[derive(FromPrimitive, PartialEq, Debug)]
+#[derive(Clone, Copy, FromPrimitive, PartialEq, Debug)]
 pub enum LcdMode {
     HBlank,
     VBlank,
@@ -127,7 +127,7 @@ bitfield! {
     u8;
 }
 
-//declare_register!(LcdStatus, io_registers::Addresses::LcdStatus);
+declare_register_u8!(LcdStatus, io_registers::Addresses::LcdStatus);
 declare_register_u8!(LcdControl, io_registers::Addresses::LcdControl);
 
 from_u8!(LcdMode);

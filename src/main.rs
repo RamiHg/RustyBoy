@@ -10,8 +10,11 @@
 #![allow(unused_variables)]
 // Temp
 #![allow(unused_imports)]
+#![allow(unused_parens)]
 
+use gl;
 use gl::types::GLuint;
+use glutin;
 
 #[macro_use]
 mod io_registers;
@@ -54,6 +57,8 @@ void main() {
         (gl_VertexID & 2) << 1);
     gl_Position.zw = vec2(-1, 1);
     uv = (gl_Position.xy + 1) / 2;
+    // Flip image vertically because we are writing it with top-left origin.
+    uv.y = 1 - uv.y;
 }
 \0
 ";
@@ -137,22 +142,22 @@ fn load_all_shaders() -> GLuint {
 }
 
 fn main() -> error::Result<()> {
-    use glutin::GlContext;
+    use glutin::ContextTrait;
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
     let context = glutin::ContextBuilder::new()
-        .with_vsync(true)
+        .with_vsync(false)
         .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
-        .with_gl_profile(glutin::GlProfile::Core);
-    let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+        .with_gl_profile(glutin::GlProfile::Core)
+        .build_windowed(window, &events_loop)
+        .unwrap();
 
     unsafe {
-        gl_window.make_current().unwrap();
-        assert!(!gl_window.is_current());
+        context.make_current().unwrap();
     }
 
-    gl::load_with(|s| gl_window.get_proc_address(s) as *const _);
+    gl::load_with(|s| context.get_proc_address(s) as *const _);
 
     // Create a dummy VAO.
     let mut dummy_vao = 0_u32;
@@ -183,43 +188,27 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./tetris.gb");
+    let cart = cart::from_file("./opus5.gb");
     //let cart = cart::from_file("./individual/01-special.gb");
     //let cart = cart::from_file("./instr_timing.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
-        for _ in 0..20000 {
+        for _ in 0..17556 {
             system.execute_machine_cycle()?;
         }
-
-        //if system.gpu.mode == GpuMode::VBlank {
-        {
-            let mut data: [u8; 160 * 144 * 3] = [0; 160 * 144 * 3];
-
-            for j in 0..144_usize {
-                for i in 0..160_usize {
-                    let pixel = system.gpu().get_pixel(i as i32, j as i32);
-
-                    data[(i + (143 - j) * 160) * 3] = pixel.r;
-                    data[(i + (143 - j) * 160) * 3 + 1] = pixel.g;
-                    data[(i + (143 - j) * 160) * 3 + 2] = pixel.b;
-                }
-            }
-
-            unsafe {
-                GL!(gl::TexSubImage2D(
-                    gl::TEXTURE_2D,
-                    0,
-                    0,
-                    0,
-                    160,
-                    144,
-                    gl::RGB,
-                    gl::UNSIGNED_BYTE,
-                    data.as_ptr() as *const core::ffi::c_void
-                ));
-            }
+        unsafe {
+            GL!(gl::TexSubImage2D(
+                gl::TEXTURE_2D,
+                0,
+                0,
+                0,
+                160,
+                144,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                system.get_screen().as_ptr() as *const core::ffi::c_void
+            ));
         }
 
         // Copy GPU image to framebuffer.
@@ -242,7 +231,7 @@ fn main() -> error::Result<()> {
             break;
         }
 
-        gl_window.swap_buffers().unwrap();
+        context.swap_buffers().unwrap();
     }
 
     Ok(())

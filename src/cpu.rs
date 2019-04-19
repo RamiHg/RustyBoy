@@ -42,7 +42,7 @@ pub struct TState(i32);
 impl TState {
     pub fn get(&self) -> i32 { self.0 + 1 }
 
-    pub fn inc(&mut self) { self.0 = (self.0 + 1) % 4; }
+    pub fn inc(&mut self) { self.0 = (self.0 + 1) & 0x3; }
 }
 
 // This needs to get heavily refactored, with the control unit

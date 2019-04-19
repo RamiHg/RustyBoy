@@ -5,6 +5,8 @@ use crate::serial;
 use crate::timer;
 use crate::{cpu, mmu, util};
 
+use gpu::Pixel;
+
 use bitflags::bitflags;
 
 bitflags! {
@@ -24,6 +26,8 @@ pub struct System {
     timer: timer::Timer,
     serial: serial::Controller,
     cart: Box<mmu::MemoryMapped>,
+
+    screen: Vec<Pixel>,
 }
 
 impl System {
@@ -35,10 +39,13 @@ impl System {
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             cart,
+
+            screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
         }
     }
 
     pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
+    pub fn get_screen(&self) -> &[Pixel] { &self.screen }
 
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
@@ -141,9 +148,10 @@ impl System {
         new_serial
     }
 
-    fn handle_gpu(&mut self) {
-        let should_interrupt = self.gpu.execute_t_cycle();
+    fn handle_gpu(&mut self) -> gpu::Gpu {
+        let (next_gpu, should_interrupt) = self.gpu.execute_t_cycle(&mut self.screen);
         self.maybe_fire_interrupt(should_interrupt);
+        next_gpu
     }
 
     fn execute_t_cycle(&mut self) -> Result<()> {
@@ -155,27 +163,27 @@ impl System {
                 |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
             let disas =
                 gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
-            if let core::result::Result::Ok(op) = disas {
-                println!(
-                    "{:04X?}\t{}",
-                    self.cpu.registers.get(cpu::register::Register::PC),
-                    op
-                );
-            } else {
-                println!("Bad opcode");
-            }
+            // if let core::result::Result::Ok(op) = disas {
+            //     println!(
+            //         "{:04X?}\t{}",
+            //         self.cpu.registers.get(cpu::register::Register::PC),
+            //         op
+            //     );
+            // } else {
+            //     println!("Bad opcode");
+            // }
         }
 
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
-        // TODO: Implement next_state for Gpu.
-        self.handle_gpu();
+        let new_gpu = self.handle_gpu();
         self.cpu.execute_t_cycle(&mut self.memory)?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
+        self.gpu = new_gpu;
         self.handle_cpu_memory_writes()?;
 
         Ok(())
@@ -195,14 +203,7 @@ impl System {
 #[cfg(test)]
 impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
-        System {
-            cpu: cpu::Cpu::new(),
-            gpu: gpu::Gpu::new(),
-            memory: mmu::Memory::new(),
-            cart: cart,
-            timer: timer::Timer::new(),
-            serial: serial::Controller::new(),
-        }
+        System::new_with_cart(cart)
     }
 
     // pub fn memory_mut(&mut self) -> &mut mmu::Memory { &mut self.memory }

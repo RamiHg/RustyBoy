@@ -102,6 +102,25 @@ fn test_ld_a_m16() {
 }
 
 #[test]
+fn test_ld_a_c() {
+    // LD A, (0xFF00 + C)
+    // NOTE: The pastraiser tables INCORRECTLY state that this instruction is 2 bytes long. It is,
+    // in fact, one byte! Adding a regression test for this.
+    with_default()
+        .set_mem_8bit(0xFFAB, 0xEA)
+        .set_reg(C, 0xAB)
+        .execute_instructions(&[0xF2])
+        .assert_reg_eq(A, 0xEA)
+        .assert_mcycles(2);
+    with_default()
+        .set_mem_8bit(0xFFAB, 0xEA)
+        .set_reg(C, 0xAB)
+        .execute_instructions(&[0xF2, LD_A_IMM, 0xBE])
+        .assert_reg_eq(A, 0xBE)
+        .assert_mcycles(4);
+}
+
+#[test]
 fn test_ld_assorted() {
     // LD A, (0xFF00 + n)
     with_default()
@@ -114,12 +133,5 @@ fn test_ld_assorted() {
         .set_reg(HL, 0xBEEF)
         .execute_instructions(&[0xF9])
         .assert_reg_eq(SP, 0xBEEF)
-        .assert_mcycles(2);
-    // LD A, (0xFF00 + C)
-    with_default()
-        .set_mem_8bit(0xFFAB, 0xEA)
-        .set_reg(C, 0xAB)
-        .execute_instructions(&[0xF2, 0x00])
-        .assert_reg_eq(A, 0xEA)
         .assert_mcycles(2);
 }

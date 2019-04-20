@@ -5,7 +5,9 @@ authors = ["Ramy"]
 edition = "2018"
 
 [dependencies]
+arrayvec = "0.4.10"
 bitflags = "1.0.4"
+more-asserts = "0.2.1"
 gl = "0.12.0"
 glutin = "0.20.0"
 bitfield = "0.13.1"
@@ -21,3 +23,4 @@ backtrace = "0.3.15"
 
 [profile.release]
 debug = true
+debug-assertions = true

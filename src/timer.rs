@@ -50,7 +50,7 @@ impl Timer {
             new_state.should_interrupt = true;
         }
         if self.should_interrupt {
-            assert!(self.tac.enabled());
+            debug_assert!(self.tac.enabled());
             new_state.rly = true;
             //fire_interrupt = Some(FireInterrupt::timer());
             new_state.should_interrupt = false;
@@ -99,7 +99,7 @@ impl mmu::MemoryMapped for Timer {
     }
 
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
-        assert!(util::is_8bit(value));
+        debug_assert!(util::is_8bit(value));
         let mmu::Address(_, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
             Some(io_registers::Addresses::TimerDiv) => {
@@ -114,7 +114,7 @@ impl mmu::MemoryMapped for Timer {
                 // If we're setting TIMA to TMA in this cycle, ignore any other request coming from
                 // the CPU.
                 //if !(self.should_interrupt && (self.tima & 0x100) != 0) {
-                assert!(!self.should_interrupt);
+                debug_assert!(!self.should_interrupt);
                 self.tima = value;
                 // }
                 Some(())

@@ -52,14 +52,14 @@ impl Cart {
 
     fn translate_rom_bank_read(&self, raw_address: i32) -> Option<i32> {
         // First, compute the rom bank number (TODO: Can cache between bank selects).
-        assert_eq!(self.rom_bank & 0xE0, 0);
-        assert_ne!(self.rom_bank, 0);
-        assert_eq!(self.ram_upper_rom_bits & 0xFC, 0);
-        assert_eq!(self.is_ram_banking_mode, false);
+        debug_assert_eq!(self.rom_bank & 0xE0, 0);
+        debug_assert_ne!(self.rom_bank, 0);
+        debug_assert_eq!(self.ram_upper_rom_bits & 0xFC, 0);
+        debug_assert_eq!(self.is_ram_banking_mode, false);
         // 0b000xxxxx | 0b0xx00000
         let rom_bank = i32::from(self.rom_bank | (self.ram_upper_rom_bits << 5));
         let read_address = rom_bank * (16 * 1024) + (raw_address - 0x4000);
-        assert!(read_address < self.mem.len() as i32);
+        debug_assert!(read_address < self.mem.len() as i32);
         Some(self.mem[read_address as usize] as i32)
     }
 }

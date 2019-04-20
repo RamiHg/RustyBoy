@@ -57,7 +57,7 @@ impl Controller {
                 }
             }
         } else {
-            assert_eq!(self.counter, 0);
+            debug_assert_eq!(self.counter, 0);
         }
         (next_state, fire_interrupt)
     }

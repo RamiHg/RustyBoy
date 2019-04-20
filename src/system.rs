@@ -88,7 +88,7 @@ impl System {
     }
 
     fn handle_cpu_memory_reads(&mut self) -> Result<()> {
-        assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
+        debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
             if t_state == 3 {
@@ -112,8 +112,8 @@ impl System {
             //     "Writing {:X?} to {:X}",
             //     self.cpu.state.data_latch, self.cpu.state.address_latch
             // );
-            assert!(util::is_16bit(self.cpu.state.address_latch));
-            assert!(util::is_8bit(self.cpu.state.data_latch));
+            debug_assert!(util::is_16bit(self.cpu.state.address_latch));
+            debug_assert!(util::is_8bit(self.cpu.state.data_latch));
             if self.cpu.t_state.get() == 4 {
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
@@ -163,15 +163,19 @@ impl System {
                 |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
             let disas =
                 gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
-            // if let core::result::Result::Ok(op) = disas {
-            //     println!(
-            //         "{:04X?}\t{}",
-            //         self.cpu.registers.get(cpu::register::Register::PC),
-            //         op
-            //     );
-            // } else {
-            //     println!("Bad opcode");
-            // }
+            if let core::result::Result::Ok(op) = disas {
+                println!(
+                    "{:04X?}\t{}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    op
+                );
+            } else {
+                println!(
+                    "{:04X?}\tBad opcode {:X?}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    pc_plus(0)?
+                );
+            }
         }
 
         // Do all the rising edge sampling operations.

@@ -50,7 +50,7 @@ impl Default for Op {
 
 impl Op {
     pub fn execute(self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
-        assert!(util::is_8bit(lhs));
+        debug_assert!(util::is_8bit(lhs));
 
         let has_carry: i32 = flags.intersects(Flags::CARRY).into();
 

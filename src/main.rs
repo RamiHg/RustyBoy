@@ -17,6 +17,9 @@ use gl::types::GLuint;
 use glutin;
 
 #[macro_use]
+extern crate more_asserts;
+
+#[macro_use]
 mod io_registers;
 
 mod cart;
@@ -188,15 +191,17 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./opus5.gb");
+    let cart = cart::from_file("./sprite_test_01.gb");
     //let cart = cart::from_file("./individual/01-special.gb");
     //let cart = cart::from_file("./instr_timing.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
+        //let now = std::time::Instant::now();
         for _ in 0..17556 {
             system.execute_machine_cycle()?;
         }
+        //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
         unsafe {
             GL!(gl::TexSubImage2D(
                 gl::TEXTURE_2D,

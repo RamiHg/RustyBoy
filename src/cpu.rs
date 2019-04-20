@@ -96,7 +96,7 @@ impl Cpu {
         // If interrupts are enabled, check for any fired interrupts. Otherwise, check if we are
         // currently handling an interrupt. If none of that, proceed as usual.
         if self.interrupts_enabled {
-            assert!(!self.is_handling_interrupt);
+            debug_assert!(!self.is_handling_interrupt);
             self.check_for_interrupts(memory)?;
         } else if self.is_handling_interrupt {
             // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read
@@ -117,7 +117,7 @@ impl Cpu {
     }
 
     fn check_for_interrupts(&mut self, memory: &Memory) -> Result<()> {
-        assert!(self.interrupts_enabled);
+        debug_assert!(self.interrupts_enabled);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
         if self.state.decode_mode != DecodeMode::Fetch && self.t_state.get() != 3 {
             return Ok(());
@@ -133,6 +133,7 @@ impl Cpu {
         }
         let ie_flag = memory.read(0xFFFF) & 0x1F;
         if (interrupt_fired_flag & ie_flag) != 0 {
+            println!("firing");
             // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
             // interrupt handling routine micro-codes.
             self.micro_code_stack = self.decoder.interrupt_handler();
@@ -158,7 +159,7 @@ impl Cpu {
         // In hardware this would be a case statement, but let's be clean here.
         let interrupt_index = fired_interrupts.trailing_zeros() as i32;
         dbg!(interrupt_index);
-        assert!(interrupt_index <= 4);
+        debug_assert!(interrupt_index <= 4);
         self.registers
             .set(register::Register::TEMP_LOW, interrupt_index * 8);
         // Finally, issue a write to clear the fired bit.

@@ -35,7 +35,7 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                 let opcode = cpu.state.data_latch;
                 // TODO: Clean up
                 if !cpu.is_handling_interrupt {
-                    assert!(cpu.micro_code_stack.is_empty());
+                    debug_assert!(cpu.micro_code_stack.is_empty());
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }

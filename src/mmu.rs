@@ -42,7 +42,7 @@ pub struct Address(pub Location, pub i32);
 
 impl Address {
     pub fn from_raw(raw: i32) -> Result<Address> {
-        assert!(util::is_16bit(raw));
+        debug_assert!(util::is_16bit(raw));
         use Location::*;
         match raw {
             0x0000...0x7FFF => Ok(Address(MbcRom, raw)),
@@ -97,13 +97,16 @@ impl MemoryMapped for Memory {
     }
 
     fn write(&mut self, address: Address, value: i32) -> Option<()> {
-        assert!(util::is_8bit(value));
+        debug_assert!(util::is_8bit(value));
         let Address(location, raw) = address;
         use Location::*;
         match location {
             VRam | InternalRam | OAM | Registers | HighRam => {
                 if raw == 0xFFFF {
-                    println!("Setting IE to {}", value);
+                    //println!("Setting IE to {}", value);
+                } else if raw == 0xFF46 {
+                    println!("DMA!");
+                    panic!();
                 }
                 self.mem[raw as usize] = value as u8;
                 Some(())

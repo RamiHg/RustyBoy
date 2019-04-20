@@ -163,7 +163,7 @@ impl File {
 
     pub fn set(&mut self, any: Register, value: i32) {
         use Register::*;
-        assert!(any.is_pair() && is_16bit(value) || is_8bit(value));
+        debug_assert!(any.is_pair() && is_16bit(value) || is_8bit(value));
         let value_u8 = value & 0xFF;
         let value_high = (value & 0xFF00) >> 8;
         match any {

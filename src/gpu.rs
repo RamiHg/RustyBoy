@@ -6,6 +6,7 @@ use crate::mmu;
 use crate::system::Interrupts;
 use registers::*;
 
+use arrayvec::ArrayVec;
 use num_traits::FromPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -46,18 +47,16 @@ pub struct Gpu {
 
     fifo: PixelFifo,
     fetcher: PixelFetcher,
+    visible_sprites: ArrayVec<[u8; 10]>,
 
     // VRAM.
-    vram: Rc<RefCell<[u8; 8192]>>,
+    vram: Rc<RefCell<[u8; 8192 + 160]>>,
 }
 
 impl Gpu {
     pub fn new() -> Gpu {
         let mut lcd_status = LcdStatus(0);
         lcd_status.set_mode(LcdMode::ReadingOAM as u8);
-
-        // let mut vram = BytesMut::with_capacity(8192);
-        // vram.extend_from_slice(&[0; 8192]);
 
         Gpu {
             lcd_control: LcdControl(0x91),
@@ -76,18 +75,24 @@ impl Gpu {
 
             fifo: PixelFifo::new(),
             fetcher: PixelFetcher::new(),
-            vram: Rc::new(RefCell::new([0; 8192])),
+            visible_sprites: ArrayVec::new(),
+
+            // Store OAM with Vram in order to reduce amount of copying.
+            vram: Rc::new(RefCell::new([0; 8192 + 160])),
         }
     }
-
-    //pub fn get_pixel(&self, i: i32, j: i32) -> Pixel { self.screen[(i + j * LCD_WIDTH) as usize]
-    // }
 
     pub fn vram(&self, address: i32) -> i32 {
         self.vram.borrow()[(address - 0x8000) as usize] as i32
     }
     pub fn set_vram(&mut self, address: i32, value: i32) {
         self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
+    }
+    pub fn oam(&self, address: i32) -> i32 {
+        self.vram.borrow()[(address - 0xFE00 + 0x8000) as usize] as i32
+    }
+    pub fn set_oam(&mut self, address: i32, value: i32) {
+        self.vram.borrow_mut()[(address - 0xFE00 + 0x8000) as usize] = value as u8;
     }
 
     fn maybe_fire_interrupt(&self, interrupt_type: InterruptType) -> Interrupts {
@@ -120,14 +125,11 @@ impl Gpu {
         let mut fire_interrupt = Interrupts::empty();
         let mut next_mode = self.lcd_status.mode();
 
-        next_state
-            .lcd_status
-            .set_ly_is_lyc(self.current_y == self.lyc);
-        next_state.cycle += 1;
-
         // Remaining minor points: LY=LYC needs to be forced to 0 in certain situations.
         match self.lcd_status.mode() {
             LcdMode::ReadingOAM => {
+                self.oam_cycle(&mut next_state);
+
                 if self.cycle == 0 {
                     if self.current_y == self.lyc && self.lyc != 0 {
                         // HW: The LYC interrupt must fire on the cycle the mode becomes OAM.
@@ -147,7 +149,7 @@ impl Gpu {
             }
             LcdMode::TransferringToLcd => {
                 self.lcd_transfer_cycle(&mut next_state, screen);
-                //assert!(self.cycle < (43 + 16) * 4);
+                //debug_assert!(self.cycle < (43 + 16) * 4);
                 if next_state.pixels_pushed == LCD_WIDTH {
                     // TODO: Must be careful about next state selection in hardware.
                     next_state.pixels_pushed = 0;
@@ -205,11 +207,15 @@ impl Gpu {
                         assert_eq!(self.current_x, 0);
                         assert_eq!(self.pixels_pushed, 0);
                         next_mode = LcdMode::ReadingOAM;
-                        next_state.scroll_x = (next_state.scroll_x + 1) % 255;
+                        //next_state.scroll_x = (next_state.scroll_x + 1) % 255;
                     }
                 }
             }
         }
+        next_state
+            .lcd_status
+            .set_ly_is_lyc(next_state.current_y == self.lyc);
+        next_state.cycle += 1;
         if next_mode != self.lcd_status.mode() {
             //println!("Going to {:?}", next_mode);
         }
@@ -217,15 +223,22 @@ impl Gpu {
         (next_state, fire_interrupt)
     }
 
+    fn oam_cycle(&self, next_state: &mut Gpu) {
+        // Doesn't really matter when we do the oam search - memory is unreadable by CPU.
+        if self.cycle == 0 {
+            next_state.visible_sprites =
+                sprites::find_visible_sprites(&self.vram.borrow()[8192..], self.current_y);
+            if next_state.visible_sprites.len() > 0 {
+                dbg!(&next_state.visible_sprites);
+            }
+        }
+    }
+
     fn lcd_transfer_cycle(&self, next_state: &mut Gpu, screen: &mut [Pixel]) {
-        // dbg!(self.fetcher);
-        // dbg!(self.pixels_pushed);
-        // dbg!(self.fifo.len());
         let fetcher_is_ready = self.fetcher.is_ready();
 
         let mut next_fifo = self.fifo.clone();
         let mut next_fetcher = self.fetcher.execute_tcycle_mut(&self);
-        //let mut borrowed_pixel = false;
         let mut new_len = self.fifo.len();
 
         let mut pixel = None;
@@ -236,7 +249,6 @@ impl Gpu {
             new_len -= 1;
         } else if self.fifo.len() > 0 && fetcher_is_ready {
             pixel = Some(self.fifo_entry_to_pixel(self.fifo.peek()));
-            //borrowed_pixel = true;
             new_len -= 1;
         }
         // Push from fetcher to fifo.
@@ -262,13 +274,23 @@ impl Gpu {
         next_state.fifo = next_fifo;
         // Actually push the pixel on the screen.
         if let Some(pixel) = pixel {
-            assert!(self.pixels_pushed < LCD_WIDTH);
+            debug_assert!(self.pixels_pushed < LCD_WIDTH);
             screen[(self.pixels_pushed + self.current_y * LCD_WIDTH) as usize] = pixel;
             next_state.pixels_pushed += 1;
         }
     }
 
     fn fifo_entry_to_pixel(&self, entry: FifoEntry) -> Pixel {
+        if sprites::get_visible_sprite(
+            self.pixels_pushed,
+            &self.visible_sprites,
+            &self.vram.borrow()[8192..],
+        )
+        .is_some()
+        {
+            return Pixel::from_values(255u8, 0, 0);
+        }
+
         match (self.bg_palette >> entry.pixel_index) & 0x3 {
             0 => Pixel::from_values(255u8, 255u8, 255u8),
             1 => Pixel::from_values(192u8, 192u8, 192u8),
@@ -303,6 +325,7 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => Some(self.vram(raw)),
+            mmu::Location::OAM => Some(self.oam(raw)),
             _ => None,
         }
     }
@@ -321,18 +344,15 @@ impl mmu::MemoryMapped for Gpu {
                     Some(())
                 }
                 Some(Addresses::ScrollX) => {
-                    dbg!(value);
                     self.scroll_x = value;
                     Some(())
                 }
                 Some(Addresses::ScrollY) => {
-                    dbg!(value);
                     self.scroll_y = value;
                     Some(())
                 }
                 Some(Addresses::LcdY) => Some(()),
                 Some(Addresses::LcdYCompare) => {
-                    dbg!(value);
                     self.lyc = value;
                     Some(())
                 }
@@ -340,7 +360,6 @@ impl mmu::MemoryMapped for Gpu {
                     self.bg_palette = value;
                     Some(())
                 }
-
                 _ => None,
             },
             mmu::Location::VRam => {
@@ -349,6 +368,15 @@ impl mmu::MemoryMapped for Gpu {
                 }
                 Some(())
             }
+            mmu::Location::OAM => match self.lcd_status.mode() {
+                //LcdMode::TransferringToLcd | LcdMode::ReadingOAM => Some(()),
+                _ => {
+                    dbg!(raw);
+                    dbg!(value);
+                    self.set_oam(raw, value);
+                    Some(())
+                }
+            },
             _ => None,
         }
     }
@@ -356,14 +384,30 @@ impl mmu::MemoryMapped for Gpu {
 
 #[derive(Clone, Copy, Debug)]
 struct FifoEntry {
-    pub pixel_index: u8,
+    pixel_index: u8,
+    is_sprite: bool,
+    is_s1: bool,
 }
 
 impl FifoEntry {
-    pub fn new(data: u8) -> FifoEntry {
-        assert!(data < 4);
-        FifoEntry { pixel_index: data }
+    pub fn new() -> FifoEntry {
+        FifoEntry {
+            pixel_index: 0,
+            is_sprite: false,
+            is_s1: false,
+        }
     }
+
+    pub fn new_bg(data: u8) -> FifoEntry {
+        debug_assert!(data < 4);
+        FifoEntry {
+            pixel_index: data,
+            is_sprite: false,
+            is_s1: false,
+        }
+    }
+
+    pub fn pixel_index(&self) -> u8 { self.pixel_index }
 }
 
 // A sad attempt to make a copyable fifo.
@@ -376,7 +420,7 @@ struct PixelFifo {
 impl PixelFifo {
     pub fn new() -> PixelFifo {
         PixelFifo {
-            fifo: [FifoEntry { pixel_index: 0 }; 16],
+            fifo: [FifoEntry::new(); 16],
             cursor: 0,
         }
     }
@@ -456,10 +500,10 @@ impl PixelFetcher {
                     self.mode = FetcherMode::Ready;
                 }
                 FetcherMode::Ready => {
-                    assert!(self.counter <= 16);
+                    debug_assert!(self.counter <= 16);
                 }
                 FetcherMode::Idle => {
-                    assert!(self.counter < 16);
+                    debug_assert!(self.counter < 16);
                 }
             }
         }
@@ -468,7 +512,7 @@ impl PixelFetcher {
     }
 
     pub fn start(&mut self, address: i32) {
-        assert_eq!(self.mode, FetcherMode::Idle);
+        debug_assert_eq!(self.mode, FetcherMode::Idle);
         self.mode = FetcherMode::ReadTileIndex;
         self.address = address;
         self.counter = 0;
@@ -483,11 +527,11 @@ impl PixelFetcher {
     pub fn is_ready(&self) -> bool { self.mode == FetcherMode::Ready }
 
     pub fn get_row(&self) -> Vec<FifoEntry> {
-        assert_eq!(self.mode, FetcherMode::Ready);
+        debug_assert_eq!(self.mode, FetcherMode::Ready);
         let mut result = Vec::new();
         // We want to start with the left-most pixel first.
         for i in (0..8).rev() {
-            result.push(FifoEntry::new(
+            result.push(FifoEntry::new_bg(
                 ((self.data0 >> i) & 0x01) | (((self.data1 >> i) & 0x01) << 1),
             ));
         }
@@ -495,7 +539,7 @@ impl PixelFetcher {
     }
 
     pub fn peek(&self) -> FifoEntry {
-        assert_eq!(self.mode, FetcherMode::Ready);
+        debug_assert_eq!(self.mode, FetcherMode::Ready);
         self.get_row()[0] // Bad performance but who's watching.
     }
 

@@ -76,9 +76,7 @@ pub fn get_visible_sprite(x: i32, visible_sprites: &[u8], oam: &[u8]) -> Option<
     let sprite_location = |x| &oam[(x * 4) as usize..];
     for sprite_index in visible_sprites {
         let sprite = SpriteEntry::from_slice(sprite_location(sprite_index));
-        dbg!(&sprite);
         if sprite.right() > x && sprite.left() <= x {
-            println!("hi");
             return Some(*sprite_index);
         }
     }

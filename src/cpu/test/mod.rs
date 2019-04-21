@@ -7,6 +7,7 @@ use crate::system;
 mod test_16bit_alu;
 mod test_8bit_alu;
 mod test_cb_alu;
+mod test_dma;
 mod test_flow;
 mod test_interrupts;
 mod test_load;
@@ -26,9 +27,11 @@ pub mod instructions {
     pub const LD_A_IMM: u8 = 0x3E;
     pub const LD_HL_IMM: u8 = 0x21;
     pub const LD_A_A: u8 = 0x7F;
+    pub const LD_FF_A: u8 = 0xE0;
     pub const JP: u8 = 0xC3;
     pub const JP_HL: u8 = 0xE9;
     pub const JR: u8 = 0x18;
+    pub const JR_NZ: u8 = 0x20;
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;
 
@@ -107,7 +110,7 @@ impl TestDescriptor {
 }
 
 pub struct TestContext {
-    system: Box<system::System>,
+    pub system: Box<system::System>,
     desc: TestDescriptor,
     cycles: i64,
 }

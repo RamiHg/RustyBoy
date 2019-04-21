@@ -1,10 +1,11 @@
-use crate::error::{self, Result};
+use crate::cpu;
+use crate::error;
 use crate::gpu;
 use crate::io_registers;
-use crate::serial;
-use crate::timer;
-use crate::{cpu, mmu, util};
+use crate::mmu;
+use crate::{dma, serial, timer, util};
 
+use error::Result;
 use gpu::Pixel;
 
 use bitflags::bitflags;
@@ -25,6 +26,7 @@ pub struct System {
     memory: mmu::Memory,
     timer: timer::Timer,
     serial: serial::Controller,
+    dma: dma::Dma,
     cart: Box<mmu::MemoryMapped>,
 
     screen: Vec<Pixel>,
@@ -38,6 +40,7 @@ impl System {
             memory: mmu::Memory::new(),
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
+            dma: dma::Dma::new(),
             cart,
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
@@ -53,6 +56,7 @@ impl System {
             self.cart.as_ref(),
             &self.serial,
             &self.gpu,
+            &self.dma,
             &self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -73,6 +77,7 @@ impl System {
             self.cart.as_mut(),
             &mut self.serial,
             &mut self.gpu,
+            &mut self.dma,
             &mut self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -128,6 +133,25 @@ impl System {
         current_if |= maybe_fire.bits();
         self.memory
             .store(io_registers::Addresses::InterruptFired as i32, current_if);
+    }
+
+    fn handle_dma_mcycle(&mut self) -> Result<()> {
+        let (dma, request) = self.dma.execute_mcycle();
+        self.dma = dma;
+        if let Some(request) = request {
+            let value = self.read_request(request.source_address)?;
+            // Since we know the destination has to be OAM, skip the mmu routing.
+            mmu::MemoryMapped::write(
+                &mut self.gpu,
+                mmu::Address::from_raw(request.destination_address)?,
+                value,
+            )
+            .ok_or(error::Type::InvalidOperation(
+                "DMA destination was not OAM".into(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     fn handle_timer(&mut self) -> Result<timer::Timer> {
@@ -196,6 +220,8 @@ impl System {
     }
 
     pub fn execute_machine_cycle(&mut self) -> Result<()> {
+        self.handle_dma_mcycle()?;
+
         for i in 0..4 {
             self.execute_t_cycle()?;
         }
@@ -209,10 +235,16 @@ impl System {
 #[cfg(test)]
 impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
-        System::new_with_cart(cart)
+        let mut system = System::new_with_cart(cart);
+        // Start with the GPU disabled.
+        system
+            .write_request(io_registers::Addresses::LcdControl as i32, 0)
+            .unwrap();
+        system
     }
 
     // pub fn memory_mut(&mut self) -> &mut mmu::Memory { &mut self.memory }
+    pub fn memory(&self) -> &mmu::Memory { &self.memory }
     pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
 
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {

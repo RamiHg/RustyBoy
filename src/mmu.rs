@@ -101,32 +101,21 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
-            VRam | InternalRam | OAM | Registers | HighRam => {
-                if raw == 0xFFFF {
-                    //println!("Setting IE to {}", value);
-                } else if raw == 0xFF46 {
-                    println!("DMA!");
-                    //panic!();
-                }
+            VRam | InternalRam | OAM | Registers | HighRam | UnusedOAM => {
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }
             UnknownRegisters => Some(()),
-            UnusedOAM => Some(()),
+            // UnusedOAM => Some(()),
             _ => None,
         }
     }
 }
 
-// #[cfg(test)]
-// impl Memory {
-//     pub fn raw_read(&self, addr: i32) -> i32 { self.mem[addr as usize] as i32 }
-//     pub fn raw_read_16(&self, addr: i32) -> i32 {
-//         self.raw_read(addr) | (self.raw_read(addr + 1) << 8)
-//     }
-
-//     pub fn raw_store(&mut self, addr: i32, value: i32) { self.mem[addr as usize] = value as u8; }
-// }
+#[cfg(test)]
+impl Memory {
+    pub fn raw_read(&self, addr: i32) -> i32 { self.mem[addr as usize] as i32 }
+}
 
 impl Memory {
     pub fn new() -> Memory { Memory { mem: [0; 0x10000] } }

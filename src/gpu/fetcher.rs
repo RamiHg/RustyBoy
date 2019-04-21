@@ -50,11 +50,11 @@ impl PixelFetcher {
                     self.mode = FetcherMode::ReadData0;
                 }
                 FetcherMode::ReadData0 => {
-                    self.data0 = gpu.vram(self.tileset_address(gpu)) as u8;
+                    self.data0 = self.read_tile_data(gpu, 0) as u8;
                     self.mode = FetcherMode::ReadData1;
                 }
                 FetcherMode::ReadData1 => {
-                    self.data1 = gpu.vram(self.tileset_address(gpu) + 1) as u8;
+                    self.data1 = self.read_tile_data(gpu, 1) as u8;
                     self.mode = FetcherMode::Ready;
                 }
                 FetcherMode::Ready => {
@@ -109,6 +109,16 @@ impl PixelFetcher {
         self.get_row()[0] // Bad performance but who's watching.
     }
 
+    fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> i32 {
+        let address = self.tileset_address(gpu);
+        // If address is -1, it means we are rows 8-16 of a sprite in 8x8 mode.
+        if address == -1 {
+            0
+        } else {
+            gpu.vram(address + byte)
+        }
+    }
+
     fn tileset_address(&self, gpu: &Gpu) -> i32 {
         if self.sprite.is_some() {
             self.sprite_tileset_address(gpu)
@@ -125,8 +135,11 @@ impl PixelFetcher {
 
     fn sprite_tileset_address(&self, gpu: &Gpu) -> i32 {
         let y_within_tile = gpu.current_y - self.sprite.unwrap().top();
-        debug_assert_lt!(y_within_tile, 8);
+        debug_assert_lt!(y_within_tile, 16);
         debug_assert_ge!(y_within_tile, 0);
+        if y_within_tile >= 8 {
+            return -1;
+        }
         0x8000 + self.sprite.unwrap().tile_index() as i32 * 16 + y_within_tile * 2
     }
 }

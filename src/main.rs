@@ -26,7 +26,7 @@ mod io_registers;
 
 mod cart;
 mod cpu;
-// mod debug;
+mod dma;
 mod error;
 mod gpu;
 mod mmu;
@@ -205,9 +205,9 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    //let cart = cart::from_file("./opus5.gb");
+    let cart = cart::from_file("./opus5.gb");
     //let cart = cart::from_file("./individual/03-op sp,hl.gb");
-    let cart = cart::from_file("./cpu_instrs.gb");
+    //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {

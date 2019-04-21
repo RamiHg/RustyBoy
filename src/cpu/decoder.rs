@@ -109,10 +109,6 @@ impl Decoder {
     }
 
     pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
-        //println!("Decoding {:X?}", op);
-        if op == 0xD9 {
-            println!("RETI");
-        }
         if in_cb_mode {
             self.cb_op_codes[op as usize].clone()
         } else {

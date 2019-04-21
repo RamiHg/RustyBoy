@@ -2,6 +2,9 @@
   "editor.formatOnSave": true,
   "debug.allowBreakpointsEverywhere": true,
   "editor.tabSize": 4,
+  "editor.rulers": [
+    100
+  ],
   "rust-client.disableRustup": true,
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
@@ -9,5 +12,6 @@
   "rust.unstable_features": true,
   "rust.clippy_preference": "off",
   "rust.build_on_save": true,
-  "workbench.editor.enablePreview": false
+  "workbench.editor.enablePreview": false,
+  "lldb.executable": "rust-lldb"
 }

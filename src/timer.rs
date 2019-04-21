@@ -78,11 +78,7 @@ impl Timer {
         } else {
             is_bit_set(self.counter, 9)
         };
-        if freq_1 {
-            freq_1_a
-        } else {
-            freq_1_b
-        }
+        if freq_1 { freq_1_a } else { freq_1_b }
     }
 }
 

@@ -2,11 +2,7 @@ use super::*;
 use crate::cpu::register::Register::*;
 
 fn cond_carry(cond: bool) -> Flags {
-    if cond {
-        Flags::CARRY
-    } else {
-        Flags::empty()
-    }
+    if cond { Flags::CARRY } else { Flags::empty() }
 }
 
 fn setup_op(op: u8, reg: Register, val: i32, flags: Flags, expected: i32, expected_flags: Flags) {

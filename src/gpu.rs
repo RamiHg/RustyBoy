@@ -95,10 +95,10 @@ impl Gpu {
         self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
     }
     pub fn oam(&self, address: i32) -> i32 {
-        self.vram.borrow()[(address - 0xFE00 + 0x8000) as usize] as i32
+        self.vram.borrow()[(address - 0xFE00 + 8192) as usize] as i32
     }
     pub fn set_oam(&mut self, address: i32, value: i32) {
-        self.vram.borrow_mut()[(address - 0xFE00 + 0x8000) as usize] = value as u8;
+        self.vram.borrow_mut()[(address - 0xFE00 + 8192) as usize] = value as u8;
     }
 
     fn maybe_fire_interrupt(&self, interrupt_type: InterruptType) -> Interrupts {
@@ -226,7 +226,7 @@ impl Gpu {
             .set_ly_is_lyc(next_state.current_y == self.lyc);
 
         if next_mode != self.lcd_status.mode() {
-            //println!("Going to {:?}", next_mode);
+            // println!("Going to {:?}", next_mode);
         }
         next_state.lcd_status.set_mode(next_mode as u8);
         (next_state, fire_interrupt)
@@ -237,9 +237,6 @@ impl Gpu {
         if self.cycle == 0 {
             next_state.visible_sprites =
                 sprites::find_visible_sprites(&self.vram.borrow()[8192..], self.current_y);
-            if next_state.visible_sprites.len() > 0 {
-                dbg!(&next_state.visible_sprites);
-            }
         }
     }
 
@@ -377,7 +374,6 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => {
                     self.lcd_control.0 = value as u8;
-                    println!("{:X?}", self.lcd_control);
                     Some(())
                 }
                 Some(Addresses::LcdStatus) => {
@@ -405,17 +401,20 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => {
-                //println!("Setting {:X?} to {:X?}", raw, value);
-                if self.lcd_status.mode() != LcdMode::TransferringToLcd {
+                if !self.lcd_control.enable_display()
+                    || self.lcd_status.mode() != LcdMode::TransferringToLcd
+                {
                     self.set_vram(raw, value);
                 }
                 Some(())
             }
             mmu::Location::OAM => match self.lcd_status.mode() {
-                //LcdMode::TransferringToLcd | LcdMode::ReadingOAM => Some(()),
+                LcdMode::TransferringToLcd | LcdMode::ReadingOAM
+                    if self.lcd_control.enable_display() =>
+                {
+                    Some(())
+                }
                 _ => {
-                    dbg!(raw);
-                    dbg!(value);
                     self.set_oam(raw, value);
                     Some(())
                 }

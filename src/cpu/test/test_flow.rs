@@ -246,3 +246,54 @@ fn test_ret_cc() {
             .assert_mcycles(6 + 2 + 1 + 4);
     }
 }
+
+#[test]
+fn test_rst() {
+    #[rustfmt::skip]
+    const RST_HANDLERS: [u8; 59] = [
+        // 0x00. Add 3 to A.
+        ADD_IMM, 3,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x08. Add 7 to A.
+        ADD_IMM, 7,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x10. Add 11 to A.
+        ADD_IMM, 11,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x18. Add 13 to A.
+        ADD_IMM, 13,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x20. Add 17 to A.
+        ADD_IMM, 17,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x28. Add 19 to A.
+        ADD_IMM, 19,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x30. Add 23 to A.
+        ADD_IMM, 23,
+        RET,
+        0, 0, 0, 0, 0,
+        // 0x38. Add 29 to A.
+        ADD_IMM, 29,
+        RET
+    ];
+
+    let results = [3, 7, 11, 13, 17, 19, 23, 29];
+
+    for (i, &op) in [0xC7, 0xCF, 0xD7, 0xDF, 0xE7, 0xEF, 0xF7, 0xFF]
+        .iter()
+        .enumerate()
+    {
+        with_default()
+            .set_mem_range(0, &RST_HANDLERS)
+            .execute_instructions(&[op])
+            .assert_reg_eq(A, results[i])
+            .assert_mcycles(4 + 2 + 4);
+    }
+}

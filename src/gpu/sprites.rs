@@ -27,8 +27,13 @@ bitfield! {
     pub flip_y, _: 30;
     /// If 1, will draw on top of non-zero background pixels. Otherwise, will always draw on top.
     /// (except of course translucent pixels).
-    pub priority, _: 31;//, 31;
+    pub priority, _: 31, 31;
 }
+
+impl Clone for SpriteEntry {
+    fn clone(&self) -> Self { *self }
+}
+impl Copy for SpriteEntry {}
 
 impl SpriteEntry {
     pub fn from_slice(slice: &[u8]) -> SpriteEntry {
@@ -57,7 +62,6 @@ pub fn find_visible_sprites(oam: &[u8], line: i32) -> ArrayVec<[u8; 10]> {
     for (index, chunk) in oam.chunks(4).enumerate() {
         debug_assert_lt!(index, 40);
         let sprite = SpriteEntry::from_slice(chunk);
-        //dbg!(&sprite);
         if sprite.is_visible_on_line(line) {
             sprites.push(index as u8);
         }

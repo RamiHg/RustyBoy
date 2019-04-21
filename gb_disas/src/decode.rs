@@ -15,7 +15,7 @@ impl OpComponents {
             y: (byte & 0b00111000) >> 3,
             z: (byte & 0b00000111),
             p: (byte & 0b00110000) >> 4,
-            q: (byte & 0b11001000) != 0,
+            q: (byte & 0b00001000) != 0,
         }
     }
 }

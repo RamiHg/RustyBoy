@@ -128,12 +128,11 @@ impl Cpu {
         // In this stage, we only check IF there is an interrupt, not WHICH interrupt to fire.
         let mut interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
         if self.state.write_latch && self.state.address_latch == 0xFF0F {
-            println!("It aint good");
+            warn!("It aint good");
             interrupt_fired_flag = self.state.data_latch;
         }
         let ie_flag = memory.read(0xFFFF) & 0x1F;
         if (interrupt_fired_flag & ie_flag) != 0 {
-            println!("firing");
             // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
             // interrupt handling routine micro-codes.
             self.micro_code_stack = self.decoder.interrupt_handler();
@@ -158,7 +157,7 @@ impl Cpu {
         }
         // In hardware this would be a case statement, but let's be clean here.
         let interrupt_index = fired_interrupts.trailing_zeros() as i32;
-        dbg!(interrupt_index);
+        trace!("[int] Firing int {}", interrupt_index);
         debug_assert!(interrupt_index <= 4);
         self.registers
             .set(register::Register::TEMP_LOW, interrupt_index * 8);

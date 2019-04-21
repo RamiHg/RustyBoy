@@ -359,7 +359,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     // But to make my life easier, I use a macro.
     macro_rules! move_if_unset {
         ($field:ident) => {
-            let default_value = <_ as Default>::default();
+            let default_value = MicroCode::default().$field;
             if code.$field != default_value {
                 assert_eq!(
                     acc.$field,

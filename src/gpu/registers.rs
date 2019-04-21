@@ -63,6 +63,7 @@ use num_derive::FromPrimitive;
 /// LCD Control Register (LCDC). 0xFF00.
 bitfield! {
     pub struct LcdControl(u8);
+    impl Debug;
     u8;
     enable_bg, _: 0;
     enable_sprites, _: 1;
@@ -76,19 +77,22 @@ bitfield! {
 }
 
 impl LcdControl {
-    pub fn bg_map_address(&self) -> i32 {
-        if self.bg_map_select() {
-            0x9C00
-        } else {
+    pub fn translate_bg_map_index(self, map_index: i32) -> i32 {
+        debug_assert_lt!(map_index, 32 * 32);
+        let base_address = if !self.bg_map_select() {
             0x9800
-        }
+        } else {
+            0x9C00
+        };
+        base_address + map_index
     }
 
-    pub fn bg_set_address(&self) -> i32 {
-        if self.bg_set_select() {
-            0x8000
+    // There are 20x18 tiles. Each tile is 16 bytes.
+    pub fn translate_bg_set_index(self, tile_index: u8) -> i32 {
+        if !self.bg_set_select() {
+            0x9000 + (tile_index as i8) as i32 * 16
         } else {
-            0x8800
+            0x8000 + i32::from(tile_index) * 16
         }
     }
 }

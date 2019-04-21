@@ -1,3 +1,4 @@
+mod fetcher;
 mod registers;
 mod sprites;
 
@@ -10,6 +11,9 @@ use arrayvec::ArrayVec;
 use num_traits::FromPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use fetcher::*;
+use sprites::*;
 
 pub const LCD_WIDTH: i32 = 160;
 pub const LCD_HEIGHT: i32 = 144;
@@ -54,6 +58,8 @@ pub struct Gpu {
 }
 
 impl Gpu {
+    const OAM_ADDR: usize = 8192;
+
     pub fn new() -> Gpu {
         let mut lcd_status = LcdStatus(0);
         lcd_status.set_mode(LcdMode::ReadingOAM as u8);
@@ -112,6 +118,7 @@ impl Gpu {
         let mut next_state = self.clone();
 
         if !self.lcd_control.enable_display() {
+            next_state.lcd_status.set_mode(LcdMode::ReadingOAM as u8);
             next_state.pixels_pushed = 0;
             next_state.current_x = 0;
             next_state.current_y = 0;
@@ -125,6 +132,7 @@ impl Gpu {
         let mut fire_interrupt = Interrupts::empty();
         let mut next_mode = self.lcd_status.mode();
 
+        next_state.cycle += 1;
         // Remaining minor points: LY=LYC needs to be forced to 0 in certain situations.
         match self.lcd_status.mode() {
             LcdMode::ReadingOAM => {
@@ -163,10 +171,11 @@ impl Gpu {
                 }
             }
             LcdMode::HBlank => {
-                if self.cycle == 51 * 4 {
+                if self.cycle >= 51 * 4 {
                     next_state.cycle = 0;
                     next_state.current_y += 1;
-                    if next_state.current_y == LCD_HEIGHT {
+                    if next_state.current_y >= LCD_HEIGHT {
+                        debug_assert_eq!(next_state.current_y, LCD_HEIGHT);
                         next_mode = LcdMode::VBlank;
                     } else {
                         next_mode = LcdMode::ReadingOAM;
@@ -215,7 +224,7 @@ impl Gpu {
         next_state
             .lcd_status
             .set_ly_is_lyc(next_state.current_y == self.lyc);
-        next_state.cycle += 1;
+
         if next_mode != self.lcd_status.mode() {
             //println!("Going to {:?}", next_mode);
         }
@@ -242,15 +251,44 @@ impl Gpu {
         let mut new_len = self.fifo.len();
 
         let mut pixel = None;
-        // Easy case: fifo has more than 8 pixels. We can simply pop a pixel off.
-        if self.fifo.len() > 8 {
-            let entry = self.fifo.peek();
-            pixel = Some(self.fifo_entry_to_pixel(entry));
-            new_len -= 1;
-        } else if self.fifo.len() > 0 && fetcher_is_ready {
-            pixel = Some(self.fifo_entry_to_pixel(self.fifo.peek()));
-            new_len -= 1;
+
+        let maybe_sprite_index = sprites::get_visible_sprite(
+            self.pixels_pushed,
+            &self.visible_sprites,
+            &self.vram.borrow()[Gpu::OAM_ADDR..],
+        );
+        if let Some(sprite_index) = maybe_sprite_index {
+            if self.fifo.len() < 8 {
+                // Keep fetching pixels until we have 8 pixels in the fifo.
+                debug_assert!(!self.fifo.is_suspended);
+            } else {
+                // Check if we've already directed the fetcher to get the sprite.
+                if self.fetcher.is_fetching_sprite() && self.fetcher.is_ready() {
+                    // Done with the sprite! Mix it in and unsuspend the fifo.
+                    next_fifo = next_fifo.combined_with_sprite(self.fetcher.get_row().into_iter());
+                    pixel = Some(self.fifo_entry_to_pixel(next_fifo.peek()));
+                    new_len -= 1;
+                } else if !self.fetcher.is_fetching_sprite() {
+                    // Suspend the fifo, switch the fetcher to the sprite.
+                    next_fifo.suspend();
+                    next_fetcher.reset();
+                    next_fetcher.start_sprite(self.get_sprite(sprite_index));
+                }
+            }
         }
+        // TODO: Remove this extra cycle delay.
+        else {
+            // Easy case: fifo has more than 8 pixels. We can simply pop a pixel off.
+            if self.fifo.len() > 8 {
+                let entry = self.fifo.peek();
+                pixel = Some(self.fifo_entry_to_pixel(entry));
+                new_len -= 1;
+            } else if self.fifo.len() > 0 && fetcher_is_ready {
+                pixel = Some(self.fifo_entry_to_pixel(self.fifo.peek()));
+                new_len -= 1;
+            }
+        }
+
         // Push from fetcher to fifo.
         if pixel.is_some() {
             next_fifo = self.fifo.popped();
@@ -267,8 +305,9 @@ impl Gpu {
         // Start fetching new tile.
         if (new_len <= 8 && self.fetcher.is_ready()) || self.fetcher.is_idle() {
             next_fetcher.reset();
-            next_state.current_x += 8;
+
             next_fetcher.start(self.compute_bg_tile_address(next_state.current_x));
+            next_state.current_x += 8;
         }
         next_state.fetcher = next_fetcher;
         next_state.fifo = next_fifo;
@@ -281,17 +320,7 @@ impl Gpu {
     }
 
     fn fifo_entry_to_pixel(&self, entry: FifoEntry) -> Pixel {
-        if sprites::get_visible_sprite(
-            self.pixels_pushed,
-            &self.visible_sprites,
-            &self.vram.borrow()[8192..],
-        )
-        .is_some()
-        {
-            return Pixel::from_values(255u8, 0, 0);
-        }
-
-        match (self.bg_palette >> entry.pixel_index) & 0x3 {
+        match (self.bg_palette >> (entry.pixel_index * 2)) & 0x3 {
             0 => Pixel::from_values(255u8, 255u8, 255u8),
             1 => Pixel::from_values(192u8, 192u8, 192u8),
             2 => Pixel::from_values(96u8, 96u8, 96u8),
@@ -302,10 +331,14 @@ impl Gpu {
     /// There are 20x18 tiles. Each tile is 16 bytes.
     /// The background map is 32x32 tiles (32 * 32 = 1KB)
     fn compute_bg_tile_address(&self, x: i32) -> i32 {
-        let base_bg_map_address = self.lcd_control.bg_map_address();
         let x = ((x + self.scroll_x) / 8) % 32;
-        let tile_index = x + self.current_y / 8 * 32;
-        base_bg_map_address + tile_index
+        let map_index = x + self.current_y / 8 * 32;
+        self.lcd_control.translate_bg_map_index(map_index)
+    }
+
+    fn get_sprite(&self, sprite_index: u8) -> SpriteEntry {
+        // HW: Might not be possible to do in 1 cycle unless OAM is SRAM
+        SpriteEntry::from_slice(&self.vram.borrow()[Gpu::OAM_ADDR + sprite_index as usize * 4..])
     }
 }
 
@@ -316,7 +349,14 @@ impl mmu::MemoryMapped for Gpu {
         match location {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => Some(self.lcd_control.0 as i32),
-                Some(Addresses::LcdStatus) => Some(self.lcd_status.0 as i32),
+                Some(Addresses::LcdStatus) => {
+                    let enable_mask = if self.lcd_control.enable_display() {
+                        0xFF
+                    } else {
+                        !0b111
+                    };
+                    Some(self.lcd_status.0 as i32 & enable_mask)
+                }
                 Some(Addresses::ScrollX) => Some(self.scroll_x),
                 Some(Addresses::ScrollY) => Some(self.scroll_y),
                 Some(Addresses::LcdY) => Some(self.current_y),
@@ -337,10 +377,12 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => {
                     self.lcd_control.0 = value as u8;
+                    println!("{:X?}", self.lcd_control);
                     Some(())
                 }
                 Some(Addresses::LcdStatus) => {
-                    self.lcd_status.0 = value as u8;
+                    let mask = 0b111;
+                    self.lcd_status.0 = (self.lcd_status.0 & mask) | (value as u8 & !mask);
                     Some(())
                 }
                 Some(Addresses::ScrollX) => {
@@ -363,6 +405,7 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => {
+                //println!("Setting {:X?} to {:X?}", raw, value);
                 if self.lcd_status.mode() != LcdMode::TransferringToLcd {
                     self.set_vram(raw, value);
                 }
@@ -383,7 +426,7 @@ impl mmu::MemoryMapped for Gpu {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct FifoEntry {
+pub struct FifoEntry {
     pixel_index: u8,
     is_sprite: bool,
     is_s1: bool,
@@ -398,12 +441,12 @@ impl FifoEntry {
         }
     }
 
-    pub fn new_bg(data: u8) -> FifoEntry {
-        debug_assert!(data < 4);
+    pub fn from_data(pixel_index: u8, is_sprite: bool, is_s1: bool) -> FifoEntry {
+        debug_assert_lt!(pixel_index, 4);
         FifoEntry {
-            pixel_index: data,
-            is_sprite: false,
-            is_s1: false,
+            pixel_index,
+            is_sprite,
+            is_s1,
         }
     }
 
@@ -413,8 +456,9 @@ impl FifoEntry {
 // A sad attempt to make a copyable fifo.
 #[derive(Clone, Copy, Debug)]
 struct PixelFifo {
-    pub fifo: [FifoEntry; 16],
+    fifo: [FifoEntry; 16],
     cursor: i8,
+    is_suspended: bool,
 }
 
 impl PixelFifo {
@@ -422,11 +466,37 @@ impl PixelFifo {
         PixelFifo {
             fifo: [FifoEntry::new(); 16],
             cursor: 0,
+            is_suspended: false,
         }
     }
 
     pub fn peek(&self) -> FifoEntry { self.fifo[0] }
-    pub fn len(&self) -> usize { self.cursor as usize }
+    pub fn len(&self) -> usize {
+        if self.is_suspended {
+            16
+        } else {
+            self.cursor as usize
+        }
+    }
+
+    pub fn suspend(&mut self) { self.is_suspended = true; }
+
+    pub fn combined_with_sprite(
+        mut self,
+        sprite_row: impl Iterator<Item = FifoEntry>,
+    ) -> PixelFifo {
+        for (i, entry) in sprite_row.enumerate() {
+            if self.fifo[i].pixel_index() == 0 {
+                // Sprite always wins on top of translucent bg.
+                self.fifo[i] = entry;
+            } else if !entry.is_s1 {
+                // S0 sprites always win on top of bg and S1 sprites.
+                self.fifo[i] = entry;
+            }
+        }
+        self.is_suspended = false;
+        self
+    }
 
     pub fn pushed(mut self, row: impl Iterator<Item = FifoEntry>) -> PixelFifo {
         //self.fifo.extend(row);
@@ -444,108 +514,5 @@ impl PixelFifo {
         }
         new_me.cursor = self.cursor - 1;
         new_me
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum FetcherMode {
-    ReadTileIndex,
-    ReadData0,
-    ReadData1,
-    Ready,
-    Idle,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct PixelFetcher {
-    mode: FetcherMode,
-    address: i32,
-    counter: i32,
-
-    tile_index: u8,
-    data0: u8,
-    data1: u8,
-}
-
-impl PixelFetcher {
-    pub fn new() -> PixelFetcher {
-        PixelFetcher {
-            mode: FetcherMode::Idle,
-            address: -1,
-            counter: -1,
-            tile_index: 0,
-            data0: 0,
-            data1: 0,
-        }
-    }
-
-    pub fn execute_tcycle_mut(mut self, gpu: &Gpu) -> PixelFetcher {
-        if (self.counter % 2) == 0 {
-            match self.mode {
-                FetcherMode::ReadTileIndex => {
-                    let tile_unsigned_index = gpu.vram(self.address);
-                    self.tile_index = if !gpu.lcd_control.bg_set_select() {
-                        (i32::from(tile_unsigned_index) + 128) as u8
-                    } else {
-                        tile_unsigned_index as u8
-                    };
-                    self.mode = FetcherMode::ReadData0;
-                }
-                FetcherMode::ReadData0 => {
-                    self.data0 = gpu.vram(self.tileset_address(gpu)) as u8;
-                    self.mode = FetcherMode::ReadData1;
-                }
-                FetcherMode::ReadData1 => {
-                    self.data1 = gpu.vram(self.tileset_address(gpu) + 1) as u8;
-                    self.mode = FetcherMode::Ready;
-                }
-                FetcherMode::Ready => {
-                    debug_assert!(self.counter <= 16);
-                }
-                FetcherMode::Idle => {
-                    debug_assert!(self.counter < 16);
-                }
-            }
-        }
-        self.counter += 1;
-        self
-    }
-
-    pub fn start(&mut self, address: i32) {
-        debug_assert_eq!(self.mode, FetcherMode::Idle);
-        self.mode = FetcherMode::ReadTileIndex;
-        self.address = address;
-        self.counter = 0;
-        self.tile_index = 0;
-        self.data0 = 0;
-        self.data1 = 0;
-    }
-
-    pub fn reset(&mut self) { *self = PixelFetcher::new(); }
-
-    pub fn is_idle(&self) -> bool { self.mode == FetcherMode::Idle }
-    pub fn is_ready(&self) -> bool { self.mode == FetcherMode::Ready }
-
-    pub fn get_row(&self) -> Vec<FifoEntry> {
-        debug_assert_eq!(self.mode, FetcherMode::Ready);
-        let mut result = Vec::new();
-        // We want to start with the left-most pixel first.
-        for i in (0..8).rev() {
-            result.push(FifoEntry::new_bg(
-                ((self.data0 >> i) & 0x01) | (((self.data1 >> i) & 0x01) << 1),
-            ));
-        }
-        result
-    }
-
-    pub fn peek(&self) -> FifoEntry {
-        debug_assert_eq!(self.mode, FetcherMode::Ready);
-        self.get_row()[0] // Bad performance but who's watching.
-    }
-
-    fn tileset_address(&self, gpu: &Gpu) -> i32 {
-        let y_within_tile = gpu.current_y % 8;
-
-        gpu.lcd_control.bg_set_address() + self.tile_index as i32 * 16 + y_within_tile * 2
     }
 }

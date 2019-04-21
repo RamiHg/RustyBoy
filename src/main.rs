@@ -18,6 +18,8 @@ use glutin;
 
 #[macro_use]
 extern crate more_asserts;
+#[macro_use]
+extern crate log;
 
 #[macro_use]
 mod io_registers;
@@ -61,7 +63,7 @@ void main() {
     gl_Position.zw = vec2(-1, 1);
     uv = (gl_Position.xy + 1) / 2;
     // Flip image vertically because we are writing it with top-left origin.
-    uv.y = 1 - uv.y;
+    //uv.y = 1 - uv.y;
 }
 \0
 ";
@@ -72,7 +74,9 @@ in vec2 uv;
 out vec3 color;
 uniform sampler2D gpu_tex;
 void main() {
-    color = texture(gpu_tex, uv).rgb;
+    // Flip image vertically because we are writing it with top-left origin.
+    vec2 flipped = vec2(uv.x, 1 - uv.y);
+    color = texture(gpu_tex, flipped).rgb;
 }
 \0
 ";
@@ -144,8 +148,12 @@ fn load_all_shaders() -> GLuint {
     }
 }
 
+const LOG_INT: bool = false;
+const LOG_DISAS: bool = false;
+
 fn main() -> error::Result<()> {
     use glutin::ContextTrait;
+    setup_logger().unwrap();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
@@ -177,7 +185,13 @@ fn main() -> error::Result<()> {
         GL!(gl::GenTextures(1, &mut target_image));
         assert!(target_image != gl::INVALID_VALUE);
         GL!(gl::BindTexture(gl::TEXTURE_2D, target_image));
-        GL!(gl::TexStorage2D(gl::TEXTURE_2D, 1, gl::RGB8, 160, 144));
+        GL!(gl::TexStorage2D(
+            gl::TEXTURE_2D,
+            1,
+            gl::RGB8,
+            gpu::LCD_WIDTH,
+            gpu::LCD_HEIGHT
+        ));
         GL!(gl::TexParameteri(
             gl::TEXTURE_2D,
             gl::TEXTURE_MIN_FILTER,
@@ -191,9 +205,9 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./sprite_test_01.gb");
-    //let cart = cart::from_file("./individual/01-special.gb");
-    //let cart = cart::from_file("./instr_timing.gb");
+    //let cart = cart::from_file("./opus5.gb");
+    //let cart = cart::from_file("./individual/03-op sp,hl.gb");
+    let cart = cart::from_file("./cpu_instrs.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
@@ -208,8 +222,8 @@ fn main() -> error::Result<()> {
                 0,
                 0,
                 0,
-                160,
-                144,
+                gpu::LCD_WIDTH,
+                gpu::LCD_HEIGHT,
                 gl::RGB,
                 gl::UNSIGNED_BYTE,
                 system.get_screen().as_ptr() as *const core::ffi::c_void
@@ -239,5 +253,28 @@ fn main() -> error::Result<()> {
         context.swap_buffers().unwrap();
     }
 
+    Ok(())
+}
+
+fn setup_logger() -> Result<(), fern::InitError> {
+    if LOG_INT || LOG_DISAS {
+        fern::Dispatch::new()
+            .filter(|metadata| {
+                if metadata.target() == "disas" {
+                    LOG_DISAS
+                } else {
+                    true
+                }
+            })
+            .format(|out, message, record| {
+                let msg = format!("{}", message);
+                if (&msg[0..5] == "[int]" && LOG_INT) || (record.target() == "disas" && LOG_DISAS) {
+                    out.finish(format_args!("{}", message))
+                }
+            })
+            .level(log::LevelFilter::Trace)
+            .chain(std::io::stdout())
+            .apply()?;
+    }
     Ok(())
 }

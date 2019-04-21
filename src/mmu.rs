@@ -106,7 +106,7 @@ impl MemoryMapped for Memory {
                     //println!("Setting IE to {}", value);
                 } else if raw == 0xFF46 {
                     println!("DMA!");
-                    panic!();
+                    //panic!();
                 }
                 self.mem[raw as usize] = value as u8;
                 Some(())

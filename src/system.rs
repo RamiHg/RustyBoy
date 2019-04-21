@@ -164,13 +164,15 @@ impl System {
             let disas =
                 gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
             if let core::result::Result::Ok(op) = disas {
-                println!(
+                trace!(
+                    target: "disas",
                     "{:04X?}\t{}",
                     self.cpu.registers.get(cpu::register::Register::PC),
                     op
                 );
             } else {
-                println!(
+                trace!(
+                    target: "disas",
                     "{:04X?}\tBad opcode {:X?}",
                     self.cpu.registers.get(cpu::register::Register::PC),
                     pc_plus(0)?

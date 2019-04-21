@@ -8,5 +8,6 @@
   "rust.jobs": 8,
   "rust.unstable_features": true,
   "rust.clippy_preference": "off",
-  "rust.build_on_save": true
+  "rust.build_on_save": true,
+  "workbench.editor.enablePreview": false
 }

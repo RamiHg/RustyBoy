@@ -32,14 +32,6 @@ pub trait Register {
     const ADDRESS: i32;
 }
 
-#[derive(Clone, Copy, Debug, FromPrimitive)]
-pub enum TimerFrequency {
-    Every1024 = 0, // 4kHz
-    Every16 = 1,   // ~262kHz
-    Every64 = 2,   // 64kHz
-    Every256 = 3,  // 16kHz
-}
-
 /// Interrupt Flag register (IF). 0xFF0F
 bitfield! {
     pub struct InterruptFlag(u8);
@@ -48,15 +40,6 @@ bitfield! {
     pub has_timer, set_timer: 2;
     pub has_serial, set_serial: 3;
     pub has_joypad, set_joypad: 4;
-}
-
-/// Timer Control register (TAC). 0xFF07
-bitfield! {
-    pub struct TimerControl(u8);
-    impl Debug;
-    u8;
-    pub into TimerFrequency, frequency, set_frequency: 1, 0;
-    pub enabled, set_enabled: 2;
 }
 
 bitfield! {
@@ -103,7 +86,5 @@ macro_rules! from_u8 {
 }
 
 declare_register_u8!(InterruptFlag, Addresses::InterruptFired);
-declare_register_u8!(TimerControl, Addresses::TimerControl);
 declare_register_u8!(SerialControl, Addresses::SerialControl);
 
-from_u8!(TimerFrequency);

@@ -4,34 +4,63 @@ use crate::system::Interrupts;
 use crate::util;
 use crate::util::is_bit_set;
 
+use bitfield::bitfield;
+use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+
+#[derive(Clone, Copy, Debug, FromPrimitive)]
+pub enum TimerFrequency {
+    Every1024 = 0, // 4kHz
+    Every16 = 1,   // ~262kHz
+    Every64 = 2,   // 64kHz
+    Every256 = 3,  // 16kHz
+}
+
+/// Timer Control register (TAC). 0xFF07
+bitfield! {
+    pub struct TimerControl(u8);
+    impl Debug;
+    u8;
+    pub into TimerFrequency, frequency, set_frequency: 1, 0;
+    pub enabled, set_enabled: 2;
+}
+
+declare_register_u8!(TimerControl, io_registers::Addresses::TimerControl);
+from_u8!(TimerFrequency);
 
 #[derive(Copy, Clone, Debug)]
 pub struct Timer {
     // DIV.
     counter: i32,
-    tac: io_registers::TimerControl,
+    tac: TimerControl,
     /// 9-bit register. Exposes only 8 bits.
     tima: i32,
     tma: i32,
     should_interrupt: bool,
-    rly: bool,
 }
 
 impl Timer {
     pub fn new() -> Timer {
         Timer {
             counter: 0,
-            tac: io_registers::TimerControl(0xFF),
+            tac: TimerControl(0xFF),
             tima: 0,
             tma: 0,
             should_interrupt: false,
-            rly: false,
         }
     }
 
     #[allow(warnings)]
     pub fn execute_mcycle(&self) -> (Timer, Interrupts) {
+        if self.tac.enabled() {
+            trace!(
+                target: "timer",
+                "Counter: {}\tTIMA: {}\tFire: {}",
+                self.counter % 16,
+                self.tima,
+                self.should_interrupt
+            );
+        }
         // If we're not enabled, don't do anything.
         let mut new_state = *self;
         let mut fire_interrupt = Interrupts::empty();
@@ -45,19 +74,13 @@ impl Timer {
         // Check for TIMA overflow.
         let tima_overflows = (self.tima & 0x100) != 0;
         if tima_overflows {
-            //fire_interrupt.0 = true;
             new_state.tima = new_state.tma;
             new_state.should_interrupt = true;
         }
         if self.should_interrupt {
             debug_assert!(self.tac.enabled());
-            new_state.rly = true;
-            //fire_interrupt = Some(FireInterrupt::timer());
-            new_state.should_interrupt = false;
-        }
-        if self.rly {
             fire_interrupt = Interrupts::TIMER;
-            new_state.rly = false;
+            new_state.should_interrupt = false;
         }
         (new_state, fire_interrupt)
     }

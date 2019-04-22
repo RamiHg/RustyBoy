@@ -1,5 +1,10 @@
+/// TODO: Test the fact that the interrupt handler won't start in the middle of an instruction.
+
 use super::*;
+
 use crate::cpu::register::Register::*;
+use crate::io_registers::Addresses;
+use crate::system::Interrupts;
 
 #[rustfmt::skip]
 const INTERRUPT_HANDLERS: [u8; 40] = [
@@ -115,4 +120,29 @@ fn test_ei_chain() {
         LD_A_A,
         LD_A_A,
     ];
+}
+
+#[test]
+fn test_halt_with_ints_enabled() {
+    #[rustfmt::skip]
+    let ops = [
+        HALT,
+        ADD_IMM, 0x01,
+    ];
+    // Stop right before the interrupt gets fired.
+    with_default()
+        .set_mem_8bit(0xFFFF, Interrupts::TIMER.bits())
+        .set_reg(SP, 0xFFFF)
+        .setup_timer(timer::TimerFrequency::Every16)
+        .set_reg(A, 0)
+        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4) + 1 + 1)
+        .assert_reg_eq(A, 0);
+    // Then go the whole way.
+    with_default()
+        .set_mem_8bit(0xFFFF, Interrupts::TIMER.bits())
+        .set_reg(SP, 0xFFFF)
+        .setup_timer(timer::TimerFrequency::Every16)
+        .set_reg(A, 0)
+        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4) + 1 + 2)
+        .assert_reg_eq(A, 1);
 }

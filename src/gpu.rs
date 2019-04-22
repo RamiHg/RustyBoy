@@ -128,7 +128,6 @@ impl Gpu {
             next_state.fifo = PixelFifo::new();
             return (next_state, Interrupts::empty());
         }
-
         let mut fire_interrupt = Interrupts::empty();
         let mut next_mode = self.lcd_status.mode();
 

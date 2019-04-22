@@ -3,6 +3,7 @@ use crate::cpu::{alu::Flags, register::Register, *};
 use crate::cart;
 use crate::mmu;
 use crate::system;
+use crate::timer;
 
 mod test_16bit_alu;
 mod test_8bit_alu;
@@ -15,6 +16,8 @@ mod test_push_pop;
 mod test_store;
 mod test_timer;
 
+use lazy_static::lazy_static;
+
 #[allow(dead_code)]
 pub mod instructions {
     use super::Register::{self, *};
@@ -24,6 +27,7 @@ pub mod instructions {
     pub const RETI: u8 = 0xD9;
     pub const EI: u8 = 0xFB;
     pub const DI: u8 = 0xF3;
+    pub const HALT: u8 = 0x76;
     pub const LD_A_IMM: u8 = 0x3E;
     pub const LD_HL_IMM: u8 = 0x21;
     pub const LD_A_A: u8 = 0x7F;
@@ -34,6 +38,7 @@ pub mod instructions {
     pub const JR_NZ: u8 = 0x20;
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;
+
 
     pub const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
 }
@@ -133,7 +138,16 @@ impl TestContext {
         //     .nth(0)
         //     .unwrap();
         // let name = first_non_setup.to_string();
+        static INIT: std::sync::Once = std::sync::ONCE_INIT;
         let name = "ignoreme".to_string();
+        // INIT.call_once(|| {
+        //     crate::log::setup_logging(crate::log::LogSettings {
+        //         interrupts: true,
+        //         disassembly: true,
+        //         timer: true,
+        //     })
+        //     .unwrap();
+        // });
 
         TestContext {
             system: Box::new(system::System::new_test_system(cart)),
@@ -176,10 +190,15 @@ impl TestContext {
     }
 
     pub fn set_carry(self, is_set: bool) -> TestContext { self.set_flag(Flags::CARRY, is_set) }
-
     pub fn set_zero(self, is_set: bool) -> TestContext { self.set_flag(Flags::ZERO, is_set) }
-
     pub fn set_sub(self, is_set: bool) -> TestContext { self.set_flag(Flags::SUB, is_set) }
+
+    pub fn setup_timer(self, freq: timer::TimerFrequency) -> TestContext {
+        let mut ctrl = timer::TimerControl(0);
+        ctrl.set_enabled(true);
+        ctrl.set_frequency(freq as u8);
+        self.set_mem_8bit(io_registers::Addresses::TimerControl as i32, ctrl.0 as i32)
+    }
 
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the
     /// resulting system state.

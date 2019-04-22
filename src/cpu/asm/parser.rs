@@ -44,6 +44,7 @@ pub fn parse_op(op: &str) -> Op {
         "EI" => EI,
         "DI" => DI,
         "CB" => CB,
+        "HALT" => HALT,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
     let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));

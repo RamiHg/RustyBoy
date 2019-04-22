@@ -5,18 +5,11 @@ use crate::cpu::register::Register;
 use Register::*;
 
 use crate::io_registers::Register as IORegister;
-use crate::io_registers::{TimerControl, TimerFrequency};
-
-fn make_timer_control(freq: TimerFrequency) -> TimerControl {
-    let mut ctrl = TimerControl(0);
-    ctrl.set_enabled(true);
-    ctrl.set_frequency(freq as u8);
-    ctrl
-}
+use crate::timer::{TimerControl, TimerFrequency};
 
 #[rustfmt::skip]
 const INTERRUPT_HANDLER: [u8; 3] = [
-    // 0x40. Add 1 to A.
+    // 0x50. Add 1 to A.
     ADD_IMM, 1,
     RETI,
 ];
@@ -31,25 +24,28 @@ fn test_simple() {
         LD_A_IMM, 0,
         // Useless instruction.
         LD_A_A,
+        // C004
         JR, 0xFD,
     ];
 
-    let for_cycles = |freq| match freq {
-        0 => 1024 * 256 * 3 / 4,
-        1 => 16 * 256 * 3 / 4,
-        2 => 64 * 256 * 3 / 4,
-        3 => 256 * 256 * 3 / 4,
-        _ => panic!(),
-    };
+    let increments_for_three_interrupts = (256 + 1) * 4 * 3;
 
-    for freq_index in 0..4 {
+    let freq_to_cycles = |freq| match freq {
+        0 => 1024,
+        1 => 16,
+        2 => 64,
+        3 | _ => 256,
+    } / 4;
+
+    for freq_index in 1..4 {
         let freq = TimerFrequency::from_i32(freq_index).unwrap();
+        let expected_cycles = (freq_to_cycles(freq_index) * 256) * 3 + 2 + 5 + 2;
         with_default()
             .set_mem_range(0x50, &INTERRUPT_HANDLER)
-            .set_mem_8bit(TimerControl::ADDRESS, make_timer_control(freq).0 as i32)
+            .setup_timer(freq)
             .set_mem_8bit(io_registers::Addresses::InterruptEnable as i32, 0xFF)
             .set_reg(SP, 0xFFFF)
-            .execute_instructions_for_mcycles(&PRELUDE, for_cycles(freq as i32))
-            .assert_reg_eq(A, 2);
+            .execute_instructions_for_mcycles(&PRELUDE, expected_cycles)
+            .assert_reg_eq(A, 3);
     }
 }

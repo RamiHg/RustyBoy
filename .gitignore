@@ -2,6 +2,7 @@ target
 Cargo.lock
 test_data.txt
 individual/
+test_roms/
 *.gb
 timer/
 .DS_STORE

@@ -39,6 +39,8 @@ impl Default for AluOutSelect {
     fn default() -> Self { AluOutSelect::Result }
 }
 
+/// This microcode format is nowhere near size-optimized. There are tons of mutually exclusive bits,
+/// and it could probably be cut down in half.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
@@ -85,6 +87,7 @@ pub struct MicroCode {
     // Control flow.
     pub is_end: bool,
     pub is_cond_end: bool,
+    pub is_halt: bool,
     pub cond: Condition,
     pub enter_cb_mode: bool,
 

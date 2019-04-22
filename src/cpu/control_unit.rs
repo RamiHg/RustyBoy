@@ -23,6 +23,19 @@ fn fetch_t2() -> MicroCode {
     }
 }
 
+fn true_nop() -> MicroCode {
+    MicroCode {
+        ..Default::default()
+    }
+}
+
+fn nop_end() -> MicroCode {
+    MicroCode {
+        is_end: true,
+        ..Default::default()
+    }
+}
+
 pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
     let (micro_code, mut next_mode) = match cpu.state.decode_mode {
         DecodeMode::Fetch => match cpu.t_state.get() {
@@ -34,7 +47,10 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
             3 => {
                 let opcode = cpu.state.data_latch;
                 // TODO: Clean up
-                if !cpu.is_handling_interrupt {
+                if cpu.is_halted {
+                    debug_assert!(cpu.micro_code_stack.is_empty());
+                    cpu.micro_code_stack = vec![true_nop(), nop_end()];
+                } else if !cpu.is_handling_interrupt {
                     debug_assert!(cpu.micro_code_stack.is_empty());
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
@@ -147,13 +163,17 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
 
 fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State) {
     if code.enable_interrupts {
-        trace!("[int] Enabling interrupts.");
+        trace!(target: "int", "Enabling interrupts.");
         next_state.interrupt_enable_counter = 2;
         cpu.interrupts_enabled = false;
     } else if code.disable_interrupts {
-        trace!("[int] Disabling interrupts.");
+        trace!(target: "int", "Disabling interrupts.");
         cpu.interrupts_enabled = false;
         next_state.interrupt_enable_counter = 0;
+    }
+
+    if code.is_halt {
+        cpu.is_halted = true;
     }
 }
 

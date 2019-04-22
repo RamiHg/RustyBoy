@@ -58,6 +58,8 @@ pub struct Cpu {
     pub is_handling_interrupt: bool,
     interrupts_enabled: bool,
     interrupt_handle_mcycle: i32,
+
+    is_halted: bool,
 }
 
 impl Cpu {
@@ -71,33 +73,49 @@ impl Cpu {
             interrupts_enabled: false,
             is_handling_interrupt: false,
             interrupt_handle_mcycle: 0,
+            is_halted: false,
         };
         cpu.registers.set(register::Register::PC, 0x100);
         cpu
     }
 
     pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<()> {
-        // First step is to handle interrupts.
-        self.handle_interrupts(memory)?;
-        let (next_state, is_done) = control_unit::cycle(self);
-        self.state = next_state;
-        // This will be tricky to translate to hardware.
-        if is_done && self.state.interrupt_enable_counter > 0 {
-            if self.state.interrupt_enable_counter == 1 {
-                self.interrupts_enabled = true;
+        // First step is to handle interrupts. Save off the is_halted flag since the next function
+        // can unset it.
+        self.handle_interrupts_or_unhalt(memory)?;
+        if true || !self.is_halted {
+            let (next_state, is_done) = control_unit::cycle(self);
+            self.state = next_state;
+            // This will be tricky to translate to hardware.
+            if is_done && self.state.interrupt_enable_counter > 0 {
+                if self.state.interrupt_enable_counter == 1 {
+                    self.interrupts_enabled = true;
+                }
+                self.state.interrupt_enable_counter -= 1;
             }
-            self.state.interrupt_enable_counter -= 1;
+
         }
         self.t_state.inc();
         Ok(())
     }
 
-    pub fn handle_interrupts(&mut self, memory: &mut Memory) -> Result<()> {
+    // TODO: Clean up the logic and make this function stateless.. It's nasty.
+    pub fn handle_interrupts_or_unhalt(&mut self, memory: &mut Memory) -> Result<()> {
         // If interrupts are enabled, check for any fired interrupts. Otherwise, check if we are
         // currently handling an interrupt. If none of that, proceed as usual.
-        if self.interrupts_enabled {
+        if self.interrupts_enabled || self.is_halted {
             debug_assert!(!self.is_handling_interrupt);
-            self.check_for_interrupts(memory)?;
+            if self.has_pending_interrupts(memory)? {
+                if self.is_halted {
+                    // If we're halted, get out of it, whether interrupts are enabled or not.
+                    if self.t_state.get() == 4 {
+                        self.is_halted = false;
+                    }
+                } else if self.interrupts_enabled {
+                    // If interrupts are enabled, handle the interrupt!
+                    self.enter_interrupt_handler();
+                }
+            }
         } else if self.is_handling_interrupt {
             // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read
             // the fired interrupt flag AGAIN, and then decide on which interrupt to handle.
@@ -116,13 +134,14 @@ impl Cpu {
         Ok(())
     }
 
-    fn check_for_interrupts(&mut self, memory: &Memory) -> Result<()> {
-        debug_assert!(self.interrupts_enabled);
+    fn has_pending_interrupts(&mut self, memory: &Memory) -> Result<bool> {
+        debug_assert!(self.interrupts_enabled || self.is_halted);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
-        if self.state.decode_mode != DecodeMode::Fetch && self.t_state.get() != 3 {
-            return Ok(());
+        if !self.is_halted
+            && (self.state.decode_mode != DecodeMode::Decode || self.t_state.get() != 3)
+        {
+            return Ok(false);
         }
-
         // TODO: All interrupts can be disabled if CPU writes to IF in the same cycle. Somehow
         // support this.
         // In this stage, we only check IF there is an interrupt, not WHICH interrupt to fire.
@@ -132,16 +151,16 @@ impl Cpu {
             interrupt_fired_flag = self.state.data_latch;
         }
         let ie_flag = memory.read(0xFFFF) & 0x1F;
-        if (interrupt_fired_flag & ie_flag) != 0 {
-            // Go into interrupt handling mode! Pop all in-flight micro-codes, and push the
-            // interrupt handling routine micro-codes.
-            self.micro_code_stack = self.decoder.interrupt_handler();
-            self.interrupts_enabled = false;
-            self.is_handling_interrupt = true;
-            self.interrupt_handle_mcycle = 0;
-        }
-        // Otherwise, do nothing.
-        Ok(())
+        Ok((interrupt_fired_flag & ie_flag) != 0)
+    }
+
+    fn enter_interrupt_handler(&mut self) {
+        debug_assert!(self.interrupts_enabled);
+        // Pop all in-flight micro-codes, and push the interrupt handing routine micro-codes.
+        self.micro_code_stack = self.decoder.interrupt_handler();
+        self.interrupts_enabled = false;
+        self.is_handling_interrupt = true;
+        self.interrupt_handle_mcycle = 0;
     }
 
     fn select_fired_interrupt(&mut self, memory: &mut Memory) -> Result<()> {
@@ -157,7 +176,7 @@ impl Cpu {
         }
         // In hardware this would be a case statement, but let's be clean here.
         let interrupt_index = fired_interrupts.trailing_zeros() as i32;
-        trace!("[int] Firing int {}", interrupt_index);
+        trace!(target: "int", "Firing int {}", interrupt_index);
         debug_assert!(interrupt_index <= 4);
         self.registers
             .set(register::Register::TEMP_LOW, interrupt_index * 8);

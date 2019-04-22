@@ -19,7 +19,7 @@ use glutin;
 #[macro_use]
 extern crate more_asserts;
 #[macro_use]
-extern crate log;
+extern crate log as logging;
 
 #[macro_use]
 mod io_registers;
@@ -29,6 +29,7 @@ mod cpu;
 mod dma;
 mod error;
 mod gpu;
+mod log;
 mod mmu;
 mod serial;
 mod system;
@@ -148,12 +149,17 @@ fn load_all_shaders() -> GLuint {
     }
 }
 
-const LOG_INT: bool = false;
-const LOG_DISAS: bool = false;
+const LOG_INT: bool = true;
+const LOG_DISAS: bool = true;
 
 fn main() -> error::Result<()> {
     use glutin::ContextTrait;
-    setup_logger().unwrap();
+    log::setup_logging(log::LogSettings {
+        interrupts: LOG_INT,
+        disassembly: LOG_DISAS,
+        timer: false,
+    })
+    .unwrap();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
@@ -179,6 +185,8 @@ fn main() -> error::Result<()> {
     // Load the shaders.
     let fs_copy = load_all_shaders();
 
+    let filter = gl::NEAREST;
+
     // Create our GPU target image.
     let mut target_image: GLuint = 0;
     unsafe {
@@ -200,13 +208,13 @@ fn main() -> error::Result<()> {
         GL!(gl::TexParameteri(
             gl::TEXTURE_2D,
             gl::TEXTURE_MAG_FILTER,
-            gl::LINEAR as i32
+            filter as i32
         ));
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./opus5.gb");
-    //let cart = cart::from_file("./individual/03-op sp,hl.gb");
+    //let cart = cart::from_file("./instr_timing.gb");
+    let cart = cart::from_file("./test_roms/acceptance/ppu/intr_1_2_timing-GS.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
 
@@ -253,28 +261,5 @@ fn main() -> error::Result<()> {
         context.swap_buffers().unwrap();
     }
 
-    Ok(())
-}
-
-fn setup_logger() -> Result<(), fern::InitError> {
-    if LOG_INT || LOG_DISAS {
-        fern::Dispatch::new()
-            .filter(|metadata| {
-                if metadata.target() == "disas" {
-                    LOG_DISAS
-                } else {
-                    true
-                }
-            })
-            .format(|out, message, record| {
-                let msg = format!("{}", message);
-                if (&msg[0..5] == "[int]" && LOG_INT) || (record.target() == "disas" && LOG_DISAS) {
-                    out.finish(format_args!("{}", message))
-                }
-            })
-            .level(log::LevelFilter::Trace)
-            .chain(std::io::stdout())
-            .apply()?;
-    }
     Ok(())
 }

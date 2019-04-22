@@ -48,6 +48,7 @@ fn compile_op(op: &Op) -> MicroCode {
         DI => compile_di,
         CB => compile_cb,
         BIT => compile_bit,
+        HALT => compile_halt,
         _ => panic!("Implement {:?}", op.cmd),
     };
     compile_fn(op)
@@ -334,6 +335,15 @@ fn compile_cb(op: &Op) -> MicroCode {
     }
 }
 
+fn compile_halt(op: &Op) -> MicroCode {
+    op.lhs.expect_none();
+    op.rhs.expect_none();
+    MicroCode {
+        is_halt: true,
+        ..Default::default()
+    }
+}
+
 fn compile_bit(op: &Op) -> MicroCode {
     op.rhs.expect_none();
     let bit = if let Some(Arg::Integer(index)) = op.lhs.0 {
@@ -402,6 +412,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_bit_select);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
+    move_if_unset!(is_halt);
     move_if_unset!(cond);
     move_if_unset!(enter_cb_mode);
     move_if_unset!(enable_interrupts);
@@ -487,6 +498,10 @@ fn verify_micro_code(code: &MicroCode) {
     assert!(
         !(code.enter_cb_mode && (code.is_end || code.is_cond_end)),
         "Can't enter CB mode while ending an instruction."
+    );
+    assert!(
+        !(code.is_halt && !code.is_end),
+        "Must halt at the same time as an instruction end."
     );
     assert!(code.alu_bit_select < 8);
 }

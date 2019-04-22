@@ -155,15 +155,9 @@ impl System {
     }
 
     fn handle_timer(&mut self) -> Result<timer::Timer> {
-        // Execute the timer at the rise of TCycle 4, such that it can control writes coming in from
-        // the CPU.
-        if self.cpu.t_state.get() != 100 {
-            let (new_timer, should_interrupt) = self.timer.execute_mcycle();
-            self.maybe_fire_interrupt(should_interrupt);
-            Ok(new_timer)
-        } else {
-            Ok(self.timer)
-        }
+        let (new_timer, should_interrupt) = self.timer.execute_mcycle();
+        self.maybe_fire_interrupt(should_interrupt);
+        Ok(new_timer)
     }
 
     fn handle_serial(&mut self) -> serial::Controller {

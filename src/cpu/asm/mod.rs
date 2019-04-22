@@ -33,6 +33,7 @@ pub enum Command {
     CB,
     EI,
     DI,
+    HALT,
 }
 
 #[derive(Clone, Debug)]

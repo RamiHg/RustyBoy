@@ -266,8 +266,7 @@ impl DecoderBuilder {
             // x = 1
             1 => {
                 let op = if op_y == 6 && op_z == 6 {
-                    //panic!("Implement HALT")
-                    "NOP"
+                    "HALT"
                 } else if op_y == 6 {
                     "LD(rr),r"
                 } else if op_z == 6 {

@@ -91,14 +91,32 @@ impl Gpu {
     pub fn vram(&self, address: i32) -> i32 {
         self.vram.borrow()[(address - 0x8000) as usize] as i32
     }
-    pub fn set_vram(&mut self, address: i32, value: i32) {
+    fn set_vram(&mut self, address: i32, value: i32) {
         self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
     }
     pub fn oam(&self, address: i32) -> i32 {
         self.vram.borrow()[(address - 0xFE00 + 8192) as usize] as i32
     }
-    pub fn set_oam(&mut self, address: i32, value: i32) {
+    fn set_oam(&mut self, address: i32, value: i32) {
         self.vram.borrow_mut()[(address - 0xFE00 + 8192) as usize] = value as u8;
+    }
+
+    fn can_access_oam(&self) -> bool {
+        match self.lcd_status.mode() {
+            LcdMode::ReadingOAM | LcdMode::TransferringToLcd
+                if self.lcd_control.enable_display() =>
+            {
+                false
+            }
+            _ => true,
+        }
+    }
+
+    fn can_access_vram(&self) -> bool {
+        match self.lcd_status.mode() {
+            LcdMode::TransferringToLcd if self.lcd_control.enable_display() => false,
+            _ => true,
+        }
     }
 
     fn maybe_fire_interrupt(&self, interrupt_type: InterruptType) -> Interrupts {
@@ -360,8 +378,20 @@ impl mmu::MemoryMapped for Gpu {
                 Some(Addresses::BgPallette) => Some(self.bg_palette),
                 _ => None,
             },
-            mmu::Location::VRam => Some(self.vram(raw)),
-            mmu::Location::OAM => Some(self.oam(raw)),
+            mmu::Location::VRam => {
+                if self.can_access_vram() {
+                    Some(self.vram(raw))
+                } else {
+                    Some(0xFF)
+                }
+            }
+            mmu::Location::OAM => {
+                if self.can_access_oam() {
+                    Some(self.oam(raw))
+                } else {
+                    Some(0xFF)
+                }
+            }
             _ => None,
         }
     }
@@ -400,24 +430,17 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => {
-                if !self.lcd_control.enable_display()
-                    || self.lcd_status.mode() != LcdMode::TransferringToLcd
-                {
+                if self.can_access_vram() {
                     self.set_vram(raw, value);
                 }
                 Some(())
             }
-            mmu::Location::OAM => match self.lcd_status.mode() {
-                LcdMode::TransferringToLcd | LcdMode::ReadingOAM
-                    if self.lcd_control.enable_display() =>
-                {
-                    Some(())
-                }
-                _ => {
+            mmu::Location::OAM => {
+                if self.can_access_oam() {
                     self.set_oam(raw, value);
-                    Some(())
                 }
-            },
+                Some(())
+            }
             _ => None,
         }
     }

@@ -102,6 +102,9 @@ impl MemoryMapped for Memory {
         use Location::*;
         match location {
             VRam | InternalRam | OAM | Registers | HighRam | UnusedOAM => {
+                // if raw == 0xFFFF {
+                //     println!("Setting IE to {:b}", value);
+                // }
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }

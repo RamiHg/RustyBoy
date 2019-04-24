@@ -4,7 +4,7 @@ use crate::system::Interrupts;
 use crate::util;
 use crate::util::is_bit_set;
 
-use bitfield::bitfield;
+use bitfield::*;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -18,7 +18,7 @@ pub enum TimerFrequency {
 
 /// Timer Control register (TAC). 0xFF07
 bitfield! {
-    pub struct TimerControl(u8);
+    pub struct TimerControl(u32);
     impl Debug;
     u8;
     pub into TimerFrequency, frequency, set_frequency: 1, 0;
@@ -37,6 +37,76 @@ pub struct Timer {
     tima: i32,
     tma: i32,
     should_interrupt: bool,
+}
+
+
+struct MemoryBus {
+    t_state: i32,
+
+    read_latch: bool,
+    write_latch: bool,
+    data_latch: i32,
+    address_latch: i32,
+}
+
+use io_registers::Addresses;
+
+
+impl MemoryBus {
+    pub fn maybe_write(
+        &self,
+        memory_mapped: &mut impl MemoryMapped,
+        register: io_registers::Addresses,
+    ) {
+    }
+
+}
+
+define_typed_register!(TimerControl, Addresses::TimerControl);
+
+trait MemoryMapped {
+    fn execute_tcycle(
+        self: Box<Self>,
+        memory_bus: &MemoryBus,
+    ) -> (Box<dyn MemoryMapped>, Interrupts);
+
+    fn read_register(&self, address: io_registers::Addresses) -> Option<i32>;
+    fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()>;
+}
+
+impl MemoryMapped for Timer {
+    fn execute_tcycle(self: Box<Self>, bus: &MemoryBus) -> (Box<MemoryMapped>, Interrupts) {
+        let mut next_state = Box::new(*self);
+        next_state.tma = 
+        // Allow the CPU to overwrite DIV and TIMA.
+        // [HW] counter = (old or bus) + 1.
+        next_state.counter.bus_or(bus, (self.counter + 1) & 0xFFFF);
+        let old_bit = self.edge_detector_input();
+        let new_bit = next_state.edge_detector_input();
+        if old_bit && !new_bit && self.tac.enabled() {
+            // Negative edge detector fired! Increase TIMA.
+            // [HW] tima = (old or bus) + 1.
+            next_state.tima.bus_or(bus, self.tima + 1);
+        }
+        // Check for TIMA overflows.
+        let tima = self.tima.or_bus(bus);
+        if (tima & 0x100) != 0 {
+            // TODO: Handle case where cpu writes TMA
+            next_state.tima = self.tma;
+            next_state.should_interrupt = true;
+        }
+        let interrupt = if self.should_interrupt {
+            Interrupts::TIMER
+        } else {
+            Interrupts::empty()
+        };
+        (next_state, interrupt)
+    }
+
+    fn read_register(&self, address: io_registers::Addresses) -> Option<i32> { None }
+    fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()> {
+        None
+    }
 }
 
 impl Timer {

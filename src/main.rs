@@ -149,7 +149,7 @@ fn load_all_shaders() -> GLuint {
     }
 }
 
-const LOG_INT: bool = true;
+const LOG_INT: bool = false;
 const LOG_DISAS: bool = true;
 
 fn main() -> error::Result<()> {
@@ -157,7 +157,7 @@ fn main() -> error::Result<()> {
     log::setup_logging(log::LogSettings {
         interrupts: LOG_INT,
         disassembly: LOG_DISAS,
-        timer: false,
+        timer: true,
     })
     .unwrap();
 
@@ -214,13 +214,14 @@ fn main() -> error::Result<()> {
 
     // Load the gameboy cart.
     //let cart = cart::from_file("./instr_timing.gb");
-    let cart = cart::from_file("./test_roms/acceptance/ppu/intr_1_2_timing-GS.gb");
+    let cart = cart::from_file("./test_roms/acceptance/timer/tim01.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
 
     loop {
         //let now = std::time::Instant::now();
-        for _ in 0..17556 {
+        // for _ in 0..17556 {
+        for _ in 0..100 {
             system.execute_machine_cycle()?;
         }
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
@@ -259,6 +260,7 @@ fn main() -> error::Result<()> {
         }
 
         context.swap_buffers().unwrap();
+        break;
     }
 
     Ok(())

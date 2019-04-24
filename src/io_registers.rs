@@ -27,10 +27,6 @@ pub enum Addresses {
     WindowXPos = 0xFF4B,     // WX
 }
 
-/// Base register trait. Describes registers: their location in memory, etc.
-pub trait Register {
-    const ADDRESS: i32;
-}
 
 /// Interrupt Flag register (IF). 0xFF0F
 bitfield! {
@@ -49,25 +45,43 @@ bitfield! {
     pub is_transferring, set_transferring: 7;
 }
 
-/// Implements the Register trait.
+pub struct MemoryBus {}
+
+pub trait Register: AsRef<u32> + AsMut<u32> {
+    const ADDRESS: i32;
+
+    fn set_bus_or(&mut self, bus: &MemoryBus, or: i32) {
+        // TODO
+        *self.as_mut() = or as u32;
+    }
+
+    fn or_bus(&self, bus: &MemoryBus) -> i32 { 0 }
+
+    fn set_bus(&mut self, bus: &MemoryBus) { *self.as_mut() = 1;// todo }
+}
+
 #[macro_export]
-macro_rules! declare_register {
-    ($x:ident, $address:expr) => {
-        // Implement the Register trait.
-        impl<T> crate::io_registers::Register for $x<T> {
+macro_rules! define_typed_register {
+    ($Type:ident, $address:expr) => {
+        use crate::io_registers::Register;
+
+        impl AsRef<u32> for $Type {
+            fn as_ref(&self) -> &u32 { &self.0 }
+        }
+        impl AsMut<u32> for $Type {
+            fn as_mut(&mut self) -> &mut u32 { &mut self.0 }
+        }
+
+        impl Register for $Type {
             const ADDRESS: i32 = $address as i32;
         }
     };
 }
 
+
 #[macro_export]
 macro_rules! declare_register_u8 {
     ($x:ident, $address:expr) => {
-        // Implement the Register trait.
-        impl crate::io_registers::Register for $x {
-            const ADDRESS: i32 = $address as i32;
-        }
-
         impl Clone for $x {
             fn clone(&self) -> Self { *self }
         }

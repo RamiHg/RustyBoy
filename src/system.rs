@@ -30,18 +30,32 @@ pub struct System {
     cart: Box<mmu::MemoryMapped>,
 
     screen: Vec<Pixel>,
+
+    test: i32,
 }
 
 impl System {
     pub fn new_with_cart(cart: Box<mmu::MemoryMapped>) -> System {
+        use cpu::register::Register;
+        let mut cpu = cpu::Cpu::new();
+        // Set the initial register values.
+        cpu.registers.set(Register::A, 0x01);
+        cpu.registers.set(Register::F, 0xB0);
+        cpu.registers.set(Register::C, 0x13);
+        cpu.registers.set(Register::E, 0xD8);
+        cpu.registers.set(Register::H, 0x01);
+        cpu.registers.set(Register::L, 0x4D);
+        cpu.registers.set(Register::SP, 0xFFFE);
+
         System {
-            cpu: cpu::Cpu::new(),
+            cpu: cpu,
             gpu: gpu::Gpu::new(),
             memory: mmu::Memory::new(),
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
             cart,
+            test: 0,
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
         }
@@ -96,13 +110,13 @@ impl System {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
-            if t_state == 3 {
+            if t_state == 2 {
                 self.cpu.state.data_latch = self.read_request(self.cpu.state.address_latch)?;
             // println!(
             //     "Reading {:X?} from {:X?}",
             //     self.cpu.state.data_latch, self.cpu.state.address_latch
             // );
-            } else {
+            } else if false {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
             }
@@ -110,7 +124,7 @@ impl System {
         Ok(())
     }
 
-    fn handle_cpu_memory_writes(&mut self) -> Result<()> {
+    fn handle_cpu_memory_writes(&mut self, sh: bool) -> Result<()> {
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
             // println!(
@@ -119,7 +133,8 @@ impl System {
             // );
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
             debug_assert!(util::is_8bit(self.cpu.state.data_latch));
-            if self.cpu.t_state.get() == 4 {
+            // if self.cpu.t_state.get() == 1 && sh {
+            if sh {
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -173,8 +188,8 @@ impl System {
     }
 
     fn execute_t_cycle(&mut self) -> Result<()> {
-        if self.cpu.t_state.get() == 3
-            && self.cpu.state.decode_mode == cpu::DecodeMode::Decode
+        if self.cpu.t_state.get() == 1
+            && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
             && !self.cpu.is_handling_interrupt
         {
             let pc_plus =
@@ -197,18 +212,23 @@ impl System {
                 );
             }
         }
-
+        println!(
+            "A: {:X?}",
+            self.cpu.registers.get(cpu::register::Register::A),
+        );
         // Do all the rising edge sampling operations.
+        let should_write = self.cpu.t_state.get() == 4;
+
+        self.cpu.execute_t_cycle(&mut self.memory)?;
         self.handle_cpu_memory_reads()?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         let new_gpu = self.handle_gpu();
-        self.cpu.execute_t_cycle(&mut self.memory)?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
         self.gpu = new_gpu;
-        self.handle_cpu_memory_writes()?;
+        self.handle_cpu_memory_writes(should_write)?;
 
         Ok(())
     }
@@ -230,6 +250,8 @@ impl System {
 impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
         let mut system = System::new_with_cart(cart);
+        // Clear all registers.
+        system.cpu.registers = cpu::register::File::new();
         // Start with the GPU disabled.
         system
             .write_request(io_registers::Addresses::LcdControl as i32, 0)

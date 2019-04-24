@@ -141,7 +141,11 @@ impl From<SingleTable> for Register {
 }
 
 impl File {
-    pub fn new(values: [i32; Register::NumRegisters as usize]) -> File { File(values) }
+    pub fn new() -> File {
+        File {
+            0: [0; Register::NumRegisters as usize],
+        }
+    }
 
     pub fn get(&self, any: Register) -> i32 {
         let combine_any = |a, b| (self.get(a) << 8) | self.get(b);

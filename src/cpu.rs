@@ -66,7 +66,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         let mut cpu = Cpu {
             state: State::default(),
-            registers: register::File::new([0; register::Register::NumRegisters as usize]),
+            registers: register::File::new(),
             decoder: decoder::Decoder::new(),
             micro_code_stack: Vec::new(),
             t_state: TState::default(),

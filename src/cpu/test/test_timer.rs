@@ -22,6 +22,7 @@ fn test_simple() {
         EI,
         // Set A to 0. Should happen before any interrupts.
         LD_A_IMM, 0,
+        //LD_FF_A, 0x04,
         // Useless instruction.
         LD_A_A,
         // C004

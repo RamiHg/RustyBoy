@@ -18,7 +18,7 @@ use sprites::*;
 pub const LCD_WIDTH: i32 = 160;
 pub const LCD_HEIGHT: i32 = 144;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Pixel {
     pub r: u8,
     pub g: u8,
@@ -123,7 +123,7 @@ impl Gpu {
         let mut fired_interrupts = Interrupts::empty();
         // HW: This is technically not correct for VVlank The STAT VBlank interrupt will fire at any
         // time within the VBlank duration.
-        if (interrupt_type as u8 & self.lcd_status.0) != 0 {
+        if (interrupt_type as i32 & self.lcd_status.0) != 0 {
             fired_interrupts = Interrupts::STAT;
         }
         if let InterruptType::VBlank = interrupt_type {
@@ -402,12 +402,12 @@ impl mmu::MemoryMapped for Gpu {
         match location {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => {
-                    self.lcd_control.0 = value as u8;
+                    self.lcd_control.0 = value;
                     Some(())
                 }
                 Some(Addresses::LcdStatus) => {
                     let mask = 0b111;
-                    self.lcd_status.0 = (self.lcd_status.0 & mask) | (value as u8 & !mask);
+                    self.lcd_status.0 = (self.lcd_status.0 & mask) | (value & !mask);
                     Some(())
                 }
                 Some(Addresses::ScrollX) => {

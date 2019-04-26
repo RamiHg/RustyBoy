@@ -93,9 +93,8 @@ impl Cpu {
                 }
                 self.state.interrupt_enable_counter -= 1;
             }
-
         }
-        self.t_state.inc();
+
         Ok(())
     }
 

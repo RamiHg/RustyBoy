@@ -39,7 +39,6 @@ pub mod instructions {
     pub const INC_A: u8 = 0x3C;
     pub const DEC_A: u8 = 0x3D;
 
-
     pub const UNARY_SOURCES: [Register; 8] = [B, C, D, E, H, L, HL, A];
 }
 
@@ -140,14 +139,21 @@ impl TestContext {
         // let name = first_non_setup.to_string();
         static INIT: std::sync::Once = std::sync::ONCE_INIT;
         let name = "ignoreme".to_string();
-        // INIT.call_once(|| {
-        //     crate::log::setup_logging(crate::log::LogSettings {
-        //         interrupts: true,
-        //         disassembly: true,
-        //         timer: true,
-        //     })
-        //     .unwrap();
-        // });
+        INIT.call_once(|| {
+            #[allow(unused_mut)]
+            let mut do_timer = false;
+            #[cfg(feature = "log-timer")]
+            {
+                do_timer = true;
+            }
+
+            crate::log::setup_logging(crate::log::LogSettings {
+                interrupts: false,
+                disassembly: false,
+                timer: do_timer,
+            })
+            .unwrap();
+        });
 
         TestContext {
             system: Box::new(system::System::new_test_system(cart)),

@@ -1,5 +1,4 @@
 /// TODO: Test the fact that the interrupt handler won't start in the middle of an instruction.
-
 use super::*;
 
 use crate::cpu::register::Register::*;

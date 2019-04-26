@@ -1,3 +1,5 @@
+use crate::mmu::MemoryBus;
+
 use bitfield::bitfield;
 use num_derive::FromPrimitive;
 use num_traits;
@@ -27,10 +29,10 @@ pub enum Addresses {
     WindowXPos = 0xFF4B,     // WX
 }
 
-
 /// Interrupt Flag register (IF). 0xFF0F
 bitfield! {
-    pub struct InterruptFlag(u8);
+    pub struct InterruptFlag(i32);
+    no default BitRange;
     pub has_v_blank, set_v_blank: 0;
     pub has_lcdc, set_lcdc: 1;
     pub has_timer, set_timer: 2;
@@ -39,53 +41,71 @@ bitfield! {
 }
 
 bitfield! {
-    pub struct SerialControl(u8);
+    pub struct SerialControl(i32);
+    no default BitRange;
     impl Debug;
     u8;
     pub is_transferring, set_transferring: 7;
 }
 
-pub struct MemoryBus {}
-
-pub trait Register: AsRef<u32> + AsMut<u32> {
+pub trait Register: AsRef<i32> + AsMut<i32> {
     const ADDRESS: i32;
 
     fn set_bus_or(&mut self, bus: &MemoryBus, or: i32) {
-        // TODO
-        *self.as_mut() = or as u32;
+        *self.as_mut() = bus.writes_to(self.address()).unwrap_or(or);
     }
 
-    fn or_bus(&self, bus: &MemoryBus) -> i32 { 0 }
+    fn or_bus(&self, bus: &MemoryBus) -> i32 {
+        bus.writes_to(self.address()).unwrap_or(*self.as_ref())
+    }
 
-    fn set_bus(&mut self, bus: &MemoryBus) { *self.as_mut() = 1;// todo }
+    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, *self.as_ref()); }
+
+    fn address(&self) -> i32;
 }
 
-#[macro_export]
-macro_rules! define_typed_register {
+macro_rules! define_common_register {
     ($Type:ident, $address:expr) => {
-        use crate::io_registers::Register;
-
-        impl AsRef<u32> for $Type {
-            fn as_ref(&self) -> &u32 { &self.0 }
-        }
-        impl AsMut<u32> for $Type {
-            fn as_mut(&mut self) -> &mut u32 { &mut self.0 }
-        }
-
-        impl Register for $Type {
+        impl $crate::io_registers::Register for $Type {
             const ADDRESS: i32 = $address as i32;
+            fn address(&self) -> i32 { $Type::ADDRESS }
         }
     };
 }
 
+macro_rules! define_typed_register {
+    ($Type:ident, $address:expr) => {
+        impl bitfield::BitRange<u8> for $Type {
+            fn bit_range(&self, msb: usize, lsb: usize) -> u8 {
+                (self.0 as u32).bit_range(msb, lsb)
+            }
+            fn set_bit_range(&mut self, msb: usize, lsb: usize, value: u8) {
+                let mut tmp = self.0 as u32;
+                tmp.set_bit_range(msb, lsb, value);
+                self.0 = tmp as i32;
+            }
+        }
 
-#[macro_export]
-macro_rules! declare_register_u8 {
-    ($x:ident, $address:expr) => {
-        impl Clone for $x {
+        impl AsRef<i32> for $Type {
+            fn as_ref(&self) -> &i32 { &self.0 }
+        }
+        impl AsMut<i32> for $Type {
+            fn as_mut(&mut self) -> &mut i32 { &mut self.0 }
+        }
+        impl Copy for $Type {}
+        impl Clone for $Type {
             fn clone(&self) -> Self { *self }
         }
-        impl Copy for $x {}
+        define_common_register!($Type, $address);
+    };
+}
+
+macro_rules! define_int_register {
+    ($Type:ident, $address:expr) => {
+        #[derive(Clone, Copy, Debug, Shrinkwrap)]
+        #[shrinkwrap(mutable)]
+        struct $Type(i32);
+        define_common_register!($Type, $address);
     };
 }
 
@@ -99,6 +119,5 @@ macro_rules! from_u8 {
     };
 }
 
-declare_register_u8!(InterruptFlag, Addresses::InterruptFired);
-declare_register_u8!(SerialControl, Addresses::SerialControl);
-
+define_typed_register!(InterruptFlag, Addresses::InterruptFired);
+define_typed_register!(SerialControl, Addresses::SerialControl);

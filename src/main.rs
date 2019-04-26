@@ -20,6 +20,8 @@ use glutin;
 extern crate more_asserts;
 #[macro_use]
 extern crate log as logging;
+#[macro_use]
+extern crate shrinkwraprs;
 
 #[macro_use]
 mod io_registers;
@@ -38,6 +40,9 @@ mod util;
 
 #[allow(unused_imports)]
 use system::System;
+
+#[cfg(test)]
+mod tests;
 
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
@@ -150,14 +155,14 @@ fn load_all_shaders() -> GLuint {
 }
 
 const LOG_INT: bool = false;
-const LOG_DISAS: bool = true;
+const LOG_DISAS: bool = false;
 
 fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
         interrupts: LOG_INT,
         disassembly: LOG_DISAS,
-        timer: true,
+        timer: false,
     })
     .unwrap();
 
@@ -220,8 +225,8 @@ fn main() -> error::Result<()> {
 
     loop {
         //let now = std::time::Instant::now();
-        // for _ in 0..17556 {
-        for _ in 0..100 {
+        for _ in 0..17556 {
+            //for _ in 0..100 {
             system.execute_machine_cycle()?;
         }
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
@@ -260,7 +265,7 @@ fn main() -> error::Result<()> {
         }
 
         context.swap_buffers().unwrap();
-        break;
+        // break;
     }
 
     Ok(())

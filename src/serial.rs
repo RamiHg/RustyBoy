@@ -77,7 +77,7 @@ impl mmu::MemoryMapped for Controller {
         let mmu::Address(location, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
             Some(io_registers::Addresses::SerialControl) => {
-                self.control.0 = value as u8;
+                self.control.0 = value;
                 Some(())
             }
             Some(io_registers::Addresses::SerialData) => {

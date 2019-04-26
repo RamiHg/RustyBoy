@@ -24,7 +24,7 @@ pub struct System {
     gpu: gpu::Gpu,
 
     memory: mmu::Memory,
-    timer: timer::Timer,
+    timer: Box<timer::Timer>,
     serial: serial::Controller,
     dma: dma::Dma,
     cart: Box<mmu::MemoryMapped>,
@@ -51,7 +51,7 @@ impl System {
             cpu: cpu,
             gpu: gpu::Gpu::new(),
             memory: mmu::Memory::new(),
-            timer: timer::Timer::new(),
+            timer: Box::new(timer::Timer::new()),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
             cart,
@@ -66,7 +66,7 @@ impl System {
 
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
-            &self.timer,
+            self.timer.as_ref(),
             self.cart.as_ref(),
             &self.serial,
             &self.gpu,
@@ -87,7 +87,7 @@ impl System {
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
         let mut modules = [
-            &mut self.timer,
+            self.timer.as_mut(),
             self.cart.as_mut(),
             &mut self.serial,
             &mut self.gpu,
@@ -169,8 +169,16 @@ impl System {
         }
     }
 
-    fn handle_timer(&mut self) -> Result<timer::Timer> {
-        let (new_timer, should_interrupt) = self.timer.execute_mcycle();
+    fn handle_timer(&mut self) -> Result<Box<timer::Timer>> {
+        use mmu::MemoryMapped2;
+        let bus = mmu::MemoryBus {
+            address_latch: self.cpu.state.address_latch,
+            data_latch: self.cpu.state.data_latch,
+            read_latch: false,
+            write_latch: self.cpu.state.write_latch,
+            t_state: self.cpu.t_state.get(),
+        };
+        let (new_timer, should_interrupt) = self.timer.clone().execute_tcycle(&bus);
         self.maybe_fire_interrupt(should_interrupt);
         Ok(new_timer)
     }
@@ -212,10 +220,6 @@ impl System {
                 );
             }
         }
-        println!(
-            "A: {:X?}",
-            self.cpu.registers.get(cpu::register::Register::A),
-        );
         // Do all the rising edge sampling operations.
         let should_write = self.cpu.t_state.get() == 4;
 
@@ -229,6 +233,7 @@ impl System {
         self.serial = new_serial;
         self.gpu = new_gpu;
         self.handle_cpu_memory_writes(should_write)?;
+        self.cpu.t_state.inc();
 
         Ok(())
     }

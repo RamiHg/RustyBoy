@@ -1,19 +1,11 @@
 use crate::{io_registers::Register, util};
 
 use crate::error::{self, Result};
+use crate::io_registers;
+use crate::system::Interrupts;
 
 // Useful tidbits:
 // https://retrocomputing.stackexchange.com/questions/1178/what-is-this-unused-memory-range-in-the-game-boys-memory-map
-
-// pub enum RegisterAddr {
-//     Lcdc = 0xFF40,
-//     ScrollY = 0xFF42,
-//     ScrollX = 0xFF43,
-//     CurScln = 0xFF44,
-//     BgPalette = 0xFF47,
-
-//     InterruptEnable = 0xFFFF,
-// }
 
 #[derive(Clone, Copy, Debug)]
 pub enum Location {
@@ -67,15 +59,35 @@ pub trait MemoryMapped {
     //fn handles(&self, address: Address) -> bool;
     fn read(&self, address: Address) -> Option<i32>;
     fn write(&mut self, address: Address, value: i32) -> Option<()>;
+}
 
-    // fn read_register<A, T>(&self, cons: &T) -> Option<Box<A>>
-    // where
-    //     A: Register,
-    //     T: core::ops::FnMut([u8; 1]) -> A,
-    // {
-    //     let address = Address::from_raw(A::ADDRESS).unwrap();
-    //     Box::new(self.read(address).map(|x| cons([x as u8])))
-    // }
+#[derive(Debug)]
+pub struct MemoryBus {
+    pub t_state: i32,
+
+    pub read_latch: bool,
+    pub write_latch: bool,
+    pub address_latch: i32,
+
+    pub data_latch: i32,
+}
+
+impl MemoryBus {
+    pub fn writes_to(&self, address: i32) -> Option<i32> {
+        if self.write_latch && self.address_latch == address {
+            Some(self.data_latch)
+        } else {
+            None
+        }
+    }
+}
+
+pub trait MemoryMapped2 {
+    fn default_next_state(&self, bus: &MemoryBus) -> (Box<Self>);
+    fn execute_tcycle(self: Box<Self>, memory_bus: &MemoryBus) -> (Box<Self>, Interrupts);
+
+    fn read_register(&self, address: io_registers::Addresses) -> Option<i32>;
+    fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()>;
 }
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their
@@ -145,38 +157,4 @@ impl Memory {
         // Let me know if you can think of a better way!
         cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
     }
-
-    // pub fn set_starting_sequence(&mut self) {
-    //     self.mem[0xFF05] = 0;
-    //     self.mem[0xFF06] = 0;
-    //     self.mem[0xFF07] = 0;
-    //     self.mem[0xFF10] = 0x80;
-    //     self.mem[0xFF11] = 0xBF;
-    //     self.mem[0xFF12] = 0xF3;
-    //     self.mem[0xFF14] = 0xBF;
-    //     self.mem[0xFF16] = 0x3F;
-    //     self.mem[0xFF17] = 0x00;
-    //     self.mem[0xFF19] = 0xBF;
-    //     self.mem[0xFF1A] = 0x7F;
-    //     self.mem[0xFF1B] = 0xFF;
-    //     self.mem[0xFF1C] = 0x9F;
-    //     self.mem[0xFF1E] = 0xBF;
-    //     self.mem[0xFF20] = 0xFF;
-    //     self.mem[0xFF21] = 0x00;
-    //     self.mem[0xFF22] = 0x00;
-    //     self.mem[0xFF23] = 0xBF;
-    //     self.mem[0xFF24] = 0x77;
-    //     self.mem[0xFF25] = 0xF3;
-    //     self.mem[0xFF26] = 0xF1;
-    //     self.mem[0xFF40] = 0x91;
-    //     self.mem[0xFF42] = 0x00;
-    //     self.mem[0xFF43] = 0x00;
-    //     self.mem[0xFF45] = 0x00;
-    //     self.mem[0xFF47] = 0xFC;
-    //     self.mem[0xFF48] = 0xFF;
-    //     self.mem[0xFF49] = 0xFF;
-    //     self.mem[0xFF4A] = 0x00;
-    //     self.mem[0xFF4B] = 0x00;
-    //     self.mem[0xFFFF] = 0x00;
-    // }
 }

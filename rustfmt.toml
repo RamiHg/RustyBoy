@@ -1,6 +1,6 @@
-unstable_features = true
 edition = "2018"
 version = "two"
+unstable_features = true
 
 max_width = 100
 tab_spaces = 4

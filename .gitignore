@@ -6,3 +6,6 @@ test_roms/
 *.gb
 timer/
 .DS_STORE
+failed_tests/
+succeeded_tests/
+test_golden/

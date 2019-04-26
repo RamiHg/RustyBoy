@@ -16,7 +16,7 @@ This has the interesting side-effect that the CPU control unit (control_unit.rs)
 
 The CPU is fully implemented. It passes Blargh's instruction and timing tests.
 
-![](docs/instr_pass.png)
+![](docs/instr_pass.png =568x451)
 
 I am currently working on getting the emulator to pass all of mooneye-gb's acceptance tests.
 

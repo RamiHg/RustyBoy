@@ -74,7 +74,7 @@ pub struct MemoryBus {
 
 impl MemoryBus {
     pub fn writes_to(&self, address: i32) -> Option<i32> {
-        if self.write_latch && self.address_latch == address {
+        if self.t_state == 4 && self.write_latch && self.address_latch == address {
             Some(self.data_latch)
         } else {
             None

@@ -56,50 +56,54 @@ impl MemoryMapped2 for Timer {
     }
 
     fn execute_tcycle(self: Box<Self>, bus: &MemoryBus) -> (Box<Timer>, Interrupts) {
-        // Only run the timer logic once an mcycle.
-        let (next_state, interrupt) = if bus.t_state == 1 {
-            let mut next_state = self.default_next_state(bus);
-            // Allow the CPU to overwrite DIV and TIMA.
-            // [HW] div = (old + 1) or bus & 0
-            if bus.writes_to(Addresses::TimerDiv as i32).is_some() {
-                next_state.div.0 = 0;
-            } else {
-                next_state.div.0 = (*self.div + 4) & 0xFFFF;
-            }
-            let old_bit = self.edge_detector_input();
-            let new_bit = next_state.edge_detector_input();
-            if old_bit && !new_bit && self.tac.enabled() {
-                // Negative edge detector fired! Increase TIMA.
-                // [HW] tima = (old + 1) or bus.
-                next_state.tima.set_bus_or(bus, *self.tima + 1);
-            }
-            // Check for TIMA overflows.
-            // [HW] tima = old or bus.
-            let tima = self.tima.or_bus(bus);
-            if (tima & 0x100) != 0 {
-                // TODO: Handle case where cpu writes TMA
-                *next_state.tima = *self.tma;
-                next_state.should_interrupt = true;
-            }
-            let interrupt = if self.should_interrupt {
-                next_state.should_interrupt = false;
-                Interrupts::TIMER
-            } else {
-                Interrupts::empty()
-            };
-            (next_state, interrupt)
-        } else {
-            (self, Interrupts::empty())
-        };
-        if next_state.tac.enabled() {
+        // if bus.t_state != 1 {
+        //     return (self, Interrupts::empty());
+        // }
+        let do_print = |header, state: &Timer| {
             trace!(
                 target: "timer",
-                "Counter: {}\tTIMA: {}\tFire: {}",
-                *next_state.div % 16,
-                *next_state.tima,
-                next_state.should_interrupt
+                "({}) - Counter: {}\tTIMA: {}\tFire: {}",
+                header,
+                *state.div % 16,
+                *state.tima,
+                state.should_interrupt
             );
+        };
+        let mut next_state = self.default_next_state(bus);
+        // Allow the CPU to overwrite DIV and TIMA.
+        // [HW] div = (old + 1) or bus & 0
+        if bus.t_state == 1 {
+            next_state.div.0 = (*self.div + 4) & 0xFFFF;
         }
+        if bus.writes_to(next_state.div.address()).is_some() {
+            next_state.div.0 = 0;
+        }
+        let old_bit = self.edge_detector_input();
+        let new_bit = next_state.edge_detector_input();
+        if old_bit && !new_bit {
+            // Negative edge detector fired! Increase TIMA.
+            // [HW] tima = (old + 1) or bus.
+            next_state.tima.0 = *self.tima + 1;
+        }
+        // Check for TIMA overflows.
+        // [HW] tima = old or bus.
+        let tima = self.tima.0;
+        if (tima & 0x100) != 0 {
+            // TODO: Handle case where cpu writes TMA
+            *next_state.tima = *self.tma;
+            next_state.should_interrupt = true;
+        }
+        let interrupt = if self.should_interrupt {
+            next_state.should_interrupt = false;
+            Interrupts::TIMER
+        } else {
+            Interrupts::empty()
+        };
+        next_state.tima.set_from_bus(bus);
+        next_state.tma.set_from_bus(bus);
+        next_state.tac.set_from_bus(bus);
+        do_print("before", self.as_ref());
+        do_print("after", next_state.as_ref());
         (next_state, interrupt)
     }
 
@@ -136,7 +140,7 @@ impl Timer {
         } else {
             is_bit_set(*self.div, 9)
         };
-        if freq_1 { freq_1_a } else { freq_1_b }
+        (if freq_1 { freq_1_a } else { freq_1_b }) && self.tac.enabled()
     }
 }
 
@@ -161,7 +165,7 @@ impl mmu::MemoryMapped for Timer {
                 Some(())
             }
             Some(io_registers::Addresses::TimerControl) => {
-                self.tac.0 = value;
+                // self.tac.0 = value;
                 Some(())
             }
             Some(io_registers::Addresses::TimerCounter) => {

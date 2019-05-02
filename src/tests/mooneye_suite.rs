@@ -22,10 +22,16 @@ macro_rules! test_target {
 }
 
 test_target!(
+    acceptance__timer__div_write;
+    acceptance__timer__rapid_toggle;
     acceptance__timer__tim00;
     acceptance__timer__tim00_div_trigger;
     acceptance__timer__tim01;
     acceptance__timer__tim01_div_trigger;
+    acceptance__timer__tim10;
+    acceptance__timer__tim10_div_trigger;
+    acceptance__timer__tim11;
+    acceptance__timer__tim11_div_trigger;
 );
 
 fn run_target(target: &str) {
@@ -39,8 +45,8 @@ fn run_target(target: &str) {
 
     let mut before_screen = system.get_screen().to_vec();
 
-    let max_num_frames = 60 * 10;
-    let max_num_frames_same_screen = 20;
+    let max_num_frames = 60 * 50;
+    let max_num_frames_same_screen = 35;
 
     let mut num_frames = 0;
     let mut num_frames_same_screen = 0;

@@ -110,7 +110,7 @@ impl System {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
-            if t_state == 2 {
+            if t_state >= 3 {
                 self.cpu.state.data_latch = self.read_request(self.cpu.state.address_latch)?;
             // println!(
             //     "Reading {:X?} from {:X?}",
@@ -124,17 +124,12 @@ impl System {
         Ok(())
     }
 
-    fn handle_cpu_memory_writes(&mut self, sh: bool) -> Result<()> {
+    fn handle_cpu_memory_writes(&mut self) -> Result<()> {
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
-            // println!(
-            //     "Writing {:X?} to {:X}",
-            //     self.cpu.state.data_latch, self.cpu.state.address_latch
-            // );
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
             debug_assert!(util::is_8bit(self.cpu.state.data_latch));
-            // if self.cpu.t_state.get() == 1 && sh {
-            if sh {
+            if self.cpu.t_state.get() == 3 {
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -220,11 +215,13 @@ impl System {
                 );
             }
         }
+        // println!(
+        //     "A is {:X}",
+        //     self.cpu.registers.get(cpu::register::Register::A)
+        // );
         // Do all the rising edge sampling operations.
-        let should_write = self.cpu.t_state.get() == 4;
-
-        self.cpu.execute_t_cycle(&mut self.memory)?;
         self.handle_cpu_memory_reads()?;
+        self.cpu.execute_t_cycle(&mut self.memory)?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         let new_gpu = self.handle_gpu();
@@ -232,7 +229,7 @@ impl System {
         self.timer = new_timer;
         self.serial = new_serial;
         self.gpu = new_gpu;
-        self.handle_cpu_memory_writes(should_write)?;
+        self.handle_cpu_memory_writes()?;
         self.cpu.t_state.inc();
 
         Ok(())

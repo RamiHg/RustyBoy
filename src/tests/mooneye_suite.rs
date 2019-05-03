@@ -32,6 +32,15 @@ test_target!(
     acceptance__timer__tim10_div_trigger;
     acceptance__timer__tim11;
     acceptance__timer__tim11_div_trigger;
+    acceptance__timer__tima_reload;
+    acceptance__timer__tima_write_reloading;
+    acceptance__timer__tma_write_reloading;
+);
+
+test_target!(
+    acceptance__call_timing;
+    // acceptance__push_timing;
+    // acceptance__intr_timing;
 );
 
 fn run_target(target: &str) {

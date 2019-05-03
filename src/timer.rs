@@ -47,18 +47,11 @@ define_int_register!(TimerTima, Addresses::TimerCounter);
 define_int_register!(TimerTma, Addresses::TimerModulo);
 
 impl MemoryMapped2 for Timer {
-    fn default_next_state(&self, bus: &MemoryBus) -> Box<Timer> {
-        let mut state = Box::new(*self);
-        state.tima.set_from_bus(bus);
-        state.tma.set_from_bus(bus);
-        state.tac.set_from_bus(bus);
-        state
-    }
+    fn default_next_state(&self, bus: &MemoryBus) -> Box<Timer> { Box::new(*self) }
 
+    /// TODO: Refactor to be more HW friendly.
     fn execute_tcycle(self: Box<Self>, bus: &MemoryBus) -> (Box<Timer>, Interrupts) {
-        // if bus.t_state != 1 {
-        //     return (self, Interrupts::empty());
-        // }
+        let mut interrupt = Interrupts::empty();
         let do_print = |header, state: &Timer| {
             trace!(
                 target: "timer",
@@ -70,6 +63,7 @@ impl MemoryMapped2 for Timer {
             );
         };
         let mut next_state = self.default_next_state(bus);
+        next_state.tac.set_from_bus(bus);
         // Allow the CPU to overwrite DIV and TIMA.
         // [HW] div = (old + 1) or bus & 0
         if bus.t_state == 1 {
@@ -85,23 +79,20 @@ impl MemoryMapped2 for Timer {
             // [HW] tima = (old + 1) or bus.
             next_state.tima.0 = *self.tima + 1;
         }
-        // Check for TIMA overflows.
-        // [HW] tima = old or bus.
-        let tima = self.tima.0;
-        if (tima & 0x100) != 0 {
-            // TODO: Handle case where cpu writes TMA
-            *next_state.tima = *self.tma;
-            next_state.should_interrupt = true;
+        if bus.t_state == 4 {
+            if self.should_interrupt {
+                next_state.tima.0 = self.tma.or_bus(bus);
+                next_state.should_interrupt = false;
+            } else {
+                next_state.tima.set_from_bus(bus);
+                if (next_state.tima.0 & 0x100) != 0 {
+                    next_state.should_interrupt = true;
+                    next_state.tima.0 = self.tma.0;
+                    interrupt = Interrupts::TIMER;
+                }
+            }
+            next_state.tma.set_from_bus(bus);
         }
-        let interrupt = if self.should_interrupt {
-            next_state.should_interrupt = false;
-            Interrupts::TIMER
-        } else {
-            Interrupts::empty()
-        };
-        next_state.tima.set_from_bus(bus);
-        next_state.tma.set_from_bus(bus);
-        next_state.tac.set_from_bus(bus);
         do_print("before", self.as_ref());
         do_print("after", next_state.as_ref());
         (next_state, interrupt)
@@ -160,27 +151,10 @@ impl mmu::MemoryMapped for Timer {
         debug_assert!(util::is_8bit(value));
         let mmu::Address(_, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
-            Some(io_registers::Addresses::TimerDiv) => {
-                //self.div.0 = 0;
-                Some(())
-            }
-            Some(io_registers::Addresses::TimerControl) => {
-                // self.tac.0 = value;
-                Some(())
-            }
-            Some(io_registers::Addresses::TimerCounter) => {
-                // If we're setting TIMA to TMA in this cycle, ignore any other request coming from
-                // the CPU.
-                //if !(self.should_interrupt && (self.tima & 0x100) != 0) {
-                debug_assert!(!self.should_interrupt);
-                //self.tima.0 = value;
-                // }
-                Some(())
-            }
-            Some(io_registers::Addresses::TimerModulo) => {
-                //self.tma.0 = value;
-                Some(())
-            }
+            Some(io_registers::Addresses::TimerDiv) => Some(()),
+            Some(io_registers::Addresses::TimerControl) => Some(()),
+            Some(io_registers::Addresses::TimerCounter) => Some(()),
+            Some(io_registers::Addresses::TimerModulo) => Some(()),
             _ => None,
         }
     }

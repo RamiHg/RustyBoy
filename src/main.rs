@@ -160,8 +160,8 @@ fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
         interrupts: LOG_INT,
-        disassembly: false,
-        timer: false,
+        disassembly: true,
+        timer: true,
     })
     .unwrap();
 
@@ -217,8 +217,8 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    //let cart = cart::from_file("./instr_timing.gb");
-    let cart = cart::from_file("./test_roms/acceptance/timer/tim01_div_trigger.gb");
+    let cart = cart::from_file("./instr_timing.gb");
+    // let cart = cart::from_file("./test_roms/acceptance/timer/tima_write_reloading.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
     let little = false;

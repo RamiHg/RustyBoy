@@ -21,6 +21,7 @@ macro_rules! test_target {
     };
 }
 
+// Timer.
 test_target!(
     acceptance__timer__div_write;
     acceptance__timer__rapid_toggle;
@@ -35,6 +36,15 @@ test_target!(
     acceptance__timer__tima_reload;
     acceptance__timer__tima_write_reloading;
     acceptance__timer__tma_write_reloading;
+);
+
+// OAM DMA
+test_target!(
+    acceptance__oam_dma__basic;
+    acceptance__oam_dma__reg_read;
+    acceptance__oam_dma_start;
+    acceptance__oam_dma_timing;
+    acceptance__oam_dma_restart;
 );
 
 test_target!(

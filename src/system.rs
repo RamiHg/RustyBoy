@@ -26,7 +26,7 @@ pub struct System {
     memory: mmu::Memory,
     timer: Box<timer::Timer>,
     serial: serial::Controller,
-    dma: dma::Dma,
+    dma: Box<dma::Dma>,
     cart: Box<mmu::MemoryMapped>,
 
     screen: Vec<Pixel>,
@@ -53,7 +53,7 @@ impl System {
             memory: mmu::Memory::new(),
             timer: Box::new(timer::Timer::new()),
             serial: serial::Controller::new(),
-            dma: dma::Dma::new(),
+            dma: Box::new(dma::Dma::new()),
             cart,
             test: 0,
 
@@ -70,7 +70,7 @@ impl System {
             self.cart.as_ref(),
             &self.serial,
             &self.gpu,
-            &self.dma,
+            self.dma.as_ref(),
             &self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -91,7 +91,7 @@ impl System {
             self.cart.as_mut(),
             &mut self.serial,
             &mut self.gpu,
-            &mut self.dma,
+            self.dma.as_mut(),
             &mut self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -111,11 +111,16 @@ impl System {
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
             if t_state >= 3 {
-                self.cpu.state.data_latch = self.read_request(self.cpu.state.address_latch)?;
-            // println!(
-            //     "Reading {:X?} from {:X?}",
-            //     self.cpu.state.data_latch, self.cpu.state.address_latch
-            // );
+                // During DMA, reads return 0xFF.
+                self.cpu.state.data_latch = if self.dma.is_active()
+                    && (self.cpu.state.address_latch < 0xFF80
+                        || self.cpu.state.address_latch > 0xFFFE)
+                    && self.cpu.state.address_latch != io_registers::Addresses::Dma as i32
+                {
+                    0xFF
+                } else {
+                    self.read_request(self.cpu.state.address_latch)?
+                };
             } else if false {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
@@ -125,6 +130,9 @@ impl System {
     }
 
     fn handle_cpu_memory_writes(&mut self) -> Result<()> {
+        if self.dma.is_active() {
+            return Ok(());
+        }
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
@@ -145,20 +153,32 @@ impl System {
             .store(io_registers::Addresses::InterruptFired as i32, current_if);
     }
 
-    fn handle_dma_mcycle(&mut self) -> Result<()> {
-        let (dma, request) = self.dma.execute_mcycle();
+    fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
+        mmu::MemoryBus {
+            address_latch: self.cpu.state.address_latch,
+            data_latch: self.cpu.state.data_latch,
+            read_latch: false,
+            write_latch: self.cpu.state.write_latch,
+            t_state: self.cpu.t_state.get(),
+        }
+    }
+
+    fn handle_dma(&mut self) -> Result<()> {
+        let bus = self.temp_hack_get_bus();
+        let (dma, request) = self.dma.clone().execute_tcycle(&bus);
         self.dma = dma;
         if let Some(request) = request {
             let value = self.read_request(request.source_address)?;
             // Since we know the destination has to be OAM, skip the mmu routing.
-            mmu::MemoryMapped::write(
+            let res = mmu::MemoryMapped::write(
                 &mut self.gpu,
                 mmu::Address::from_raw(request.destination_address)?,
                 value,
             )
             .ok_or(error::Type::InvalidOperation(
                 "DMA destination was not OAM".into(),
-            ))
+            ));
+            res
         } else {
             Ok(())
         }
@@ -166,13 +186,7 @@ impl System {
 
     fn handle_timer(&mut self) -> Result<Box<timer::Timer>> {
         use mmu::MemoryMapped2;
-        let bus = mmu::MemoryBus {
-            address_latch: self.cpu.state.address_latch,
-            data_latch: self.cpu.state.data_latch,
-            read_latch: false,
-            write_latch: self.cpu.state.write_latch,
-            t_state: self.cpu.t_state.get(),
-        };
+        let bus = self.temp_hack_get_bus();
         let (new_timer, should_interrupt) = self.timer.clone().execute_tcycle(&bus);
         self.maybe_fire_interrupt(should_interrupt);
         Ok(new_timer)
@@ -225,6 +239,8 @@ impl System {
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         let new_gpu = self.handle_gpu();
+        // Last step is DMA.
+        self.handle_dma()?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
@@ -236,8 +252,6 @@ impl System {
     }
 
     pub fn execute_machine_cycle(&mut self) -> Result<()> {
-        self.handle_dma_mcycle()?;
-
         for i in 0..4 {
             self.execute_t_cycle()?;
         }
@@ -266,7 +280,11 @@ impl System {
     pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
 
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
-        self.write_request(raw_address, value).unwrap();
+        if raw_address == io_registers::Addresses::Dma as i32 {
+            self.dma.set_control(value);
+        } else {
+            self.write_request(raw_address, value).unwrap();
+        }
     }
 
     pub fn memory_read(&self, raw_address: i32) -> i32 { self.read_request(raw_address).unwrap() }

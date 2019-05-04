@@ -80,14 +80,17 @@ impl MemoryBus {
             None
         }
     }
+
+    pub fn writes_to_reg(&self, reg: impl io_registers::Register) -> bool {
+        self.writes_to(reg.address()).is_some()
+    }
 }
 
 pub trait MemoryMapped2 {
-    fn default_next_state(&self, bus: &MemoryBus) -> (Box<Self>);
     fn execute_tcycle(self: Box<Self>, memory_bus: &MemoryBus) -> (Box<Self>, Interrupts);
 
-    fn read_register(&self, address: io_registers::Addresses) -> Option<i32>;
-    fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()>;
+    // fn read_register(&self, address: io_registers::Addresses) -> Option<i32>;
+    // fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()>;
 }
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their

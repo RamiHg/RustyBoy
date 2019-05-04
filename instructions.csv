@@ -25,7 +25,7 @@ Name,,B,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 "JR   [cc], i8",12,,2,INC PC,,,,,,,,RADDR PC,,,,,INC PC,RD TMP,,,"LD ACT, PC_L",,,CCEND CC,ADD PC_L,CSE,,,,"LD ACT, PC_H",,,,ADD PC_H,,,END,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 "JP   [cc], i16",16,12,3,INC PC,,,,,,,,RADDR PC,,,,,INC PC,RD Z,,,,,,,RADDR PC,,,,,INC PC,RD W,,,,,,CCEND CC,ADDR WZ,,,,,MOV PC,,,,,,,END,,,,,,,,,,,,,,,,,,,,,,,,,,
 JP   HL,4,,1,ADDR HL,,,,MOV PC,,,END,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-"CALL [cc], i16",24,12,3,INC PC,,,,,,,,RADDR PC,,,,,INC PC,RD Z,,,,,,,RADDR PC,,,,,INC PC,RD W,,,,,,CCEND CC,ADDR SP,,,,,DEC SP,,,,,,,,ADDR SP,,,,WR PC_H,DEC SP,"LD ACT, W",,,MOV PC_H,,,,ADDR SP,,,,WR PC_L,"LD ACT, Z",,,,MOV PC_L,,,END
+"CALL [cc], i16",24,12,3,INC PC,,,,,,,,RADDR PC,,,,,,,,,INC PC,RD Z,,,RADDR PC,,,,,,,,,INC PC,RD W,,CCEND CC,ADDR SP,,,,,DEC SP,,,,,,,,ADDR SP,WR PC_H,,,,DEC SP,"LD ACT, W",,,MOV PC_H,,,,ADDR SP,WR PC_L,,,,"LD ACT, Z",,,,MOV PC_L,,,END
 RST,16,,1,INC PC,,,,,,,,ADDR SP,,,,,DEC SP,,,,,,,,ADDR SP,,,,WR PC_H,DEC SP,"LD TMP, 0",,,AND PC_H,,,,ADDR SP,,,,WR PC_L,"LD ACT, OP_Y8",,,,MOV PC_L,,,END,,,,,,,,,,,,,,,,,,,,,,,,,,
 RET[I],16,,1,INC PC,,,,,,,,RADDR SP,,,,,INC SP,RD Z,,,,,,,RADDR SP,,,,,INC SP,RD W,,,,,,EI,ADDR WZ,,,,,MOV PC,,,,,,,END,,,,,,,,,,,,,,,,,,,,,,,,,,
 RET  cc,20,8,1,INC PC,,,,,,,,,,,,,,,,,,,,CCEND CC,RADDR SP,,,,,INC SP,RD Z,,,,,,,RADDR SP,,,,,INC SP,RD W,,,,,,,ADDR WZ,,,,,MOV PC,,,,,,,END,,,,,,,,,,,,,

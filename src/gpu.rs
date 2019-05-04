@@ -251,9 +251,11 @@ impl Gpu {
 
     fn oam_cycle(&self, next_state: &mut Gpu) {
         // Doesn't really matter when we do the oam search - memory is unreadable by CPU.
-        if self.cycle == 0 {
+        if self.cycle == 0 && self.lcd_control.enable_sprites() {
             next_state.visible_sprites =
                 sprites::find_visible_sprites(&self.vram.borrow()[8192..], self.current_y);
+        } else {
+            next_state.visible_sprites.clear();
         }
     }
 

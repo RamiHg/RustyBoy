@@ -67,7 +67,7 @@ bitfield! {
     impl Debug;
     u8;
     enable_bg, _: 0;
-    enable_sprites, _: 1;
+    pub enable_sprites, _: 1;
     sprite_size_select, _: 2;
     pub bg_map_select, _: 3;
     pub bg_set_select, _: 4;
@@ -80,7 +80,11 @@ bitfield! {
 impl LcdControl {
     pub fn translate_bg_map_index(self, map_index: i32) -> i32 {
         debug_assert_lt!(map_index, 32 * 32);
-        let base_address = if !self.bg_map_select() { 0x9800 } else { 0x9C00 };
+        let base_address = if !self.bg_map_select() {
+            0x9800
+        } else {
+            0x9C00
+        };
         base_address + map_index
     }
 

@@ -1,6 +1,8 @@
 use super::*;
 use crate::io_registers::Addresses;
 
+use crate::cpu::register::Register::*;
+
 const INF_LOOP: [u8; 2] = [JR, 0xFE];
 
 #[test]
@@ -16,14 +18,23 @@ fn test_simple() {
     assert_eq!(test_setup.system.memory().raw_read(0xFEA0), 0);
 }
 
-#[test]
-fn test_setup_delay() {
-    with_default()
-        .set_mem_range(0xDA00, &[0xBE, 0xEF])
-        .set_mem_8bit(Addresses::Dma as i32, 0xDA)
-        .execute_instructions_for_mcycles(&INF_LOOP, 1)
-        .assert_mem_8bit_eq(0xFE00, 0);
-}
+// #[test]
+// fn test_setup_delay() {
+//     #[rustfmt::skip]
+//     let ops = &[
+//         LD_A_IMM, 0xDA,
+//         LD_HL_IMM, 0x01, 0xFE,
+//         LD_FF_A, 0x46,
+//         // One cycle delay, then the DMA starts.
+//         LD_A_A,
+//         LD_A_A,
+//     ];
+//     with_default()
+//         .set_mem_range(0xDA00, &[0xBE, 0xEF])
+//         .execute_instructions(ops)
+//         .assert_mem_8bit_eq(0xFE00, 0xBE)
+//         .assert_mem_8bit_eq(0xFE01, 0x00);
+// }
 
 #[test]
 fn test_restart_dma() {

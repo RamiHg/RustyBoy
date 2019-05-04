@@ -1,6 +1,6 @@
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
 #![allow(dead_code)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![deny(clippy::all)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
 #![allow(clippy::useless_attribute)]
@@ -49,6 +49,7 @@ mod tests;
 // https://github.com/gbdev/awesome-gbdev#emulator-development
 // https://www.youtube.com/watch?v=HyzD8pNlpwI
 // https://www.youtube.com/watch?v=GBYwjch6oEE
+// PPU tests: https://github.com/mattcurrie/mealybug-tearoom-tests
 
 /// Helpful macro to run a GL command and make sure no errors are generated.
 macro_rules! GL {
@@ -160,8 +161,8 @@ fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
         interrupts: LOG_INT,
-        disassembly: true,
-        timer: true,
+        disassembly: false,
+        timer: false,
     })
     .unwrap();
 
@@ -217,7 +218,7 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./instr_timing.gb");
+    let cart = cart::from_file("./opus5.gb");
     // let cart = cart::from_file("./test_roms/acceptance/timer/tima_write_reloading.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);

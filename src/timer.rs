@@ -47,8 +47,6 @@ define_int_register!(TimerTima, Addresses::TimerCounter);
 define_int_register!(TimerTma, Addresses::TimerModulo);
 
 impl MemoryMapped2 for Timer {
-    fn default_next_state(&self, bus: &MemoryBus) -> Box<Timer> { Box::new(*self) }
-
     /// TODO: Refactor to be more HW friendly.
     fn execute_tcycle(self: Box<Self>, bus: &MemoryBus) -> (Box<Timer>, Interrupts) {
         let mut interrupt = Interrupts::empty();
@@ -62,7 +60,7 @@ impl MemoryMapped2 for Timer {
                 state.should_interrupt
             );
         };
-        let mut next_state = self.default_next_state(bus);
+        let mut next_state = Box::new(*self);
         next_state.tac.set_from_bus(bus);
         // Allow the CPU to overwrite DIV and TIMA.
         // [HW] div = (old + 1) or bus & 0
@@ -96,11 +94,6 @@ impl MemoryMapped2 for Timer {
         do_print("before", self.as_ref());
         do_print("after", next_state.as_ref());
         (next_state, interrupt)
-    }
-
-    fn read_register(&self, address: io_registers::Addresses) -> Option<i32> { None }
-    fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()> {
-        None
     }
 }
 

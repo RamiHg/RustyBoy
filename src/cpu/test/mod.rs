@@ -31,6 +31,7 @@ pub mod instructions {
     pub const LD_A_IMM: u8 = 0x3E;
     pub const LD_HL_IMM: u8 = 0x21;
     pub const LD_A_A: u8 = 0x7F;
+    pub const LD_A_HL: u8 = 0x7E;
     pub const LD_FF_A: u8 = 0xE0;
     pub const JP: u8 = 0xC3;
     pub const JP_HL: u8 = 0xE9;

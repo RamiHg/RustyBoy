@@ -1,5 +1,3 @@
-mod mooneye_suite;
-
 use crate::gpu::{self, LCD_HEIGHT, LCD_WIDTH};
 use crate::system::System;
 
@@ -23,7 +21,7 @@ impl Into<bmp::Pixel> for gpu::Pixel {
     }
 }
 
-fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
+pub fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
     use bmp::{Image, Pixel};
     use std::path::PathBuf;
 
@@ -43,7 +41,7 @@ fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
     result
 }
 
-fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
+pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
     use bmp::{Image, Pixel};
     let test_name_path = Path::new(test_name);
     let mut path = PathBuf::from(sub_dir);

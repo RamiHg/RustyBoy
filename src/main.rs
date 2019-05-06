@@ -1,48 +1,26 @@
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
 #![allow(dead_code)]
-// #![deny(warnings)]
+#![deny(warnings)]
 #![deny(clippy::all)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
 #![allow(clippy::useless_attribute)]
 #![allow(clippy::trivially_copy_pass_by_ref)]
-#![allow(unused_doc_comments)]
+
 // Remove when this file is uncommented out.
-#![allow(unused_variables)]
+
 // Temp
-#![allow(unused_imports)]
+
 #![allow(unused_parens)]
 
 use gl;
 use gl::types::GLuint;
 use glutin;
 
-#[macro_use]
-extern crate more_asserts;
-#[macro_use]
-extern crate log as logging;
-#[macro_use]
-extern crate shrinkwraprs;
-
-#[macro_use]
-mod io_registers;
-
-mod cart;
-mod cpu;
-mod dma;
-mod error;
-mod gpu;
-mod log;
-mod mmu;
-mod serial;
-mod system;
-mod timer;
-mod util;
-
-#[allow(unused_imports)]
-use system::System;
-
-#[cfg(test)]
-mod tests;
+use rusty_boy::cart;
+use rusty_boy::error;
+use rusty_boy::gpu;
+use rusty_boy::log;
+use rusty_boy::system;
 
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
@@ -219,7 +197,7 @@ fn main() -> error::Result<()> {
 
     // Load the gameboy cart.
     let cart = cart::from_file("./opus5.gb");
-    // let cart = cart::from_file("./test_roms/acceptance/timer/tima_write_reloading.gb");
+    //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
     let little = false;

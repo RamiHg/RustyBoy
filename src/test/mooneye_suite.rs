@@ -3,7 +3,10 @@ use crate::cpu;
 use crate::cpu::register::Register;
 use crate::system;
 
+use super::image::*;
 use super::*;
+
+use std::path::Path;
 
 macro_rules! test_target {
     (
@@ -47,10 +50,18 @@ test_target!(
     acceptance__oam_dma_restart;
 );
 
+// Timings.
 test_target!(
     acceptance__call_timing;
+    acceptance__jp_timing;
+    acceptance__interrupts__ie_push;
     // acceptance__push_timing;
     // acceptance__intr_timing;
+);
+
+// PPU.
+test_target!(
+    acceptance__ppu__intr_2_0_timing;
 );
 
 fn run_target(target: &str) {

@@ -66,21 +66,21 @@ bitfield! {
     no default BitRange;
     impl Debug;
     u8;
-    enable_bg, _: 0;
-    pub enable_sprites, _: 1;
+    pub enable_bg, set_enable_bg: 0;
+    pub enable_sprites, set_enable_sprites: 1;
     sprite_size_select, _: 2;
-    pub bg_map_select, _: 3;
-    pub bg_set_select, _: 4;
+    pub bg_map_select, _: 3, 3;
+    pub bg_set_select, set_bg_set: 4;
     enable_window, _: 5;
     window_map_select, _: 6;
     // Stopping display must be performed during vblank only.
-    pub enable_display, _: 7;
+    pub enable_display, set_enable_display: 7;
 }
 
 impl LcdControl {
     pub fn translate_bg_map_index(self, map_index: i32) -> i32 {
         debug_assert_lt!(map_index, 32 * 32);
-        let base_address = if !self.bg_map_select() {
+        let base_address = if self.bg_map_select() == 0 {
             0x9800
         } else {
             0x9C00
@@ -118,6 +118,7 @@ pub enum InterruptType {
 bitfield! {
     pub struct LcdStatus(i32);
     no default BitRange;
+    impl Debug;
     u8;
     pub into LcdMode, mode, set_mode: 1, 0;
     pub ly_is_lyc, set_ly_is_lyc: 2;

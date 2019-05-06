@@ -3,8 +3,6 @@ use crate::io_registers::Addresses;
 
 use crate::cpu::register::Register::*;
 
-const INF_LOOP: [u8; 2] = [JR, 0xFE];
-
 #[test]
 fn test_simple() {
     let nums: Vec<u8> = (0u8..161u8).collect();

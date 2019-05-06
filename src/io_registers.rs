@@ -22,7 +22,7 @@ pub enum Addresses {
     LcdY = 0xFF44,           // LY
     LcdYCompare = 0xFF45,    // LYC
     Dma = 0xFF46,            // DMA
-    BgPallette = 0xFF47,     // BGP
+    BgPalette = 0xFF47,      // BGP
     SpritePalette0 = 0xFF48, // OBP0
     SpritePalette1 = 0xFF49, // OBP1
     WindowYPos = 0xFF4A,     // WY

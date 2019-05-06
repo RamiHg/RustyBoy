@@ -19,8 +19,8 @@ bitfield! {
     pub struct SpriteEntry(u32);
     impl Debug;
     u8;
-    pub pos_x, _: 7, 0;
-    pub pos_y, _: 15, 8;
+    pub pos_x, set_pos_x: 7, 0;
+    pub pos_y, set_pos_y: 15, 8;
     pub tile_index, _: 23, 16;
     pub palette, _: 28;//, 28;
     pub flip_x, _: 29;
@@ -53,7 +53,7 @@ impl SpriteEntry {
     pub fn bottom(&self) -> i32 { self.pos_y() as i32 }
 
     pub fn left(&self) -> i32 { self.pos_x() as i32 - 8 }
-    pub fn right(&self) -> i32 { self.pos_y() as i32 }
+    pub fn right(&self) -> i32 { self.pos_x() as i32 }
 }
 
 pub fn find_visible_sprites(oam: &[u8], line: i32) -> ArrayVec<[u8; 10]> {
@@ -81,4 +81,9 @@ pub fn get_visible_sprite(x: i32, visible_sprites: &[u8], oam: &[u8]) -> Option<
         }
     }
     return None;
+}
+
+pub fn num_visible_pixels_in_tile(x: i32, sprite: &SpriteEntry) -> i32 {
+    debug_assert_gt!(sprite.right(), x);
+    sprite.right() - x
 }

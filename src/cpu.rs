@@ -3,7 +3,7 @@ use crate::io_registers;
 use crate::mmu::Memory;
 use micro_code::MicroCode;
 
-mod alu;
+pub mod alu;
 mod asm;
 mod control_unit;
 mod decoder;

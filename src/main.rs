@@ -133,13 +133,11 @@ fn load_all_shaders() -> GLuint {
     }
 }
 
-const LOG_INT: bool = false;
-
 fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
-        interrupts: LOG_INT,
-        disassembly: false,
+        interrupts: true,
+        disassembly: true,
         timer: false,
     })
     .unwrap();
@@ -196,7 +194,7 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./opus5.gb");
+    let cart = cart::from_file("./tetris.gb");
     //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);

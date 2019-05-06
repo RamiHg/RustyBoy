@@ -250,7 +250,7 @@ impl Gpu {
                         assert_eq!(self.current_x, 0);
                         assert_eq!(self.pixels_pushed, 0);
                         next_mode = LcdMode::ReadingOAM;
-                        //next_state.scroll_x = (next_state.scroll_x + 1) % 255;
+                        // next_state.scroll_y = (next_state.scroll_y + 1) % 255;
                     }
                 }
             }

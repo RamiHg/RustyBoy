@@ -116,6 +116,7 @@ impl System {
                     && (self.cpu.state.address_latch < 0xFF80
                         || self.cpu.state.address_latch > 0xFFFE)
                     && self.cpu.state.address_latch != io_registers::Addresses::Dma as i32
+                    && self.cpu.state.address_latch > 0x100
                 {
                     0xFF
                 } else {
@@ -205,30 +206,31 @@ impl System {
     }
 
     fn execute_t_cycle(&mut self) -> Result<()> {
-        // if self.cpu.t_state.get() == 1
-        //     && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
-        //     && !self.cpu.is_handling_interrupt
-        // {
-        //     let pc_plus =
-        //         |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
-        //     let disas =
-        //         gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as
-        // u8);     if let core::result::Result::Ok(op) = disas {
-        //         trace!(
-        //             target: "disas",
-        //             "{:04X?}\t{}",
-        //             self.cpu.registers.get(cpu::register::Register::PC),
-        //             op
-        //         );
-        //     } else {
-        //         trace!(
-        //             target: "disas",
-        //             "{:04X?}\tBad opcode {:X?}",
-        //             self.cpu.registers.get(cpu::register::Register::PC),
-        //             pc_plus(0)?
-        //         );
-        //     }
-        // }
+        if self.cpu.t_state.get() == 1
+            && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
+            && !self.cpu.is_handling_interrupt
+        {
+            let pc_plus =
+                |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
+            let disas =
+                gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
+            if let core::result::Result::Ok(op) = disas {
+                trace!(
+                    target: "disas",
+                    "{:04X?}\t{:X?}\t{}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    pc_plus(0)?,
+                    op
+                );
+            } else {
+                trace!(
+                    target: "disas",
+                    "{:04X?}\tBad opcode {:X?}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    pc_plus(0)?
+                );
+            }
+        }
         // println!(
         //     "A is {:X}",
         //     self.cpu.registers.get(cpu::register::Register::A)

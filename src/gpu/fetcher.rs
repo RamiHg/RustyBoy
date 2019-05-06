@@ -128,8 +128,7 @@ impl PixelFetcher {
     // }
 
     fn bg_tileset_address(&self, gpu: &Gpu) -> i32 {
-
-        let y_within_tile = gpu.current_y % 8;
+        let y_within_tile = (gpu.current_y + gpu.scroll_y) % 8;
         let base = gpu.lcd_control.translate_bg_set_index(self.tile_index);
         base + y_within_tile * 2
         // // tile_index * 16 + y_within_tile * 2

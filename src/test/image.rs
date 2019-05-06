@@ -42,6 +42,10 @@ pub fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
 }
 
 pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
+    dump_screen(sub_dir, test_name, system.get_screen());
+}
+
+pub fn dump_screen(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
     use bmp::{Image, Pixel};
     let test_name_path = Path::new(test_name);
     let mut path = PathBuf::from(sub_dir);
@@ -53,9 +57,26 @@ pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
             img.set_pixel(
                 i as u32,
                 j as u32,
-                system.get_screen()[i + j * LCD_WIDTH as usize].into(),
+                screen[i + j * LCD_WIDTH as usize].into(),
             );
         }
     }
     img.save(path).unwrap();
+}
+
+pub fn make_fn_image(fner: impl Fn(usize, usize) -> gpu::Color) -> Vec<gpu::Pixel> {
+    let mut result = Vec::with_capacity((LCD_WIDTH * LCD_HEIGHT) as usize);
+    for j in 0..LCD_HEIGHT as usize {
+        for i in 0..LCD_WIDTH as usize {
+            use gpu::Color::*;
+            use gpu::Pixel;
+            result.push(match fner(i, j) {
+                White => Pixel::from_values(255u8, 255u8, 255u8),
+                LightGray => Pixel::from_values(192u8, 192u8, 192u8),
+                DarkGray => Pixel::from_values(96u8, 96u8, 96u8),
+                Black => Pixel::from_values(0u8, 0u8, 0u8),
+            });
+        }
+    }
+    result
 }

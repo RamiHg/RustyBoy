@@ -204,8 +204,6 @@ impl File {
             _ => panic!("Non-exhaustive pattern."),
         }
     }
-
-    fn combine(&self, i: usize, j: usize) -> i32 { ((self.0[i] as i32) << 8) | (self.0[j] as i32) }
 }
 
 impl core::fmt::Debug for File {

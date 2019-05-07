@@ -9,3 +9,4 @@ timer/
 failed_tests/
 succeeded_tests/
 test_golden/
+dumps/

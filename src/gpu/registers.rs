@@ -68,7 +68,7 @@ bitfield! {
     u8;
     pub enable_bg, set_enable_bg: 0;
     pub enable_sprites, set_enable_sprites: 1;
-    sprite_size_select, _: 2;
+    pub large_sprites, set_large_sprites: 2;
     pub bg_map_select, _: 3, 3;
     pub bg_set_select, set_bg_set: 4;
     enable_window, _: 5;

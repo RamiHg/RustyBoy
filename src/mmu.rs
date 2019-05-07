@@ -147,17 +147,4 @@ impl Memory {
         let address = Address::from_raw(raw_address).unwrap();
         MemoryMapped::write(self, address, value).unwrap();
     }
-
-    pub fn get_mut_8(&mut self, raw_address: i32) -> &mut u8 { &mut self.mem[raw_address as usize] }
-
-    pub fn get_mut_register<'a, A, T>(&mut self, cons: T) -> A
-    where
-        A: Register,
-        T: core::ops::FnOnce(&'a mut [u8]) -> A,
-    {
-        // I need to be able to return multiple mutable references to different registers when I
-        // KNOW that they point to different locations in memory. Therefore, the hacky unsafe.
-        // Let me know if you can think of a better way!
-        cons(unsafe { std::slice::from_raw_parts_mut(self.get_mut_8(A::ADDRESS), 1) })
-    }
 }

@@ -30,8 +30,6 @@ pub struct System {
     cart: Box<mmu::MemoryMapped>,
 
     screen: Vec<Pixel>,
-
-    test: i32,
 }
 
 impl System {
@@ -55,7 +53,6 @@ impl System {
             serial: serial::Controller::new(),
             dma: Box::new(dma::Dma::new()),
             cart,
-            test: 0,
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
         }
@@ -259,6 +256,8 @@ impl System {
         }
         Ok(())
     }
+
+    pub fn is_vsyncing(&self) -> bool { self.gpu.is_vsyncing() }
 
     #[cfg(test)]
     pub fn is_fetching(&self) -> bool { self.cpu.state.decode_mode == cpu::DecodeMode::Fetch }

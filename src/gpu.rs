@@ -22,8 +22,8 @@ use fetcher::*;
 use fifo::*;
 use sprites::*;
 
-pub const LCD_WIDTH: i32 = 160;
-pub const LCD_HEIGHT: i32 = 144;
+pub const LCD_WIDTH: usize = 160;
+pub const LCD_HEIGHT: usize = 144;
 
 #[derive(Clone, Copy, PartialEq, FromPrimitive)]
 pub enum Color {
@@ -46,6 +46,16 @@ impl Pixel {
     pub fn from_values(r: u8, g: u8, b: u8) -> Pixel { Pixel { r, g, b } }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum DrawingMode {
+    /// Regular drawing mode. I.e., just drawing background.
+    Bg,
+    /// A sprite is visible in the current pixel, and is currently being fetched.
+    FetchingSprite,
+    /// A sprite is currently fully fetched and being drawn.
+    DrawingSprite,
+}
+
 #[derive(Clone)]
 pub struct Gpu {
     // Registers.
@@ -59,10 +69,9 @@ pub struct Gpu {
     lyc: i32,
 
     current_y: i32,
-    current_x: i32,
 
     pixels_pushed: i32,
-    pixels_scrolled: i32,
+    drawing_mode: DrawingMode,
 
     cycle: i32,
 
@@ -71,7 +80,8 @@ pub struct Gpu {
     visible_sprites: ArrayVec<[u8; 10]>,
 
     // VRAM.
-    vram: Rc<RefCell<[u8; 8192 + 160]>>,
+    vram: Rc<RefCell<[u8; 8192]>>,
+    oam: Rc<RefCell<[u8; 160]>>,
 }
 
 impl Gpu {
@@ -92,9 +102,8 @@ impl Gpu {
             current_y: 0,
             lyc: 0,
 
-            current_x: 0,
+            drawing_mode: DrawingMode::Bg,
             pixels_pushed: 0,
-            pixels_scrolled: 0,
 
             cycle: 0,
 
@@ -103,7 +112,8 @@ impl Gpu {
             visible_sprites: ArrayVec::new(),
 
             // Store OAM with Vram in order to reduce amount of copying.
-            vram: Rc::new(RefCell::new([0; 8192 + 160])),
+            vram: Rc::new(RefCell::new([0; 8192])),
+            oam: Rc::new(RefCell::new([0; 160])),
         }
     }
 
@@ -112,10 +122,10 @@ impl Gpu {
         debug_assert!(util::is_8bit(value));
         self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
     }
-    pub fn oam(&self, address: i32) -> u8 { self.vram.borrow()[(address - 0xFE00 + 8192) as usize] }
+    pub fn oam(&self, address: i32) -> u8 { self.oam.borrow()[(address - 0xFE00) as usize] }
     fn set_oam(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
-        self.vram.borrow_mut()[(address - 0xFE00 + 8192) as usize] = value as u8;
+        self.oam.borrow_mut()[(address - 0xFE00) as usize] = value as u8;
     }
 
     fn can_access_oam(&self) -> bool {
@@ -136,6 +146,8 @@ impl Gpu {
         }
     }
 
+    pub fn is_vsyncing(&self) -> bool { self.lcd_status.mode() == LcdMode::VBlank }
+
     fn maybe_fire_interrupt(&self, interrupt_type: InterruptType) -> Interrupts {
         let mut fired_interrupts = Interrupts::empty();
         // HW: This is technically not correct for VVlank The STAT VBlank interrupt will fire at any
@@ -153,12 +165,9 @@ impl Gpu {
         let mut next_state = self.clone();
 
         if !self.lcd_control.enable_display() {
-
             next_state.lcd_status.set_mode(LcdMode::ReadingOAM as u8);
             next_state.pixels_pushed = 0;
-            next_state.current_x = 0;
             next_state.current_y = 0;
-            next_state.pixels_scrolled = 0;
             next_state.cycle = 0;
             next_state.fetcher = PixelFetcher::new();
             next_state.fifo = PixelFifo::new();
@@ -186,20 +195,15 @@ impl Gpu {
                     // Switch to LCD transfer.
                     next_state.cycle = 0;
                     next_mode = LcdMode::TransferringToLcd;
-                    // todo: move me somewhere better
-                    next_state.pixels_scrolled = self.scroll_x % 8;
                 }
             }
             LcdMode::TransferringToLcd => {
                 self.lcd_transfer_cycle(&mut next_state, screen);
                 //debug_assert!(self.cycle < (43 + 16) * 4);
-                if next_state.pixels_pushed == LCD_WIDTH {
+                if next_state.pixels_pushed == LCD_WIDTH as i32 {
                     // TODO: Must be careful about next state selection in hardware.
                     next_state.pixels_pushed = 0;
-                    next_state.pixels_scrolled = 0;
-                    next_state.current_x = 0;
                     next_state.cycle = 0;
-                    next_state.fifo = PixelFifo::new();
                     next_mode = LcdMode::HBlank;
                     fire_interrupt = self.maybe_fire_interrupt(InterruptType::HBlank);
                 }
@@ -208,8 +212,8 @@ impl Gpu {
                 if self.cycle >= 51 * 4 {
                     next_state.cycle = 0;
                     next_state.current_y += 1;
-                    if next_state.current_y >= LCD_HEIGHT {
-                        debug_assert_eq!(next_state.current_y, LCD_HEIGHT);
+                    if next_state.current_y >= LCD_HEIGHT as i32 {
+                        debug_assert_eq!(next_state.current_y, LCD_HEIGHT as i32);
                         next_mode = LcdMode::VBlank;
                     } else {
                         next_mode = LcdMode::ReadingOAM;
@@ -247,10 +251,9 @@ impl Gpu {
                         // Switch over to Oam of line 1! Weird timing, I know!
                         next_state.cycle = 0;
                         next_state.current_y = 0;
-                        assert_eq!(self.current_x, 0);
                         assert_eq!(self.pixels_pushed, 0);
                         next_mode = LcdMode::ReadingOAM;
-                        // next_state.scroll_y = (next_state.scroll_y + 1) % 255;
+                        //next_state.scroll_x = (next_state.scroll_x + 1) % 255;
                     }
                 }
             }
@@ -275,9 +278,13 @@ impl Gpu {
 
     fn start_new_scanline(&self, next_state: &mut Gpu) {
         next_state.fetcher = PixelFetcher::start_new_scanline(&self);
+        next_state.fifo = PixelFifo::start_new_scanline(self.scroll_x);
+
         if self.lcd_control.enable_sprites() {
-            next_state.visible_sprites =
-                sprites::find_visible_sprites(&self.vram.borrow()[8192..], self.current_y);
+            next_state.visible_sprites = sprites::find_visible_sprites(
+                &*self.oam.borrow(),
+                (self.current_y + self.scroll_y) % 256,
+            );
         } else {
             next_state.visible_sprites.clear();
         }
@@ -286,111 +293,89 @@ impl Gpu {
 
     fn lcd_transfer_cycle(&self, next_state: &mut Gpu, screen: &mut [Pixel]) {
         let mut next_fetcher = self.fetcher.execute_tcycle(&self);
+        let mut next_fifo = self.fifo.clone();
 
-        if next_state.fifo.has_pixels() {
-            // Push a pixel into the screen.
-            screen[(self.pixels_pushed + self.current_y * LCD_WIDTH) as usize] =
-                self.fifo_entry_to_pixel(next_state.fifo.peek());
-            next_state.fifo = next_state.fifo.popped();
-            next_state.pixels_pushed += 1;
+        // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
+        self.handle_sprites(&mut next_fetcher, &mut next_fifo, next_state);
+
+        if next_fifo.has_pixels() {
+            if next_fifo.is_good_pixel() {
+                // Push a pixel into the screen.
+                screen[(self.pixels_pushed + self.current_y * LCD_WIDTH as i32) as usize] =
+                    self.fifo_entry_to_pixel(next_fifo.peek());
+
+                next_state.pixels_pushed += 1;
+            }
+            // Pop the pixel regardless if we drew it or not.
+            next_fifo = next_fifo.popped();
         }
 
-        if next_state.fifo.has_room() && next_fetcher.has_data() {
+        if next_fifo.has_room() && next_fetcher.has_data() {
             let row = next_fetcher.get_row();
-            next_state.fifo = next_state.fifo.pushed(FifoEntry::from_row(row).into_iter());
+            next_fifo = next_fifo.pushed(FifoEntry::from_row(row).into_iter());
             next_fetcher = next_fetcher.next()
         }
 
         next_state.fetcher = next_fetcher;
+        next_state.fifo = next_fifo;
     }
 
-    // fn lcd_transfer_cycle(&self, next_state: &mut Gpu, screen: &mut [Pixel]) {
-    //     let fetcher_is_ready = self.fetcher.is_ready();
-
-    //     let mut next_fifo = self.fifo.clone();
-    //     let mut next_fetcher = self.fetcher.execute_tcycle_mut(&self);
-    //     let mut new_len = self.fifo.len();
-
-    //     let mut pixel = None;
-
-    //     let maybe_sprite_index = sprites::get_visible_sprite(
-    //         self.pixels_pushed,
-    //         &self.visible_sprites,
-    //         &self.vram.borrow()[Gpu::OAM_ADDR..],
-    //     );
-    //     if let Some(sprite_index) = maybe_sprite_index {
-    //         if self.fifo.len() < 8 {
-    //             // Keep fetching pixels until we have 8 pixels in the fifo.
-    //             debug_assert!(!self.fifo.is_suspended);
-    //         } else {
-    //             // Check if we've already directed the fetcher to get the sprite.
-    //             if self.fetcher.is_fetching_sprite() && self.fetcher.is_ready() {
-    //                 // Done with the sprite! Mix it in and unsuspend the fifo.
-    //                 let mut row = self.fetcher.get_row();
-    //                 row.resize(
-    //                     sprites::num_visible_pixels_in_tile(
-    //                         self.pixels_pushed,
-    //                         &self.get_sprite(sprite_index),
-    //                     ) as usize,
-    //                     FifoEntry::new(),
-    //                 );
-    //                 next_fetcher.reset();
-    //                 next_fifo = next_fifo.combined_with_sprite(row.into_iter());
-    //                 pixel = Some(self.fifo_entry_to_pixel(next_fifo.peek()));
-    //                 new_len -= 1;
-    //             } else if !self.fetcher.is_fetching_sprite() {
-    //                 // Suspend the fifo, switch the fetcher to the sprite.
-    //                 next_fifo.suspend();
-    //                 next_fetcher.reset();
-    //                 next_fetcher.start_sprite(self.get_sprite(sprite_index));
-    //             }
-    //         }
-    //     }
-    //     // TODO: Remove this extra cycle delay.
-    //     else {
-    //         // Easy case: fifo has more than 8 pixels. We can simply pop a pixel off.
-    //         if self.fifo.len() > 8 {
-    //             let entry = self.fifo.peek();
-    //             pixel = Some(self.fifo_entry_to_pixel(entry));
-    //             new_len -= 1;
-    //         } else if self.fifo.len() > 0 && fetcher_is_ready {
-    //             pixel = Some(self.fifo_entry_to_pixel(self.fifo.peek()));
-    //             new_len -= 1;
-    //         }
-    //     }
-
-    //     // Push from fetcher to fifo.
-    //     if pixel.is_some() {
-    //         next_fifo = self.fifo.popped();
-    //     };
-    //     if new_len <= 8 && self.fetcher.is_ready() {
-    //         next_fifo = next_fifo.pushed(
-    //             self.fetcher
-    //                 .get_row()
-    //                 .into_iter()
-    //                 .skip(self.pixels_scrolled as usize),
-    //         );
-    //         next_state.pixels_scrolled = 0;
-    //     }
-    //     // Start fetching new tile.
-    //     if (new_len <= 8 && self.fetcher.is_ready()) || self.fetcher.is_idle() {
-    //         next_fetcher.reset();
-
-    //         next_fetcher.start(self.compute_bg_tile_address(next_state.current_x));
-    //         next_state.current_x += 8;
-    //     }
-    //     next_state.fetcher = next_fetcher;
-    //     next_state.fifo = next_fifo;
-    //     // Actually push the pixel on the screen.
-    //     if let Some(pixel) = pixel {
-    //         debug_assert!(self.pixels_pushed < LCD_WIDTH);
-    //         screen[(self.pixels_pushed + self.current_y * LCD_WIDTH) as usize] = pixel;
-    //         next_state.pixels_pushed += 1;
-    //     }
-    // }
+    fn handle_sprites(
+        &self,
+        next_fetcher: &mut PixelFetcher,
+        next_fifo: &mut PixelFifo,
+        next_state: &mut Gpu,
+    ) {
+        let maybe_sprite_index = sprites::get_visible_sprite(
+            (self.pixels_pushed + self.scroll_x) % 256,
+            &self.visible_sprites,
+            self.oam.borrow().as_ref(),
+        );
+        match self.drawing_mode {
+            DrawingMode::Bg => {
+                if maybe_sprite_index.is_some() {
+                    // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
+                    // the first place! Also, if we need to fine x-scroll, do it before any sprite
+                    // work.
+                    debug_assert!(!next_fifo.is_suspended);
+                    let sprite_index = maybe_sprite_index.unwrap();
+                    if next_fifo.has_pixels() && next_fifo.is_good_pixel() {
+                        next_fifo.is_suspended = true;
+                        *next_fetcher = next_fetcher.start_new_sprite(
+                            &self,
+                            sprite_index as i32,
+                            &self.get_sprite(sprite_index),
+                        );
+                        next_state.drawing_mode = DrawingMode::FetchingSprite;
+                    }
+                }
+            }
+            DrawingMode::FetchingSprite => {
+                debug_assert!(maybe_sprite_index.is_some());
+                // Check if the fetcher is ready.
+                if next_fetcher.has_data() {
+                    // If so, composite the sprite pixels ontop of the pixels currently in the
+                    // fifo.
+                    let row = FifoEntry::from_row(next_fetcher.get_row());
+                    *next_fetcher = next_fetcher.start_continue_scanline();
+                    *next_fifo = next_fifo.clone().combined_with_sprite(row.into_iter(), 0);
+                    // Go back to drawing as usual.
+                    next_state.drawing_mode = DrawingMode::DrawingSprite;
+                }
+            }
+            DrawingMode::DrawingSprite => {
+                // If the sprite is no longer visible, throw away the rest of the sprite-blending
+                // pixels and immediately go back to bg.
+                if maybe_sprite_index.is_none() {
+                    *next_fifo = next_fifo.clear_sprite();
+                    next_state.drawing_mode = DrawingMode::Bg;
+                }
+            }
+        }
+    }
 
     fn fifo_entry_to_pixel(&self, entry: FifoEntry) -> Pixel {
-        let palette = if entry.is_sprite() {
+        let palette = if entry.is_sprite {
             self.sprite_palette_0
         } else {
             self.bg_palette
@@ -414,7 +399,7 @@ impl Gpu {
 
     fn get_sprite(&self, sprite_index: u8) -> SpriteEntry {
         // HW: Might not be possible to do in 1 cycle unless OAM is SRAM
-        SpriteEntry::from_slice(&self.vram.borrow()[Gpu::OAM_ADDR + sprite_index as usize * 4..])
+        SpriteEntry::from_slice(&self.oam.borrow()[sprite_index as usize * 4..])
     }
 }
 

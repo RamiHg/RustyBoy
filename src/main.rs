@@ -1,5 +1,5 @@
 // We allow dead code for now - eventually I'll remove this as the CPU is hooked up
-#![allow(dead_code)]
+// #![allow(dead_code)]
 #![deny(warnings)]
 #![deny(clippy::all)]
 // Annoying, and wrong, clippy warning regarding FromPrimitive.
@@ -136,8 +136,8 @@ fn load_all_shaders() -> GLuint {
 fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
-        interrupts: true,
-        disassembly: true,
+        interrupts: false,
+        disassembly: false,
         timer: false,
     })
     .unwrap();
@@ -145,7 +145,7 @@ fn main() -> error::Result<()> {
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
     let context = glutin::ContextBuilder::new()
-        .with_vsync(false)
+        .with_vsync(true)
         .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
         .with_gl_profile(glutin::GlProfile::Core)
         .build_windowed(window, &events_loop)
@@ -178,8 +178,8 @@ fn main() -> error::Result<()> {
             gl::TEXTURE_2D,
             1,
             gl::RGB8,
-            gpu::LCD_WIDTH,
-            gpu::LCD_HEIGHT
+            gpu::LCD_WIDTH as i32,
+            gpu::LCD_HEIGHT as i32
         ));
         GL!(gl::TexParameteri(
             gl::TEXTURE_2D,
@@ -194,17 +194,20 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./tetris.gb");
+    let cart = cart::from_file("./opus5.gb");
     //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
     let little = false;
     loop {
         //let now = std::time::Instant::now();
-        let num_cycles = if little { 100 } else { 17556 };
-        for _ in 0..num_cycles {
+        while system.is_vsyncing() {
             system.execute_machine_cycle()?;
         }
+        while !system.is_vsyncing() {
+            system.execute_machine_cycle()?;
+        }
+
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
         unsafe {
             GL!(gl::TexSubImage2D(
@@ -212,8 +215,8 @@ fn main() -> error::Result<()> {
                 0,
                 0,
                 0,
-                gpu::LCD_WIDTH,
-                gpu::LCD_HEIGHT,
+                gpu::LCD_WIDTH as i32,
+                gpu::LCD_HEIGHT as i32,
                 gl::RGB,
                 gl::UNSIGNED_BYTE,
                 system.get_screen().as_ptr() as *const core::ffi::c_void

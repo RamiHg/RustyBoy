@@ -3,6 +3,10 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+#![deny(clippy::all)]
+
+#![feature(trait_alias)]
+
 #[macro_use]
 pub mod io_registers;
 

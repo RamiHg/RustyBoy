@@ -28,7 +28,12 @@ bmp = "0.4.0"
 
 [profile.release]
 debug = true
-debug-assertions = true
+debug-assertions = false
+lto = true
+codegen-units = 1
+
+[profile.dev]
+codegen-units = 64
 
 [features]
 log-timer = []

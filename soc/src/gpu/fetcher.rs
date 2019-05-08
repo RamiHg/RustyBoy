@@ -4,7 +4,6 @@ use super::sprites::SpriteEntry;
 use super::{FifoEntry, Gpu};
 use crate::util;
 
-
 use bitfield::bitfield;
 
 bitfield! {
@@ -164,7 +163,6 @@ impl PixelFetcher {
         }
         next_state
     }
-
 
     fn nametable_address(&self, gpu: &Gpu) -> i32 {
         let mut addr = NametableAddress(0);

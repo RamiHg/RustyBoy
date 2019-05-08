@@ -72,7 +72,6 @@ fn test_fine_yscroll_checkerboard() {
     }
 }
 
-
 #[test]
 fn test_fine_scroll_checkerboard() {
     // Test some edge-cases rather than all possible transforms since it's too slow.

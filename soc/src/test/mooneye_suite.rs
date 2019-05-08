@@ -18,7 +18,7 @@ macro_rules! test_target {
             #[allow(non_snake_case)]
             fn $test_name() {
                 let path = stringify!($test_name).replace("__", "/");
-                run_target(path.as_str());
+                run_target(&path);
             }
         )*
     };
@@ -67,7 +67,7 @@ test_target!(
 fn run_target(target: &str) {
     use std::path::PathBuf;
 
-    let mut path = PathBuf::from("./test_roms");
+    let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
 
     let cart = cart::from_file(path.to_str().unwrap());
@@ -101,6 +101,6 @@ fn run_target(target: &str) {
         dump_system_image(Path::new("./failed_tests"), target, &system);
         panic!("{} failed.", target);
     } else {
-        dump_system_image(Path::new("./succeeded_tests"), target, &system);
+        // dump_system_image(Path::new("./succeeded_tests"), target, &system);
     }
 }

@@ -290,7 +290,6 @@ impl Gpu {
         }
     }
 
-
     fn lcd_transfer_cycle(&self, next_state: &mut Gpu, screen: &mut [Pixel]) {
         let mut next_fetcher = self.fetcher.execute_tcycle(&self);
         let mut next_fifo = self.fifo.clone();
@@ -500,4 +499,3 @@ impl mmu::MemoryMapped for Gpu {
         }
     }
 }
-

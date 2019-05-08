@@ -1,3 +1,9 @@
+[workspace]
+members = [
+    "gb_disas",
+    "soc"
+]
+
 [package]
 name = "rusty_boy"
 version = "0.1.0"
@@ -5,35 +11,15 @@ authors = ["Ramy"]
 edition = "2018"
 
 [dependencies]
-arrayvec = "0.4.10"
-bitflags = "=1.0.4"
-bitfield = "0.13.1"
-csv = "1.0.7"
-fern = "0.5.8"
 gl = "0.12.0"
 glutin = "0.20.0"
-lazy_static = "1.3.0"
-log = "0.4.6"
-more-asserts = "0.2.1"
-num-derive = "0.2.5"
-num-traits = "0.2.6"
-regex = "1.1.6"
-shrinkwraprs = "0.2.1"
-
+# Workspace dependencies.
 gb_disas = { path = "gb_disas" }
-
-[dev-dependencies]
-backtrace = "0.3.15"
-bmp = "0.4.0"
+soc = { path = "soc" }
 
 [profile.release]
 debug = true
-debug-assertions = false
-lto = true
-codegen-units = 1
+debug-assertions = true
 
 [profile.dev]
 codegen-units = 64
-
-[features]
-log-timer = []

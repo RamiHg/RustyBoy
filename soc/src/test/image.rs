@@ -1,8 +1,9 @@
+use super::base_path_to;
 use crate::gpu::{self, LCD_HEIGHT, LCD_WIDTH};
 use crate::system::System;
 
-use std::path::{Path, PathBuf};
 
+use std::path::{Path, PathBuf};
 
 impl From<bmp::Pixel> for gpu::Pixel {
     fn from(pixel: bmp::Pixel) -> gpu::Pixel {
@@ -25,7 +26,7 @@ pub fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
     use bmp::{Image, Pixel};
     use std::path::PathBuf;
 
-    let mut path = PathBuf::from("./test_golden/mooneye");
+    let mut path = base_path_to("./test_golden/mooneye");
     path.push(format!("{}.bmp", test_name));
 
     let img = bmp::open(path).unwrap();
@@ -48,7 +49,7 @@ pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
 pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
     use bmp::{Image, Pixel};
     let test_name_path = Path::new(test_name);
-    let mut path = PathBuf::from(sub_dir);
+    let mut path = base_path_to(sub_dir);
     std::fs::create_dir_all(path.join(test_name_path.parent().unwrap_or(Path::new(".")))).unwrap();
     path.push(format!("{}.bmp", test_name));
     let mut img = Image::new(LCD_WIDTH as u32, LCD_HEIGHT as u32);

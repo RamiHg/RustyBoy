@@ -201,7 +201,6 @@ pub fn build_golden(image_fn: impl ImageFn, transform_fn: impl TransformFn) -> V
 
 /// Tests the current system screen vs a golden image.
 pub fn compare_with_golden(test_name: &str, system: &System, golden: &[gpu::Pixel]) {
-
     if system.get_screen() != golden {
         dump_system_image(Path::new("./failed_tests/gpu"), test_name, system);
         dump_image(

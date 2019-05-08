@@ -5,4 +5,9 @@ mod mooneye_suite;
 
 pub use context::*;
 
-pub use crate::io_registers;
+pub fn base_path_to(target: impl AsRef<std::path::Path>) -> std::path::PathBuf {
+    // let mut path = std::path::PathBuf::from("../");
+    // path.push(target);
+    // path
+    ["../".as_ref(), target.as_ref()].iter().collect()
+}

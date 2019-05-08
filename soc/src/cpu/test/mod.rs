@@ -14,5 +14,3 @@ pub use crate::test::context::*;
 pub use crate::cpu::alu::Flags;
 pub use crate::cpu::register::Register;
 pub use crate::cpu::*;
-pub use crate::io_registers;
-pub use crate::timer;

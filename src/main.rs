@@ -1,26 +1,15 @@
-// We allow dead code for now - eventually I'll remove this as the CPU is hooked up
-// #![allow(dead_code)]
 #![deny(warnings)]
 #![deny(clippy::all)]
-// Annoying, and wrong, clippy warning regarding FromPrimitive.
-#![allow(clippy::useless_attribute)]
-#![allow(clippy::trivially_copy_pass_by_ref)]
-
-// Remove when this file is uncommented out.
-
-// Temp
-
-#![allow(unused_parens)]
 
 use gl;
 use gl::types::GLuint;
 use glutin;
 
-use rusty_boy::cart;
-use rusty_boy::error;
-use rusty_boy::gpu;
-use rusty_boy::log;
-use rusty_boy::system;
+use soc::cart;
+use soc::error;
+use soc::gpu;
+use soc::log;
+use soc::system;
 
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf

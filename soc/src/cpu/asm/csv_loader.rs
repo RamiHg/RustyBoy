@@ -33,8 +33,8 @@ fn extract_mcycle(mcycle: usize, record: &csv::StringRecord) -> MCycle {
     }
 }
 
-pub fn parse_csv(path: &str) -> MCycleMap {
-    let mut rdr = csv::Reader::from_path(path).unwrap();
+pub fn parse_csv(content: &[u8]) -> MCycleMap {
+    let mut rdr = csv::Reader::from_reader(content);
     let mut code_map = MCycleMap::new();
     // Ignore the first two lines.
     for result in rdr.records().skip(2) {

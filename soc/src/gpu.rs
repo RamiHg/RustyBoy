@@ -67,10 +67,13 @@ pub struct Gpu {
     scroll_x: i32,
     scroll_y: i32,
     lyc: i32,
+    window_xpos: i32,
+    window_ypos: i32,
 
     current_y: i32,
 
     pixels_pushed: i32,
+    window_ycount: i32,
     drawing_mode: DrawingMode,
 
     cycle: i32,
@@ -101,9 +104,12 @@ impl Gpu {
             scroll_y: 0,
             current_y: 0,
             lyc: 0,
+            window_xpos: 0,
+            window_ypos: 0,
 
             drawing_mode: DrawingMode::Bg,
             pixels_pushed: 0,
+            window_ycount: 0,
 
             cycle: 0,
 
@@ -277,6 +283,8 @@ impl Gpu {
     }
 
     fn start_new_scanline(&self, next_state: &mut Gpu) {
+        next_state.window_ycount = 0;
+
         next_state.fetcher = PixelFetcher::start_new_scanline(&self);
         next_state.fifo = PixelFifo::start_new_scanline(self.scroll_x);
 
@@ -419,6 +427,8 @@ impl mmu::MemoryMapped for Gpu {
                 }
                 Some(Addresses::ScrollX) => Some(self.scroll_x),
                 Some(Addresses::ScrollY) => Some(self.scroll_y),
+                Some(Addresses::WindowXPos) => Some(self.window_xpos),
+                Some(Addresses::WindowYPos) => Some(self.window_ypos),
                 Some(Addresses::LcdY) => Some(self.current_y),
                 Some(Addresses::LcdYCompare) => Some(self.lyc),
                 Some(Addresses::BgPalette) => Some(self.bg_palette),
@@ -462,6 +472,14 @@ impl mmu::MemoryMapped for Gpu {
                 }
                 Some(Addresses::ScrollY) => {
                     self.scroll_y = value;
+                    Some(())
+                }
+                Some(Addresses::WindowXPos) => {
+                    self.window_xpos = value;
+                    Some(())
+                }
+                Some(Addresses::WindowYPos) => {
+                    self.window_ypos = value;
                     Some(())
                 }
                 Some(Addresses::LcdY) => Some(()),

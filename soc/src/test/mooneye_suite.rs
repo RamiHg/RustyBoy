@@ -48,15 +48,31 @@ test_target!(
     acceptance__oam_dma_start;
     acceptance__oam_dma_timing;
     acceptance__oam_dma_restart;
+    acceptance__div_timing;
 );
 
 // Timings.
 test_target!(
     acceptance__call_timing;
+    acceptance__call_timing2;
+    acceptance__call_cc_timing;
+    acceptance__call_cc_timing2;
     acceptance__jp_timing;
+    acceptance__jp_cc_timing;
+    acceptance__ld_hl_sp_e_timing;
+    acceptance__ei_sequence;
     acceptance__interrupts__ie_push;
-    // acceptance__push_timing;
-    // acceptance__intr_timing;
+    acceptance__push_timing;
+    acceptance__pop_timing;
+    acceptance__rst_timing;
+    acceptance__ret_timing;
+    acceptance__reti_timing;
+    acceptance__reti_intr_timing;
+
+    acceptance__intr_timing;
+    
+    acceptance__ei_timing;
+    acceptance__rapid_di_ei;
 );
 
 // PPU.

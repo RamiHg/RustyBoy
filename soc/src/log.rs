@@ -3,6 +3,7 @@ pub struct LogSettings {
     pub interrupts: bool,
     pub disassembly: bool,
     pub timer: bool,
+    pub dma: bool,
 }
 
 pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
@@ -15,6 +16,8 @@ pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
                     settings.interrupts
                 } else if metadata.target() == "timer" {
                     settings.timer
+                } else if metadata.target() == "dma" {
+                    settings.dma
                 } else {
                     true
                 }

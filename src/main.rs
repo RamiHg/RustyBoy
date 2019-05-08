@@ -123,11 +123,14 @@ fn load_all_shaders() -> GLuint {
 }
 
 fn main() -> error::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
-        interrupts: false,
-        disassembly: false,
+        interrupts: true,
+        disassembly: true,
         timer: false,
+        dma: true,
     })
     .unwrap();
 
@@ -183,18 +186,28 @@ fn main() -> error::Result<()> {
     }
 
     // Load the gameboy cart.
-    let cart = cart::from_file("./opus5.gb");
+    dbg!(&args);
+    let cart = cart::from_file(args[1].as_str());
     //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
-    let little = false;
+    let little = true;
     loop {
         //let now = std::time::Instant::now();
-        while system.is_vsyncing() {
-            system.execute_machine_cycle()?;
-        }
-        while !system.is_vsyncing() {
-            system.execute_machine_cycle()?;
+        if little {
+            while !system.is_vsyncing() {
+                system.execute_machine_cycle()?;
+            }
+            for _ in 0..100000 {
+                system.execute_machine_cycle()?;
+            }
+        } else {
+            while system.is_vsyncing() {
+                system.execute_machine_cycle()?;
+            }
+            while !system.is_vsyncing() {
+                system.execute_machine_cycle()?;
+            }
         }
 
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);

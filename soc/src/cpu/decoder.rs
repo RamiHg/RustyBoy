@@ -126,7 +126,7 @@ struct DecoderBuilder {
 impl DecoderBuilder {
     pub fn new() -> DecoderBuilder {
         DecoderBuilder {
-            pla: csv_loader::parse_csv(r"./instructions.csv"),
+            pla: csv_loader::parse_csv(include_bytes!("../../instructions.csv")),
         }
     }
 

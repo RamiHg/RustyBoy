@@ -144,6 +144,7 @@ impl TestContext {
                 interrupts: false,
                 disassembly: false,
                 timer: do_timer,
+                dma: false,
             })
             .unwrap();
         });

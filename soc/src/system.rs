@@ -103,6 +103,8 @@ impl System {
         )));
     }
 
+    fn is_invalid_source_address(address: i32) -> bool { address >= 0xFE00 && address < 0xFEA0 }
+
     fn handle_cpu_memory_reads(&mut self) -> Result<()> {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
@@ -110,15 +112,21 @@ impl System {
             if t_state >= 3 {
                 // During DMA, reads return 0xFF.
                 self.cpu.state.data_latch = if self.dma.is_active()
-                    && (self.cpu.state.address_latch < 0xFF80
-                        || self.cpu.state.address_latch > 0xFFFE)
-                    && self.cpu.state.address_latch != io_registers::Addresses::Dma as i32
+                    && System::is_invalid_source_address(self.cpu.state.address_latch)
                     && self.cpu.state.address_latch > 0x100
                 {
                     0xFF
                 } else {
                     self.read_request(self.cpu.state.address_latch)?
                 };
+            // println!(
+            //     "Read from {:X?} value {:X?}. check is {}",
+            //     self.cpu.state.address_latch,
+            //     self.cpu.state.data_latch,
+            //     self.dma.is_active()
+            //         && System::is_invalid_source_address(self.cpu.state.address_latch)
+            //         && self.cpu.state.address_latch > 0x100
+            // );
             } else if false {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
@@ -135,7 +143,10 @@ impl System {
         if self.cpu.state.write_latch {
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
             debug_assert!(util::is_8bit(self.cpu.state.data_latch));
-            if self.cpu.t_state.get() == 3 {
+            if self.cpu.t_state.get() == 3
+                && !(self.dma.is_active()
+                    && System::is_invalid_source_address(self.cpu.state.address_latch))
+            {
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -167,6 +178,7 @@ impl System {
         self.dma = dma;
         if let Some(request) = request {
             let value = self.read_request(request.source_address)?;
+            trace!(target: "dma", "Setting {:X?} from {:X?}", request.destination_address, value);
             // Since we know the destination has to be OAM, skip the mmu routing.
             let res = mmu::MemoryMapped::write(
                 &mut self.gpu,

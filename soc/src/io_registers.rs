@@ -8,6 +8,7 @@ use num_traits;
 pub enum Addresses {
     InterruptFired = 0xFF0F,
     InterruptEnable = 0xFFFF,
+    Joypad = 0xFF00,        // P1
     TimerDiv = 0xFF04,      // DIV
     TimerCounter = 0xFF05,  // TIMA
     TimerModulo = 0xFF06,   // TMA

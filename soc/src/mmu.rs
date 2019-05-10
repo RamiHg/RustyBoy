@@ -108,6 +108,10 @@ impl MemoryMapped for Memory {
                 let flag = self.mem[raw as usize] as i32;
                 Some((flag & 0x1F) | 0xE0)
             }
+            Registers if raw == io_registers::Addresses::Joypad as i32 => {
+                let value = self.mem[raw as usize] as i32;
+                Some((value & 0x30) | 0xCF)
+            }
             InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
             UnusedOAM => panic!(),
             UnknownRegisters => Some(0xFF),
@@ -120,6 +124,10 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
+            Registers if raw == io_registers::Addresses::Joypad as i32 => {
+                self.mem[raw as usize] |= (value & 0x30) as u8;
+                Some(())
+            }
             InternalRam | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
                 Some(())

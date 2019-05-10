@@ -34,6 +34,7 @@ pub struct State {
     pub write_latch: bool,
 
     interrupt_enable_counter: i32,
+    exit_halt: bool,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -83,18 +84,19 @@ impl Cpu {
         // First step is to handle interrupts. Save off the is_halted flag since the next function
         // can unset it.
         self.handle_interrupts_or_unhalt(memory)?;
-        if true || !self.is_halted {
-            let (next_state, is_done) = control_unit::cycle(self);
-            self.state = next_state;
-            // This will be tricky to translate to hardware.
-            if is_done && self.state.interrupt_enable_counter > 0 {
-                if self.state.interrupt_enable_counter == 1 {
-                    self.interrupts_enabled = true;
-                }
-                self.state.interrupt_enable_counter -= 1;
+        let (next_state, is_done) = control_unit::cycle(self);
+        self.state = next_state;
+        // This will be tricky to translate to hardware.
+        if is_done && self.state.interrupt_enable_counter > 0 {
+            if self.state.interrupt_enable_counter == 1 {
+                self.interrupts_enabled = true;
             }
+            self.state.interrupt_enable_counter -= 1;
+        } else if is_done && self.state.exit_halt {
+            debug_assert!(self.is_halted);
+            self.is_halted = false;
+            self.state.exit_halt = false;
         }
-
         Ok(())
     }
 
@@ -107,9 +109,7 @@ impl Cpu {
             if self.has_pending_interrupts(memory)? {
                 if self.is_halted {
                     // If we're halted, get out of it, whether interrupts are enabled or not.
-                    if self.t_state.get() == 4 {
-                        self.is_halted = false;
-                    }
+                    self.state.exit_halt = true;
                 } else if self.interrupts_enabled {
                     // If interrupts are enabled, handle the interrupt!
                     self.enter_interrupt_handler();
@@ -136,9 +136,7 @@ impl Cpu {
     fn has_pending_interrupts(&mut self, memory: &Memory) -> Result<bool> {
         debug_assert!(self.interrupts_enabled || self.is_halted);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
-        if !self.is_halted
-            && (self.state.decode_mode != DecodeMode::Decode || self.t_state.get() != 3)
-        {
+        if self.state.decode_mode != DecodeMode::Decode || self.t_state.get() != 3 {
             return Ok(false);
         }
         // TODO: All interrupts can be disabled if CPU writes to IF in the same cycle. Somehow

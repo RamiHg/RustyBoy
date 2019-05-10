@@ -205,17 +205,18 @@ impl Gpu {
             }
             LcdMode::TransferringToLcd => {
                 self.lcd_transfer_cycle(&mut next_state, screen);
-                //debug_assert!(self.cycle < (43 + 16) * 4);
                 if next_state.pixels_pushed == LCD_WIDTH as i32 {
+                    debug_assert_ge!(self.cycle, 43 * 4);
+                    debug_assert_lt!(self.cycle, (43 + 10) * 4);
                     // TODO: Must be careful about next state selection in hardware.
                     next_state.pixels_pushed = 0;
-                    next_state.cycle = 0;
+                    // next_state.cycle = 0;
                     next_mode = LcdMode::HBlank;
                     fire_interrupt = self.maybe_fire_interrupt(InterruptType::HBlank);
                 }
             }
             LcdMode::HBlank => {
-                if self.cycle >= 51 * 4 {
+                if self.cycle >= 94 * 4 {
                     next_state.cycle = 0;
                     next_state.current_y += 1;
                     if next_state.current_y >= LCD_HEIGHT as i32 {
@@ -229,7 +230,6 @@ impl Gpu {
             }
             LcdMode::VBlank => {
                 if self.cycle == 0 {
-                    println!("Whatup {}", self.current_y);
                     fire_interrupt = self.maybe_fire_interrupt(InterruptType::Oam);
                     // HW: The VBlank interrupt must fire on the cycle that mode becomes VBlank.
                     if self.current_y == 144 {
@@ -269,9 +269,9 @@ impl Gpu {
             .lcd_status
             .set_ly_is_lyc(next_state.current_y == self.lyc);
 
-        if next_mode != self.lcd_status.mode() {
-            println!("Going to {:?}", next_mode);
-        }
+        // if next_mode != self.lcd_status.mode() {
+        //     println!("Going to {:?}", next_mode);
+        // }
         next_state.lcd_status.set_mode(next_mode as u8);
         (next_state, fire_interrupt)
     }
@@ -362,6 +362,7 @@ impl Gpu {
         match self.drawing_mode {
             DrawingMode::Bg => {
                 if maybe_sprite_index.is_some() {
+                    debug_assert!(self.lcd_control.enable_sprites());
                     // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
                     // the first place! Also, if we need to fine x-scroll, do it before any sprite
                     // work.
@@ -380,6 +381,7 @@ impl Gpu {
             }
             DrawingMode::FetchingSprite => {
                 debug_assert!(maybe_sprite_index.is_some());
+                debug_assert!(self.lcd_control.enable_sprites());
                 // Check if the fetcher is ready.
                 if next_fetcher.has_data() {
                     // If so, composite the sprite pixels ontop of the pixels currently in the
@@ -392,6 +394,7 @@ impl Gpu {
                 }
             }
             DrawingMode::DrawingSprite => {
+                debug_assert!(self.lcd_control.enable_sprites());
                 // If the sprite is no longer visible, throw away the rest of the sprite-blending
                 // pixels and immediately go back to bg.
                 if maybe_sprite_index.is_none() {

@@ -106,11 +106,13 @@ impl PixelFetcher {
             next_state.tock = true;
             return next_state;
         }
-        if self.sprite_mode {
+        let mut next_state = if self.sprite_mode {
             self.execute_sprite_tcycle(gpu)
         } else {
             self.execute_bg_tcycle(gpu)
-        }
+        };
+        next_state.tock = false;
+        next_state
     }
 
     fn execute_bg_tcycle(self, gpu: &Gpu) -> PixelFetcher {

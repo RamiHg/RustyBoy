@@ -135,8 +135,8 @@ impl TestContext {
         let name = "ignoreme".to_string();
         INIT.call_once(|| {
             crate::log::setup_logging(crate::log::LogSettings {
-                interrupts: true,
-                disassembly: true,
+                interrupts: false,
+                disassembly: false,
                 timer: false,
                 dma: false,
             })

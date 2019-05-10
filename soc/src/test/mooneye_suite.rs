@@ -92,8 +92,18 @@ test_target!(
 
 // PPU.
 test_target!(
+    acceptance__ppu__hblank_ly_scx_timing___GS;
+    acceptance__ppu__intr_1_2_timing___GS;
     acceptance__ppu__intr_2_0_timing;
+    acceptance__ppu__intr_2_mode0_timing;
+    acceptance__ppu__intr_2_mode3_timing;
+    acceptance__ppu__intr_2_oam_ok_timing;
+    acceptance__ppu__vblank_stat_intr___GS;
 );
+
+//     acceptance__ppu__stat_irq_blocking;
+// acceptance__ppu__intr_2_mode0_timing_sprites;
+// acceptance__ppu__lcdon_timing___dmgABCmgbS;
 
 fn run_target(target: &str) {
     static INIT: std::sync::Once = std::sync::ONCE_INIT;

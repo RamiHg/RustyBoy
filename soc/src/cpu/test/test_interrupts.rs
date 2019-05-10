@@ -62,8 +62,20 @@ fn test_single_interrupt() {
             .set_mem_8bit(0xFF0F, int_bit)
             .execute_instructions(&PRELUDE)
             .assert_reg_eq(A, interrupt_handler_result(i));
-        return;
     }
+}
+
+/// Tests that the high 3 bits of IF return 1.
+#[test]
+fn test_if_register() {
+    #[rustfmt::skip]
+    let ops = &[
+        LD_FF_A, 0x0F,
+        LD_A_FF, 0x0F
+    ];
+    with_dynamic_cart()
+        .execute_instructions(ops)
+        .assert_reg_eq(A, 0xE0);
 }
 
 #[test]

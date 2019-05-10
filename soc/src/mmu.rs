@@ -104,8 +104,12 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
-            VRam | InternalRam | OAM | Registers | HighRam => Some(self.mem[raw as usize].into()),
-            UnusedOAM => Some(0),
+            Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
+                let flag = self.mem[raw as usize] as i32;
+                Some((flag & 0x1F) | 0xE0)
+            }
+            InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
+            UnusedOAM => panic!(),
             UnknownRegisters => Some(0xFF),
             _ => None,
         }
@@ -116,16 +120,13 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
-            VRam | InternalRam | OAM | Registers | HighRam | UnusedOAM => {
-                // if raw == 0xFFFF {
-                //     println!("Setting IE to {:b}", value);
-                // }
+            InternalRam | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }
             UnknownRegisters => Some(()),
-            // UnusedOAM => Some(()),
-            _ => None,
+            UnusedOAM => Some(()),
+            _ => panic!(),
         }
     }
 }

@@ -71,8 +71,8 @@ bitfield! {
     pub large_sprites, set_large_sprites: 2;
     pub bg_map_select, _: 3, 3;
     pub bg_set_select, set_bg_set: 4;
-    enable_window, _: 5;
-    window_map_select, _: 6;
+    pub enable_window, _: 5;
+    pub window_map_select, _: 6, 6;
     // Stopping display must be performed during vblank only.
     pub enable_display, set_enable_display: 7;
 }

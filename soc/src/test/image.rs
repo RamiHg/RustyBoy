@@ -2,7 +2,6 @@ use super::base_path_to;
 use crate::gpu::{self, LCD_HEIGHT, LCD_WIDTH};
 use crate::system::System;
 
-
 use std::path::{Path, PathBuf};
 
 impl From<bmp::Pixel> for gpu::Pixel {

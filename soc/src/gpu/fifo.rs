@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct FifoEntry {
     pixel_index: u8,
     pub is_sprite: bool,
@@ -30,7 +30,7 @@ impl FifoEntry {
 }
 
 // A sad attempt to make a copyable fifo.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PixelFifo {
     pub is_suspended: bool,
 
@@ -42,14 +42,7 @@ pub struct PixelFifo {
 }
 
 impl PixelFifo {
-    pub fn new() -> PixelFifo {
-        PixelFifo {
-            fifo: ArrayVec::new(),
-            is_suspended: false,
-            pixels_to_scroll: 0,
-            sprites_to_blend: ArrayVec::new(),
-        }
-    }
+    pub fn new() -> PixelFifo { PixelFifo::default() }
 
     pub fn start_new_scanline(scroll_x: i32) -> PixelFifo {
         let pixels_to_scroll = scroll_x % 8;
@@ -106,6 +99,13 @@ impl PixelFifo {
         let mut new_me = self.clone();
         new_me.sprites_to_blend.clear();
         new_me
+    }
+
+    pub fn cleared(self) -> PixelFifo {
+        PixelFifo {
+            pixels_to_scroll: self.pixels_to_scroll,
+            ..PixelFifo::new()
+        }
     }
 
     fn blend_sprite(behind: FifoEntry, mut sprite: FifoEntry) -> FifoEntry {

@@ -111,10 +111,6 @@ impl Arg {
             7 => "A",
             _ => panic!(),
         });
-        if value == 6 {
-            reg.as_indirect()
-        } else {
-            reg
-        }
+        if value == 6 { reg.as_indirect() } else { reg }
     }
 }

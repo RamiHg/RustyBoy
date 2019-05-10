@@ -162,9 +162,15 @@ fn alu_reg_write(code: &MicroCode, data_bus: i32, new_regs: &mut register::File)
 }
 
 fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State) {
-    if code.enable_interrupts {
+    if code.enable_interrupts && cpu.state.interrupt_enable_counter == 0 {
         trace!(target: "int", "Enabling interrupts.");
-        next_state.interrupt_enable_counter = 2;
+        // This is a huge hack - but it might actually be not that bad.
+        let is_reti = cpu.registers.get(Register::INSTR) == 0xD9;
+        if is_reti {
+            next_state.interrupt_enable_counter = 1;
+        } else {
+            next_state.interrupt_enable_counter = 2;
+        }
         cpu.interrupts_enabled = false;
     } else if code.disable_interrupts {
         trace!(target: "int", "Disabling interrupts.");

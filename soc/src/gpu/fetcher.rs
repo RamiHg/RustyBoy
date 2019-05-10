@@ -36,10 +36,12 @@ pub struct PixelFetcher {
     mode: Mode,
     tock: bool,
     sprite_mode: bool,
+    window_mode: bool,
 
     y_within_tile: i32,
 
     bg_tiles_read: i32,
+    window_tiles_read: i32,
 
     tile_index: u8,
     data0: u8,
@@ -76,11 +78,21 @@ impl PixelFetcher {
     }
 
     pub fn start_continue_scanline(&self) -> PixelFetcher {
+        debug_assert!(self.sprite_mode);
         PixelFetcher {
             mode: Mode::ReadTileIndex { address: None },
             sprite_mode: false,
             bg_tiles_read: self.bg_tiles_read,
             ..*self
+        }
+    }
+
+    pub fn start_window_mode(self) -> PixelFetcher {
+        PixelFetcher {
+            mode: Mode::ReadTileIndex { address: None },
+            window_mode: true,
+            bg_tiles_read: self.bg_tiles_read,
+            ..Default::default()
         }
     }
 
@@ -113,7 +125,7 @@ impl PixelFetcher {
                 let address = self.nametable_address(gpu);
                 next_state.tile_index = gpu.vram(address);
                 // Latch the y-offset into the tile data now.
-                next_state.y_within_tile = (gpu.current_y + gpu.scroll_y) % 8;
+                next_state.y_within_tile = self.y_within_tile(gpu);
                 next_state.mode = ReadData0;
             }
             ReadData0 => {
@@ -165,12 +177,37 @@ impl PixelFetcher {
     }
 
     fn nametable_address(&self, gpu: &Gpu) -> i32 {
+        if self.window_mode {
+            self.window_nametable_address(gpu)
+        } else {
+            self.bg_nametable_address(gpu)
+        }
+    }
+
+    fn window_nametable_address(&self, gpu: &Gpu) -> i32 {
+        let mut addr = NametableAddress(0);
+        addr.set_upper_xscroll(self.window_tiles_read as u8);
+        let base_w = gpu.window_ycount - gpu.scroll_y;
+        addr.set_upper_ybase(util::upper_5_bits(base_w) as u8);
+        addr.set_nametable_number(gpu.lcd_control.window_map_select());
+        (addr.0 as i32) | 0x9800
+    }
+
+    fn bg_nametable_address(&self, gpu: &Gpu) -> i32 {
         let mut addr = NametableAddress(0);
         addr.set_upper_xscroll((util::upper_5_bits(gpu.scroll_x) + self.bg_tiles_read) as u8);
         let ybase = gpu.scroll_y + gpu.current_y;
         addr.set_upper_ybase(util::upper_5_bits(ybase) as u8);
         addr.set_nametable_number(gpu.lcd_control.bg_map_select());
         (addr.0 as i32) | 0x9800
+    }
+
+    fn y_within_tile(&self, gpu: &Gpu) -> i32 {
+        if self.window_mode {
+            (gpu.window_ycount - gpu.scroll_y) % 8
+        } else {
+            (gpu.scroll_y + gpu.current_y) % 8
+        }
     }
 
     pub fn get_row(&self) -> u16 {
@@ -182,12 +219,20 @@ impl PixelFetcher {
     pub fn next(mut self) -> PixelFetcher {
         self.mode = Mode::ReadTileIndex { address: None };
         self.tock = false;
-        self.bg_tiles_read += 1;
+        if self.window_mode {
+            self.window_tiles_read += 1;
+        } else {
+            self.bg_tiles_read += 1;
+        }
         self
     }
 
     fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> u8 {
-        let address = self.bg_tiledata_address(gpu);
+        let address = if self.window_mode {
+            0x8800 + self.tile_index as i32 * 16
+        } else {
+            self.bg_tiledata_address(gpu)
+        };
         // If address is -1, it means we are rows 8-16 of a sprite in 8x8 mode.
         gpu.vram(address + byte)
     }

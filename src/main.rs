@@ -128,7 +128,7 @@ fn main() -> error::Result<()> {
     use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
         interrupts: true,
-        disassembly: true,
+        disassembly: false,
         timer: false,
         dma: true,
     })
@@ -191,14 +191,14 @@ fn main() -> error::Result<()> {
     //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
-    let little = true;
+    let little = false;
     loop {
         //let now = std::time::Instant::now();
         if little {
             while !system.is_vsyncing() {
                 system.execute_machine_cycle()?;
             }
-            for _ in 0..100000 {
+            for _ in 0..100 {
                 system.execute_machine_cycle()?;
             }
         } else {

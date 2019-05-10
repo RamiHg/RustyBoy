@@ -23,6 +23,7 @@ pub mod instructions {
     pub const LD_A_A: u8 = 0x7F;
     pub const LD_A_HL: u8 = 0x7E;
     pub const LD_FF_A: u8 = 0xE0;
+    pub const LD_A_FF: u8 = 0xF0;
     pub const JP: u8 = 0xC3;
     pub const JP_HL: u8 = 0xE9;
     pub const JR: u8 = 0x18;
@@ -133,17 +134,10 @@ impl TestContext {
         static INIT: std::sync::Once = std::sync::ONCE_INIT;
         let name = "ignoreme".to_string();
         INIT.call_once(|| {
-            #[allow(unused_mut)]
-            let mut do_timer = false;
-            #[cfg(feature = "log-timer")]
-            {
-                do_timer = true;
-            }
-
             crate::log::setup_logging(crate::log::LogSettings {
-                interrupts: false,
-                disassembly: false,
-                timer: do_timer,
+                interrupts: true,
+                disassembly: true,
+                timer: false,
                 dma: false,
             })
             .unwrap();

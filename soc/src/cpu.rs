@@ -99,7 +99,7 @@ impl Cpu {
     }
 
     // TODO: Clean up the logic and make this function stateless.. It's nasty.
-    pub fn handle_interrupts_or_unhalt(&mut self, memory: &mut Memory) -> Result<()> {
+    fn handle_interrupts_or_unhalt(&mut self, memory: &mut Memory) -> Result<()> {
         // If interrupts are enabled, check for any fired interrupts. Otherwise, check if we are
         // currently handling an interrupt. If none of that, proceed as usual.
         if self.interrupts_enabled || self.is_halted {

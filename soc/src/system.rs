@@ -147,6 +147,14 @@ impl System {
                 && !(self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch))
             {
+                // println!(
+                //     "Write to {:X?} value {:X?}.",
+                //     self.cpu.state.address_latch,
+                //     self.cpu.state.data_latch /* self.dma.is_active()
+                //                                * && System::is_invalid_source_address(self.
+                //                                * cpu.state.address_latch)
+                //                                * && self.cpu.state.address_latch > 0x100 */
+                // );
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -178,7 +186,7 @@ impl System {
         self.dma = dma;
         if let Some(request) = request {
             let value = self.read_request(request.source_address)?;
-            trace!(target: "dma", "Setting {:X?} from {:X?}", request.destination_address, value);
+            trace!(target: "dma", "Setting {:X?} from {:X?} with {:X?}", request.destination_address, request.source_address, value);
             // Since we know the destination has to be OAM, skip the mmu routing.
             let res = mmu::MemoryMapped::write(
                 &mut self.gpu,
@@ -295,6 +303,8 @@ impl System {
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
         if raw_address == io_registers::Addresses::Dma as i32 {
             self.dma.set_control(value);
+        } else if raw_address == io_registers::Addresses::TimerControl as i32 {
+            self.timer.set_control(value);
         } else {
             self.write_request(raw_address, value).unwrap();
         }

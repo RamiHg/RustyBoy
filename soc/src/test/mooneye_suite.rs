@@ -17,7 +17,7 @@ macro_rules! test_target {
             #[test]
             #[allow(non_snake_case)]
             fn $test_name() {
-                let path = stringify!($test_name).replace("__", "/");
+                let path = stringify!($test_name).replace("___", "-").replace("__", "/");
                 run_target(&path);
             }
         )*
@@ -64,15 +64,30 @@ test_target!(
     acceptance__interrupts__ie_push;
     acceptance__push_timing;
     acceptance__pop_timing;
-    acceptance__rst_timing;
+    
+
     acceptance__ret_timing;
+    acceptance__ret_cc_timing;
+
     acceptance__reti_timing;
     acceptance__reti_intr_timing;
+
+    acceptance__rst_timing;
 
     acceptance__intr_timing;
     
     acceptance__ei_timing;
     acceptance__rapid_di_ei;
+);
+
+// Misc
+test_target!(
+    acceptance__boot_regs___dmgABC;
+    acceptance__halt_ime0_ei;
+    acceptance__halt_ime0_nointr_timing;
+    acceptance__halt_ime1_timing;
+    acceptance__halt_ime1_timing2___GS;
+    acceptance__if_ie_registers;
 );
 
 // PPU.
@@ -81,10 +96,24 @@ test_target!(
 );
 
 fn run_target(target: &str) {
+    static INIT: std::sync::Once = std::sync::ONCE_INIT;
+    let name = "ignoreme".to_string();
+    INIT.call_once(|| {
+        crate::log::setup_logging(crate::log::LogSettings {
+            interrupts: false,
+            disassembly: false,
+            timer: false,
+            dma: false,
+        })
+        .unwrap();
+    });
+
     use std::path::PathBuf;
 
     let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
+
+    let golden_image = load_golden_image(target);
 
     let cart = cart::from_file(path.to_str().unwrap());
     let mut system = system::System::new_with_cart(cart);
@@ -92,22 +121,24 @@ fn run_target(target: &str) {
     let mut before_screen = system.get_screen().to_vec();
 
     let max_num_frames = 60 * 50;
-    let max_num_frames_same_screen = 35;
+    let max_num_frames_same_screen = 50;
 
     let mut num_frames = 0;
     let mut num_frames_same_screen = 0;
     while max_num_frames > 0 {
-        // About 10 vsyncs worth of cycles.
-        for _ in 0..175560 {
+        // About 1 vsync worth of cycles.
+        for _ in 0..17556 {
             system.execute_machine_cycle().unwrap();
         }
-        if system.get_screen() == before_screen.as_slice() {
-            num_frames_same_screen += 10;
+        if system.get_screen() == golden_image.as_slice() {
+            break;
+        } else if system.get_screen() == before_screen.as_slice() {
+            num_frames_same_screen += 1;
         } else {
             before_screen = system.get_screen().to_vec();
             num_frames_same_screen = 0;
         }
-        num_frames += 10;
+        num_frames += 1;
         if num_frames_same_screen >= max_num_frames_same_screen || num_frames >= max_num_frames {
             break;
         }

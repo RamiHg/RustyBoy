@@ -229,6 +229,7 @@ impl Gpu {
             }
             LcdMode::VBlank => {
                 if self.cycle == 0 {
+                    println!("Whatup {}", self.current_y);
                     fire_interrupt = self.maybe_fire_interrupt(InterruptType::Oam);
                     // HW: The VBlank interrupt must fire on the cycle that mode becomes VBlank.
                     if self.current_y == 144 {
@@ -269,7 +270,7 @@ impl Gpu {
             .set_ly_is_lyc(next_state.current_y == self.lyc);
 
         if next_mode != self.lcd_status.mode() {
-            // println!("Going to {:?}", next_mode);
+            println!("Going to {:?}", next_mode);
         }
         next_state.lcd_status.set_mode(next_mode as u8);
         (next_state, fire_interrupt)
@@ -305,11 +306,17 @@ impl Gpu {
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
         self.handle_sprites(&mut next_fetcher, &mut next_fifo, next_state);
 
+        // Handle window.
+        self.handle_window(next_state);
+
         if next_fifo.has_pixels() {
             if next_fifo.is_good_pixel() {
                 // Push a pixel into the screen.
-                screen[(self.pixels_pushed + self.current_y * LCD_WIDTH as i32) as usize] =
-                    self.fifo_entry_to_pixel(next_fifo.peek());
+                let entry = next_fifo.peek();
+                if entry.is_sprite || self.lcd_control.enable_bg() {
+                    screen[(self.pixels_pushed + self.current_y * LCD_WIDTH as i32) as usize] =
+                        self.fifo_entry_to_pixel(next_fifo.peek());
+                }
 
                 next_state.pixels_pushed += 1;
             }
@@ -325,6 +332,20 @@ impl Gpu {
 
         next_state.fetcher = next_fetcher;
         next_state.fifo = next_fifo;
+    }
+
+    fn handle_window(&self, next_state: &mut Gpu) {
+        let next_fetcher = &mut next_state.fetcher;
+        let next_fifo = &mut next_state.fifo;
+
+        if self.lcd_control.enable_window()
+            && self.window_xpos <= 166
+            && self.window_xpos + 7 == self.pixels_pushed
+        {
+            // Triggered window! Switch to window mode until the end of the line.
+            *next_fifo = next_fifo.clone().cleared();
+            *next_fetcher = next_fetcher.start_window_mode();
+        }
     }
 
     fn handle_sprites(
@@ -396,14 +417,6 @@ impl Gpu {
         }
     }
 
-    /// There are 20x18 tiles. Each tile is 16 bytes.
-    /// The background map is 32x32 tiles (32 * 32 = 1KB)
-    fn compute_bg_tile_address(&self, x: i32) -> i32 {
-        let x = ((x + self.scroll_x) / 8) % 32;
-        let map_index = x + self.current_y / 8 * 32;
-        self.lcd_control.translate_bg_map_index(map_index)
-    }
-
     fn get_sprite(&self, sprite_index: u8) -> SpriteEntry {
         // HW: Might not be possible to do in 1 cycle unless OAM is SRAM
         SpriteEntry::from_slice(&self.oam.borrow()[sprite_index as usize * 4..])
@@ -432,6 +445,8 @@ impl mmu::MemoryMapped for Gpu {
                 Some(Addresses::LcdY) => Some(self.current_y),
                 Some(Addresses::LcdYCompare) => Some(self.lyc),
                 Some(Addresses::BgPalette) => Some(self.bg_palette),
+                Some(Addresses::SpritePalette0) => Some(self.sprite_palette_0),
+                Some(Addresses::SpritePalette1) => Some(self.sprite_palette_1),
                 _ => None,
             },
             mmu::Location::VRam => {

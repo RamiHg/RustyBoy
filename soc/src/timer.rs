@@ -126,6 +126,9 @@ impl Timer {
         };
         (if freq_1 { freq_1_a } else { freq_1_b }) && self.tac.enabled()
     }
+
+    #[cfg(test)]
+    pub fn set_control(&mut self, value: i32) { self.tac.0 = value; }
 }
 
 impl mmu::MemoryMapped for Timer {

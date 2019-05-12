@@ -21,5 +21,12 @@ soc = { path = "soc" }
 debug = true
 debug-assertions = true
 
+# I use cargo test --release quite a bit.
+[profile.bench]
+debug-assertions = true
+incremental = true
+overflow-checks = true
+codegen-units = 64
+
 [profile.dev]
 codegen-units = 64

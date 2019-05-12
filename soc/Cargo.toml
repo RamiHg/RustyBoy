@@ -16,7 +16,6 @@ more-asserts = "0.2.1"
 num-derive = "0.2.5"
 num-traits = "0.2.6"
 regex = "1.1.6"
-shrinkwraprs = "0.2.1"
 
 gb_disas = { path = "../gb_disas" }
 

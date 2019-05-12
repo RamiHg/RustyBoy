@@ -1,5 +1,6 @@
 mod test_bg;
 mod test_sprites;
+mod test_timing;
 
 use std::path::Path;
 

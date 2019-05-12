@@ -53,6 +53,8 @@ test_target!(
 
 // Timings.
 test_target!(
+    acceptance__add_sp_e_timing;
+
     acceptance__call_timing;
     acceptance__call_timing2;
     acceptance__call_cc_timing;
@@ -77,6 +79,7 @@ test_target!(
     acceptance__intr_timing;
     
     acceptance__ei_timing;
+    acceptance__di_timing___GS;
     acceptance__rapid_di_ei;
 );
 
@@ -96,6 +99,7 @@ test_target!(
     acceptance__ppu__intr_1_2_timing___GS;
     acceptance__ppu__intr_2_0_timing;
     acceptance__ppu__intr_2_mode0_timing;
+    acceptance__ppu__intr_2_mode0_timing_sprites;
     acceptance__ppu__intr_2_mode3_timing;
     acceptance__ppu__intr_2_oam_ok_timing;
     acceptance__ppu__vblank_stat_intr___GS;

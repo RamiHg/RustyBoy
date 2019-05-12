@@ -29,5 +29,3 @@ mod test;
 extern crate log as logging;
 #[macro_use]
 extern crate more_asserts;
-#[macro_use]
-extern crate shrinkwraprs;

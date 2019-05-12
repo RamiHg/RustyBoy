@@ -1,6 +1,7 @@
 use crate::cpu::{alu::Flags, register::Register, *};
 
 use crate::cart;
+use crate::gpu;
 use crate::io_registers;
 use crate::mmu;
 use crate::system;
@@ -237,6 +238,22 @@ impl TestContext {
         self.execute_instructions_for_mcycles(instructions, -1)
     }
 
+    pub fn tick(&mut self) { self.system.execute_machine_cycle().unwrap(); }
+
+    pub fn gpu_mode(&self) -> gpu::registers::LcdMode {
+        gpu::registers::LcdStatus(
+            self.system
+                .memory_read(io_registers::Addresses::LcdStatus as i32),
+        )
+        .mode()
+    }
+
+    pub fn set_gpu_enabled(mut self) -> TestContext {
+        self.system
+            .memory_write(io_registers::Addresses::LcdControl as i32, 0x91);
+        self
+    }
+
     pub fn wait_for_vsync(mut self) -> TestContext {
         self = self.set_mem_range(0xC000, &INF_LOOP);
         self.system.cpu_mut().registers.set(Register::PC, 0xC000);
@@ -246,7 +263,7 @@ impl TestContext {
             .memory_read(io_registers::Addresses::LcdStatus as i32)
             & 0x3)
             == crate::gpu::registers::LcdMode::VBlank as i32
-            || !self.system.is_fetching()
+        //|| !self.system.is_fetching()
         {
             self.system.execute_machine_cycle().unwrap();
         }
@@ -256,7 +273,7 @@ impl TestContext {
             .memory_read(io_registers::Addresses::LcdStatus as i32)
             & 0x3)
             != crate::gpu::registers::LcdMode::VBlank as i32
-            || !self.system.is_fetching()
+        //|| !self.system.is_fetching()
         {
             self.system.execute_machine_cycle().unwrap();
         }

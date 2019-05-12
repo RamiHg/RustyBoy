@@ -9,7 +9,9 @@
             //     "args": [],
             // },
             "program": "${workspaceRoot}/target/debug/rusty_boy",
-            "args": [],
+            "args": [
+                "tetris.gb"
+            ],
             "sourceLanguages": [
                 "rust"
             ],

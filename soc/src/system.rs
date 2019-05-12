@@ -143,7 +143,7 @@ impl System {
         if self.cpu.state.write_latch {
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
             debug_assert!(util::is_8bit(self.cpu.state.data_latch));
-            if self.cpu.t_state.get() == 3
+            if self.cpu.t_state.get() == 4
                 && !(self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch))
             {
@@ -217,7 +217,9 @@ impl System {
     }
 
     fn handle_gpu(&mut self) -> gpu::Gpu {
-        let (next_gpu, should_interrupt) = self.gpu.execute_t_cycle(&mut self.screen);
+        let (next_gpu, should_interrupt) = self
+            .gpu
+            .execute_t_cycle(self.cpu.t_state.get(), &mut self.screen);
         self.maybe_fire_interrupt(should_interrupt);
         next_gpu
     }
@@ -258,13 +260,13 @@ impl System {
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         let new_gpu = self.handle_gpu();
-        // Last step is DMA.
-        self.handle_dma()?;
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
         self.gpu = new_gpu;
         self.handle_cpu_memory_writes()?;
+        // Last step is DMA.
+        self.handle_dma()?;
         self.cpu.t_state.inc();
 
         Ok(())
@@ -293,12 +295,15 @@ impl System {
         system
             .write_request(io_registers::Addresses::LcdControl as i32, 0)
             .unwrap();
+        // And the timer.
+        system.memory_write(io_registers::Addresses::TimerControl as i32, 0);
         system
     }
 
     // pub fn memory_mut(&mut self) -> &mut mmu::Memory { &mut self.memory }
     pub fn memory(&self) -> &mmu::Memory { &self.memory }
     pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
+    pub fn gpu_mut(&mut self) -> &mut gpu::Gpu { &mut self.gpu }
 
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
         if raw_address == io_registers::Addresses::Dma as i32 {

@@ -53,7 +53,8 @@ impl PixelFetcher {
 
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
-            mode: Mode::InitialTilemapFetch,
+            // mode: Mode::InitialTilemapFetch,
+            mode: Mode::ReadTileIndex { address: None },
             ..Default::default()
         }
     }
@@ -198,7 +199,7 @@ impl PixelFetcher {
     fn bg_nametable_address(&self, gpu: &Gpu) -> i32 {
         let mut addr = NametableAddress(0);
         addr.set_upper_xscroll((util::upper_5_bits(gpu.scroll_x) + self.bg_tiles_read) as u8);
-        let ybase = gpu.scroll_y + gpu.current_y;
+        let ybase = gpu.scroll_y + gpu.current_y.0;
         addr.set_upper_ybase(util::upper_5_bits(ybase) as u8);
         addr.set_nametable_number(gpu.lcd_control.bg_map_select());
         (addr.0 as i32) | 0x9800
@@ -208,7 +209,7 @@ impl PixelFetcher {
         if self.window_mode {
             (gpu.window_ycount - gpu.scroll_y) % 8
         } else {
-            (gpu.scroll_y + gpu.current_y) % 8
+            (gpu.scroll_y + gpu.current_y.0) % 8
         }
     }
 

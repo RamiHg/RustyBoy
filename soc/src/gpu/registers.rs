@@ -123,7 +123,7 @@ bitfield! {
     pub into LcdMode, mode, set_mode: 1, 0;
     pub ly_is_lyc, set_ly_is_lyc: 2;
     pub enable_hblank_int, set_enable_hblank_int: 3;
-    pub enable_vblank_int, set_vnable_hblank_int: 4;
+    pub enable_vblank_int, set_enable_vblank_int: 4;
     pub enable_oam_int, set_enable_oam_int: 5;
     pub enable_coincident_int, set_enable_coincident_int: 6;
 }
@@ -136,5 +136,8 @@ bitfield! {
 
 define_typed_register!(LcdStatus, io_registers::Addresses::LcdStatus);
 define_typed_register!(LcdControl, io_registers::Addresses::LcdControl);
+
+define_int_register!(CurrentY, io_registers::Addresses::LcdY);
+define_int_register!(Lyc, io_registers::Addresses::LcdYCompare);
 
 from_u8!(LcdMode);

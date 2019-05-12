@@ -103,10 +103,45 @@ macro_rules! define_typed_register {
 
 macro_rules! define_int_register {
     ($Type:ident, $address:expr) => {
-        #[derive(Clone, Copy, Debug, Shrinkwrap)]
-        #[shrinkwrap(mutable)]
-        struct $Type(i32);
+        // #[derive(Clone, Copy, Debug, PartialEq, Eq, Shrinkwrap, NewtypeAdd, NewtypeAddAssign)]
+        // //#[shrinkwrap(mutable)]
+        // pub struct $Type(pub i32);
+
+        #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+        pub struct $Type(pub i32);
+
         define_common_register!($Type, $address);
+
+        impl std::cmp::PartialOrd<i32> for $Type {
+            fn partial_cmp(&self, other: &i32) -> Option<std::cmp::Ordering> {
+                Some(self.0.cmp(other))
+            }
+        }
+        impl std::cmp::PartialEq<i32> for $Type {
+            fn eq(&self, other: &i32) -> bool { self.0.eq(other) }
+        }
+        impl std::ops::AddAssign<i32> for $Type {
+            fn add_assign(&mut self, rhs: i32) { self.0 += rhs }
+        }
+        impl std::ops::Mul<i32> for $Type {
+            type Output = i32;
+            fn mul(self, rhs: i32) -> i32 { self.0 * rhs }
+        }
+        impl std::ops::Add<i32> for $Type {
+            type Output = i32;
+            fn add(self, rhs: i32) -> i32 { self.0 + rhs }
+        }
+
+        impl AsRef<i32> for $Type {
+            fn as_ref(&self) -> &i32 { &self.0 }
+        }
+        impl AsMut<i32> for $Type {
+            fn as_mut(&mut self) -> &mut i32 { &mut self.0 }
+        }
+        impl std::ops::Deref for $Type {
+            type Target = i32;
+            fn deref(&self) -> &i32 { &self.0 }
+        }
     };
 }
 

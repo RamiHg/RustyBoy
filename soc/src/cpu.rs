@@ -107,13 +107,11 @@ impl Cpu {
         if self.interrupts_enabled || self.is_halted {
             debug_assert!(!self.is_handling_interrupt);
             if self.has_pending_interrupts(memory)? {
-                if self.is_halted {
-                    // If we're halted, get out of it, whether interrupts are enabled or not.
-                    self.state.exit_halt = true;
-                } else if self.interrupts_enabled {
-                    // If interrupts are enabled, handle the interrupt!
+                trace!(target: "int", "Caught interrupt. Halted is {}", self.is_halted);
+                if self.interrupts_enabled {
                     self.enter_interrupt_handler();
                 }
+                self.is_halted = false;
             }
         } else if self.is_handling_interrupt {
             // At the 3rd TCycle of the 4th MCycle (or here, the beginning of the 4th TCycle), read

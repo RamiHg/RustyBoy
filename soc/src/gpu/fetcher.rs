@@ -1,7 +1,5 @@
-use std::convert::TryFrom as _;
-
 use super::sprites::SpriteEntry;
-use super::{FifoEntry, Gpu};
+use super::Gpu;
 use crate::util;
 
 use bitfield::bitfield;

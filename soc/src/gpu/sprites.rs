@@ -5,24 +5,14 @@ use arrayvec::ArrayVec;
 /// If two sprites on the same position, the sprite with the lower number wins.
 use bitfield::bitfield;
 
-pub struct Oam([u8; 160]);
-
-impl Oam {
-    fn new() -> Oam { Oam([0; 160]) }
-
-    fn enumerate_entries(&self) -> impl Iterator<Item = (usize, SpriteEntry)> + '_ {
-        self.0.chunks(4).map(SpriteEntry::from_slice).enumerate()
-    }
-}
-
 bitfield! {
     pub struct SpriteEntry(u32);
     impl Debug;
     u8;
-    pub pos_x, set_pos_x: 7, 0;
-    pub pos_y, set_pos_y: 15, 8;
+    pub pos_y, set_pos_y: 7, 0;
+    pub pos_x, set_pos_x: 15, 8;
     pub tile_index, set_tile_index: 23, 16;
-    pub palette, _: 28;//, 28;
+    pub palette, _: 28, 28;
     pub flip_x, _: 29;
     pub flip_y, _: 30;
     /// If 1, will draw on top of non-zero background pixels. Otherwise, will always draw on top.
@@ -72,13 +62,26 @@ pub fn find_visible_sprites(oam: &[u8], line: i32) -> ArrayVec<[u8; 10]> {
     sprites
 }
 
-pub fn get_visible_sprite(x: i32, visible_sprites: &[u8], oam: &[u8]) -> Option<u8> {
+pub fn get_visible_sprite(
+    x: i32,
+    visible_sprites: &[u8],
+    fetched_sprites: &[bool],
+    oam: &[u8],
+) -> Option<usize> {
     let sprite_location = |x| &oam[(x * 4) as usize..];
-    for sprite_index in visible_sprites {
+    for (i, sprite_index) in visible_sprites.iter().enumerate() {
         let sprite = SpriteEntry::from_slice(sprite_location(sprite_index));
-        if sprite.right() > x && sprite.left() <= x {
-            return Some(*sprite_index);
+        if !fetched_sprites[i] && sprite.left() <= x && sprite.right() > x {
+            return Some(i);
         }
     }
     return None;
+}
+
+pub fn pixels_behind(x: i32, sprite: &SpriteEntry) -> usize {
+    if sprite.left() < x {
+        (x - sprite.left()) as usize
+    } else {
+        0
+    }
 }

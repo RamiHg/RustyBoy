@@ -1,4 +1,4 @@
-use crate::{io_registers::Register, util};
+use crate::util;
 
 use crate::error::{self, Result};
 use crate::io_registers;

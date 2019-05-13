@@ -9,7 +9,6 @@
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
   "rust.jobs": 16,
-  "rust.clippy_preference": "off",
   "rust.build_on_save": true,
   "workbench.editor.enablePreview": false,
   "rust.all_targets": true,

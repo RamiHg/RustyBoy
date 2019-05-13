@@ -1,5 +1,3 @@
-use crate::gpu;
-use crate::gpu::sprites::SpriteEntry;
 use crate::gpu::Color;
 use crate::system::System;
 

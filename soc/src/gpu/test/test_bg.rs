@@ -1,13 +1,9 @@
-use crate::gpu;
-use crate::gpu::sprites::SpriteEntry;
 use crate::gpu::Color;
-use crate::system::System;
 
 use super::*;
 use crate::test::*;
 
 use num_traits::FromPrimitive as _;
-use std::path::Path;
 
 fn simple_checkerboard() -> Box<impl ImageFn> {
     Box::new(|mut i, mut j| {

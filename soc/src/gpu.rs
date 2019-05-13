@@ -6,7 +6,6 @@ mod sprites;
 #[cfg(test)]
 mod test;
 
-use crate::io_registers;
 use crate::mmu;
 use crate::system::Interrupts;
 use crate::util;
@@ -52,8 +51,6 @@ enum DrawingMode {
     Bg,
     /// A sprite is visible in the current pixel, and is currently being fetched.
     FetchingSprite,
-    /// A sprite is currently fully fetched and being drawn.
-    DrawingSprite,
 }
 
 #[derive(Clone)]
@@ -81,6 +78,7 @@ pub struct Gpu {
     fifo: PixelFifo,
     fetcher: PixelFetcher,
     visible_sprites: ArrayVec<[u8; 10]>,
+    fetched_sprites: [bool; 10],
 
     // VRAM.
     vram: Rc<RefCell<[u8; 8192]>>,
@@ -88,11 +86,12 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    const OAM_ADDR: usize = 8192;
-
     pub fn new() -> Gpu {
         let mut lcd_status = LcdStatus(0);
         lcd_status.set_mode(LcdMode::ReadingOAM as u8);
+
+        // This is the state of the GPU after the bootrom completes. The GPU is in the 4th cycle of
+        // the vblank mode on line 153 (or 0 during cycle 0).
 
         Gpu {
             lcd_control: LcdControl(0x91),
@@ -116,6 +115,7 @@ impl Gpu {
             fifo: PixelFifo::new(),
             fetcher: PixelFetcher::new(),
             visible_sprites: ArrayVec::new(),
+            fetched_sprites: [false; 10],
 
             // Store OAM with Vram in order to reduce amount of copying.
             vram: Rc::new(RefCell::new([0; 8192])),
@@ -199,7 +199,7 @@ impl Gpu {
                 // Moving at tstate == 4 is a hack. But hey, all the acceptance tests pass.
                 if next_state.pixels_pushed == LCD_WIDTH as i32 && tstate == 4 {
                     debug_assert_ge!(next_state.cycle, 43 * 4);
-                    debug_assert_lt!(next_state.cycle, (43 + 10) * 4);
+                    debug_assert_lt!(next_state.cycle, (43 + 25) * 4);
                     next_mode = LcdMode::HBlank;
                 }
             }
@@ -240,12 +240,12 @@ impl Gpu {
         }
 
         if next_mode != self.lcd_status.mode() {
-            println!("Going to {:?}", next_mode);
+            trace!(target: "gpu", "Going to {:?}", next_mode);
         }
         next_state.lcd_status.set_mode(next_mode as u8);
         let fire_interrupt = next_state.set_output(tstate % 4);
         if fire_interrupt != Interrupts::empty() {
-            println!(
+            trace!(target:"gpu",
                 "Firing interrupts {:?}. Mode is {:X?} cycle is {} line is {}",
                 fire_interrupt,
                 next_state.lcd_status.mode(),
@@ -330,6 +330,8 @@ impl Gpu {
         next_state.fetcher = PixelFetcher::start_new_scanline(&self);
         next_state.fifo = PixelFifo::start_new_scanline(self.scroll_x);
 
+        next_state.fetched_sprites = [false; 10];
+
         if self.lcd_control.enable_sprites() {
             next_state.visible_sprites = sprites::find_visible_sprites(
                 &*self.oam.borrow(),
@@ -354,7 +356,7 @@ impl Gpu {
             if next_fifo.is_good_pixel() {
                 // Push a pixel into the screen.
                 let entry = next_fifo.peek();
-                if entry.is_sprite || self.lcd_control.enable_bg() {
+                if entry.is_sprite() || self.lcd_control.enable_bg() {
                     screen[(self.pixels_pushed + self.current_y * LCD_WIDTH as i32) as usize] =
                         self.fifo_entry_to_pixel(next_fifo.peek());
                 }
@@ -395,21 +397,35 @@ impl Gpu {
         next_fifo: &mut PixelFifo,
         next_state: &mut Gpu,
     ) {
-        let maybe_sprite_index = sprites::get_visible_sprite(
-            (self.pixels_pushed + self.scroll_x) % 256,
+        let true_x = (self.pixels_pushed + self.scroll_x) % 256;
+        let maybe_visible_sprite_array_index = sprites::get_visible_sprite(
+            true_x,
             &self.visible_sprites,
+            &self.fetched_sprites,
             self.oam.borrow().as_ref(),
         );
+        let has_visible_sprite = maybe_visible_sprite_array_index.is_some();
+        let sprite_array_index = maybe_visible_sprite_array_index.unwrap_or(0);
+        let sprite_index = if let Some(index) = maybe_visible_sprite_array_index {
+            self.visible_sprites[index]
+        } else {
+            0
+        };
+        // if has_visible_sprite {
+        //     println!(
+        //         "Am in {:?} pixel {}. Maybe is {:?}.",
+        //         self.drawing_mode, self.pixels_pushed, sprite_index
+        //     );
+        //     dbg!(&next_fifo);
+        // }
         match self.drawing_mode {
             DrawingMode::Bg => {
-                if maybe_sprite_index.is_some() {
+                if has_visible_sprite {
                     debug_assert!(self.lcd_control.enable_sprites());
                     // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
                     // the first place! Also, if we need to fine x-scroll, do it before any sprite
                     // work.
-                    debug_assert!(!next_fifo.is_suspended);
-                    let sprite_index = maybe_sprite_index.unwrap();
-                    if next_fifo.has_pixels() && next_fifo.is_good_pixel() {
+                    if next_fifo.has_pixels_or_suspended() && next_fifo.is_good_pixel() {
                         next_fifo.is_suspended = true;
                         *next_fetcher = next_fetcher.start_new_sprite(
                             &self,
@@ -418,37 +434,46 @@ impl Gpu {
                         );
                         next_state.drawing_mode = DrawingMode::FetchingSprite;
                     }
+                } else {
+                    next_fifo.is_suspended = false;
                 }
             }
             DrawingMode::FetchingSprite => {
-                debug_assert!(maybe_sprite_index.is_some());
                 debug_assert!(self.lcd_control.enable_sprites());
+                debug_assert!(has_visible_sprite);
+                debug_assert!(!self.fetched_sprites[sprite_array_index]);
                 // Check if the fetcher is ready.
                 if next_fetcher.has_data() {
                     // If so, composite the sprite pixels ontop of the pixels currently in the
                     // fifo.
-                    let row = FifoEntry::from_row(next_fetcher.get_row());
+                    let sprite = self.get_sprite(sprite_index);
+                    let row = FifoEntry::from_sprite_row(
+                        next_fetcher.get_row(),
+                        true,
+                        sprite.priority(),
+                        sprite.palette(),
+                    )
+                    .take(8)
+                    .skip(sprites::pixels_behind(true_x, &sprite));
+                    // println!("Skipping {}", sprites::pixels_behind(true_x, &sprite));
+                    // Only keep enough pixels to
                     *next_fetcher = next_fetcher.start_continue_scanline();
-                    *next_fifo = next_fifo.clone().combined_with_sprite(row.into_iter(), 0);
+                    *next_fifo = next_fifo.clone().combined_with_sprite(row);
                     // Go back to drawing as usual.
-                    next_state.drawing_mode = DrawingMode::DrawingSprite;
-                }
-            }
-            DrawingMode::DrawingSprite => {
-                debug_assert!(self.lcd_control.enable_sprites());
-                // If the sprite is no longer visible, throw away the rest of the sprite-blending
-                // pixels and immediately go back to bg.
-                if maybe_sprite_index.is_none() {
-                    *next_fifo = next_fifo.clear_sprite();
                     next_state.drawing_mode = DrawingMode::Bg;
+                    next_state.fetched_sprites[sprite_array_index] = true;
                 }
             }
         }
     }
 
     fn fifo_entry_to_pixel(&self, entry: FifoEntry) -> Pixel {
-        let palette = if entry.is_sprite {
-            self.sprite_palette_0
+        let palette = if entry.is_sprite() {
+            if entry.palette() == 0 {
+                self.sprite_palette_0
+            } else {
+                self.sprite_palette_1
+            }
         } else {
             self.bg_palette
         };

@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::gpu::registers::*;
+use crate::io_registers;
 use crate::system::Interrupts;
 
 impl TestContext {

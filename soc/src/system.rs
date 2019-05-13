@@ -39,7 +39,9 @@ impl System {
         // Set the initial register values.
         cpu.registers.set(Register::A, 0x01);
         cpu.registers.set(Register::F, 0xB0);
+        cpu.registers.set(Register::B, 0x00);
         cpu.registers.set(Register::C, 0x13);
+        cpu.registers.set(Register::D, 0x00);
         cpu.registers.set(Register::E, 0xD8);
         cpu.registers.set(Register::H, 0x01);
         cpu.registers.set(Register::L, 0x4D);

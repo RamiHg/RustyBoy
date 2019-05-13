@@ -2,7 +2,7 @@ use crate::mmu::MemoryBus;
 
 use bitfield::bitfield;
 use num_derive::FromPrimitive;
-use num_traits;
+// use num_traits;
 
 #[derive(FromPrimitive)]
 pub enum Addresses {
@@ -65,6 +65,15 @@ pub trait Register: AsRef<i32> + AsMut<i32> {
     fn address(&self) -> i32;
 }
 
+macro_rules! impl_bitfield_helpful_traits {
+    ($Type:ident) => {
+        impl Copy for $Type {}
+        impl Clone for $Type {
+            fn clone(&self) -> Self { *self }
+        }
+    };
+}
+
 macro_rules! define_common_register {
     ($Type:ident, $address:expr) => {
         impl $crate::io_registers::Register for $Type {
@@ -93,10 +102,8 @@ macro_rules! define_typed_register {
         impl AsMut<i32> for $Type {
             fn as_mut(&mut self) -> &mut i32 { &mut self.0 }
         }
-        impl Copy for $Type {}
-        impl Clone for $Type {
-            fn clone(&self) -> Self { *self }
-        }
+
+        impl_bitfield_helpful_traits!($Type);
         define_common_register!($Type, $address);
     };
 }

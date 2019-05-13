@@ -12,21 +12,25 @@ edition = "2018"
 
 [dependencies]
 gl = "0.12.0"
-glutin = "0.20.0"
+glutin = "0.21.0"
 # Workspace dependencies.
 gb_disas = { path = "gb_disas" }
 soc = { path = "soc" }
 
+
 [profile.release]
-debug = true
+overflow-checks = true
 debug-assertions = true
+lto = "fat"
+incremental = true
 
 # I use cargo test --release quite a bit.
 [profile.bench]
 debug-assertions = true
 incremental = true
 overflow-checks = true
-codegen-units = 64
+lto = "thin"
+codegen-units = 16
 
 [profile.dev]
-codegen-units = 64
+codegen-units = 16

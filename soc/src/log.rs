@@ -23,7 +23,6 @@ pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
                 }
             })
             .format(|out, message, record| {
-                let msg = format!("{}", message);
                 out.finish(format_args!("[{}]: {}", record.target(), message))
             })
             .level(log::LevelFilter::Trace)

@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::gpu::sprites::SpriteEntry;
 use crate::gpu::{self, *};
+use crate::io_registers;
 use crate::system::System;
 use crate::test::image::*;
 use crate::test::*;

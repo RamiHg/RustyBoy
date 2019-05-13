@@ -11,12 +11,14 @@ use soc::gpu;
 use soc::log;
 use soc::system;
 
+
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 // https://github.com/gbdev/awesome-gbdev#emulator-development
 // https://www.youtube.com/watch?v=HyzD8pNlpwI
 // https://www.youtube.com/watch?v=GBYwjch6oEE
 // PPU tests: https://github.com/mattcurrie/mealybug-tearoom-tests
+// PPU additions to mooneye tests: https://github.com/wilbertpol/mooneye-gb/tree/master/tests
 
 /// Helpful macro to run a GL command and make sure no errors are generated.
 macro_rules! GL {
@@ -124,18 +126,23 @@ fn load_all_shaders() -> GLuint {
 
 fn main() -> error::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let little = false;
 
-    use glutin::ContextTrait;
     log::setup_logging(log::LogSettings {
-        interrupts: true,
+        interrupts: little,
         disassembly: false,
         timer: false,
-        dma: true,
+        dma: false,
     })
     .unwrap();
 
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new();
+
+    // .with_dimensions(glutin::dpi::LogicalSize::new(
+    //     gpu::LCD_WIDTH as f64,
+    //     gpu::LCD_HEIGHT as f64,
+    // ));
     let context = glutin::ContextBuilder::new()
         .with_vsync(true)
         .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
@@ -143,9 +150,7 @@ fn main() -> error::Result<()> {
         .build_windowed(window, &events_loop)
         .unwrap();
 
-    unsafe {
-        context.make_current().unwrap();
-    }
+    let context = unsafe { context.make_current().unwrap() };
 
     gl::load_with(|s| context.get_proc_address(s) as *const _);
 
@@ -191,14 +196,13 @@ fn main() -> error::Result<()> {
     //let cart = cart::from_file("./test_roms/acceptance/call_timing.gb");
     //let cart = cart::from_file("./sprite_test_01.gb");
     let mut system = system::System::new_with_cart(cart);
-    let little = false;
     loop {
         //let now = std::time::Instant::now();
         if little {
             while !system.is_vsyncing() {
                 system.execute_machine_cycle()?;
             }
-            for _ in 0..100 {
+            for _ in 0..37000 {
                 system.execute_machine_cycle()?;
             }
         } else {

@@ -1,6 +1,5 @@
 use super::io_registers::{self, Addresses, Register};
 use super::mmu;
-use super::system::Interrupts;
 
 pub struct DmaRequest {
     pub source_address: i32,

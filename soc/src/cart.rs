@@ -80,8 +80,8 @@ mod none {
     }
 
     impl mmu::MemoryMapped for Cart {
-        fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
-            let mmu::Address(location, raw) = address;
+        fn write(&mut self, address: mmu::Address, _: i32) -> Option<()> {
+            let mmu::Address(location, _) = address;
             match location {
                 mmu::Location::MbcRom | mmu::Location::MbcRam => Some(()),
                 _ => None,

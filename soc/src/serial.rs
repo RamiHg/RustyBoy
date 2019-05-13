@@ -65,7 +65,7 @@ impl Controller {
 
 impl mmu::MemoryMapped for Controller {
     fn read(&self, address: mmu::Address) -> Option<i32> {
-        let mmu::Address(location, raw) = address;
+        let mmu::Address(_, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
             Some(io_registers::Addresses::SerialControl) => Some(self.control.0 as i32),
             Some(io_registers::Addresses::SerialData) => Some(self.data),
@@ -74,7 +74,7 @@ impl mmu::MemoryMapped for Controller {
     }
 
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
-        let mmu::Address(location, raw) = address;
+        let mmu::Address(_, raw) = address;
         match io_registers::Addresses::from_i32(raw) {
             Some(io_registers::Addresses::SerialControl) => {
                 self.control.0 = value;

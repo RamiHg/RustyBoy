@@ -2,7 +2,9 @@
 #![allow(unused_doc_comments)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
-#![deny(clippy::all)]
+// #![deny(clippy::all)]
+// #![deny(warnings)]
+
 #![feature(trait_alias)]
 
 #[macro_use]
@@ -29,3 +31,7 @@ mod test;
 extern crate log as logging;
 #[macro_use]
 extern crate more_asserts;
+
+extern crate jemallocator;
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;

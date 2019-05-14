@@ -2,8 +2,11 @@
 #![allow(unused_doc_comments)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
-// #![deny(clippy::all)]
+#![warn(clippy::all)]
 // #![deny(warnings)]
+
+#![allow(clippy::cognitive_complexity)]
+#![allow(clippy::cast_lossless)]
 
 #![feature(trait_alias)]
 

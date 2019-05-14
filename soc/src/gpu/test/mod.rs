@@ -49,8 +49,19 @@ impl ImageBuilder {
         let mut entry = sprite.sprite;
         entry.set_tile_index(self.oam.len() as u8);
         // Paint that tile.
-        self = self.color_tile_solid(1, sprite_index, sprite.color);
+        if let Some(mask) = sprite.mask {
+            self = self.paint_tile(1, sprite_index, sprite.color, &mask);
+        } else {
+            self = self.color_tile_solid(1, sprite_index, sprite.color);
+        }
         self.oam.push(entry);
+        self
+    }
+
+    pub fn add_sprites(mut self, sprites: &[SpriteBuilder]) -> ImageBuilder {
+        for &sprite in sprites {
+            self = self.add_sprite(sprite);
+        }
         self
     }
 
@@ -141,10 +152,32 @@ impl ImageBuilder {
 
     fn color_tile_solid(mut self, tile_set: i32, tile_index: usize, color: Color) -> ImageBuilder {
         let base = if tile_set == 0 { 0x1000 } else { 0 };
-        let row = color_to_row(color);
+        let (low, high) = color_to_row(color);
         for i in 0..8 {
-            self.tile_set[base + tile_index * 16 + i * 2 + 0] = (row & 0xFF) as u8;
-            self.tile_set[base + tile_index * 16 + i * 2 + 1] = (row >> 8) as u8;
+            self.tile_set[base + tile_index * 16 + i * 2 + 0] = low;
+            self.tile_set[base + tile_index * 16 + i * 2 + 1] = high;
+        }
+        self
+    }
+
+    // Paints one row.
+    fn paint_tile(
+        mut self,
+        tile_set: i32,
+        tile_index: usize,
+        color: Color,
+        row_mask: &[bool],
+    ) -> ImageBuilder {
+        let base = if tile_set == 0 { 0x1000 } else { 0 };
+        let (low, high) = color_to_row(color);
+        let row_bitmask = row_mask
+            .iter()
+            .enumerate()
+            .fold(0, |acc, (i, &x)| if x { acc | (0x80 >> i) } else { acc });
+        let (low_masked, high_masked) = (low & row_bitmask, high & row_bitmask);
+        for i in 0..1 {
+            self.tile_set[base + tile_index * 16 + i * 2 + 0] = low_masked;
+            self.tile_set[base + tile_index * 16 + i * 2 + 1] = high_masked;
         }
         self
     }
@@ -154,6 +187,7 @@ impl ImageBuilder {
 pub struct SpriteBuilder {
     sprite: SpriteEntry,
     color: Color,
+    mask: Option<[bool; 8]>,
 }
 
 impl SpriteBuilder {
@@ -161,6 +195,7 @@ impl SpriteBuilder {
         SpriteBuilder {
             sprite: SpriteEntry(0),
             color: Color::Black,
+            mask: None,
         }
     }
 
@@ -176,6 +211,15 @@ impl SpriteBuilder {
 
     pub fn color(mut self, color: Color) -> SpriteBuilder {
         self.color = color;
+        self
+    }
+
+    pub fn mask_row(mut self, _: i32, mask: [i32; 8]) -> SpriteBuilder {
+        let mut bool_mask = [false; 8];
+        for i in 0..8 {
+            bool_mask[i] = mask[i] == 1;
+        }
+        self.mask = Some(bool_mask);
         self
     }
 }
@@ -214,12 +258,12 @@ pub fn compare_with_golden(test_name: &str, system: &System, golden: &[gpu::Pixe
     }
 }
 
-fn color_to_row(color: Color) -> u16 {
+fn color_to_row(color: Color) -> (u8, u8) {
     let (low, high) = match color {
-        Color::White => (0 as u16, 0),
+        Color::White => (0, 0),
         Color::LightGray => (0xFF, 0),
         Color::DarkGray => (0, 0xFF),
         Color::Black => (0xFF, 0xFF),
     };
-    low | (high << 8)
+    (low, high)
 }

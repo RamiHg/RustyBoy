@@ -155,13 +155,13 @@ impl Gpu {
     pub fn is_vsyncing(&self) -> bool { self.lcd_status.mode() == LcdMode::VBlank }
 
     fn maybe_fire_interrupt(&self, interrupt_type: InterruptType) -> Interrupts {
-        let mut fired_interrupts = Interrupts::empty();
         // HW: This is technically not correct for VVlank The STAT VBlank interrupt will fire at any
         // time within the VBlank duration.
         if (interrupt_type as i32 & self.lcd_status.0) != 0 {
-            fired_interrupts = Interrupts::STAT;
+            Interrupts::STAT
+        } else {
+            Interrupts::empty()
         }
-        fired_interrupts
     }
 
     pub fn execute_t_cycle(&self, tstate: i32, screen: &mut [Pixel]) -> (Gpu, Interrupts) {
@@ -336,6 +336,7 @@ impl Gpu {
             next_state.visible_sprites = sprites::find_visible_sprites(
                 &*self.oam.borrow(),
                 (self.current_y + self.scroll_y) % 256,
+                self.lcd_control.large_sprites(),
             );
         } else {
             next_state.visible_sprites.clear();
@@ -411,12 +412,11 @@ impl Gpu {
         } else {
             0
         };
-        // if has_visible_sprite {
+        // if has_visible_sprite && self.current_y == 0 {
         //     println!(
         //         "Am in {:?} pixel {}. Maybe is {:?}.",
         //         self.drawing_mode, self.pixels_pushed, sprite_index
         //     );
-        //     dbg!(&next_fifo);
         // }
         match self.drawing_mode {
             DrawingMode::Bg => {
@@ -452,13 +452,20 @@ impl Gpu {
                         true,
                         sprite.priority(),
                         sprite.palette(),
+                        sprite.flip_x(),
                     )
                     .take(8)
                     .skip(sprites::pixels_behind(true_x, &sprite));
                     // println!("Skipping {}", sprites::pixels_behind(true_x, &sprite));
                     // Only keep enough pixels to
                     *next_fetcher = next_fetcher.start_continue_scanline();
+                    // for i in 0..8 {
+                    //     if self.current_y == 0 {
+                    //         dbg!(next_fifo.fifo[i]);
+                    //     }
+                    // }
                     *next_fifo = next_fifo.clone().combined_with_sprite(row);
+
                     // Go back to drawing as usual.
                     next_state.drawing_mode = DrawingMode::Bg;
                     next_state.fetched_sprites[sprite_array_index] = true;

@@ -29,7 +29,7 @@ fn composite_sprite(img_i: usize, img_j: usize, color: &mut Color, builder: Spri
     let sprite = builder.sprite;
     let intersects_x = sprite.right() > i && sprite.left() <= i;
     // Subtract 8 from the bottom since we are not doing 8x16 sprites.
-    let intersects_y = (sprite.bottom() - 8) > j && sprite.top() <= j;
+    let intersects_y = sprite.bottom(false) > j && sprite.top() <= j;
     if intersects_x && intersects_y {
         *color = Color::Black;
     }
@@ -42,7 +42,7 @@ fn composite_image(
 ) -> Box<impl ImageFn> {
     Box::new(move |i, j| {
         let mut color = image_fn(i, j);
-        sprite_fn(i, j, &mut color, builder.clone());
+        sprite_fn(i, j, &mut color, builder);
         color
     })
 }
@@ -166,3 +166,77 @@ fn test_sprite_move_and_scroll() {
         }
     }
 }
+
+/// Tests the situation where 8 sprites are in the same exact position, but they are transparent in
+/// different places!
+///
+/// Layout:
+///
+/// 0:  _ _ _ _ _ _ _ X
+/// 1:  X _ _ _ _ _ _ _
+/// 2:  _ X _ _ _ _ _ _
+/// 3:  _ _ _ X _ _ _ _
+/// 4:  _ _ X _ _ _ _ _
+/// 5:  _ _ _ _ _ _ X _
+/// 6:  _ _ _ _ _ _ _ X
+/// 7:  X _ _ _ _ _ _ _
+///
+/// Expected:
+///     1 2 4 3 _ _ 5 0
+///  Colors organized to remove overlap:
+///     3 1 2 3 _ _ 2 1
+fn test_sprite_overlapping_same_pixel_at(x: i32, y: i32) {
+    let golden_fn = move |i, j| {
+        if j == 0 {
+            match i as i32 - x {
+                0 => Black,
+                1 => LightGray,
+                2 => DarkGray,
+                3 => Black,
+                6 => DarkGray,
+                7 => LightGray,
+                _ => White,
+            }
+        } else {
+            White
+        }
+    };
+
+    use Color::*;
+    let sprites = [
+        SpriteBuilder::with_pos(x, y)
+            .color(LightGray)
+            .mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
+        SpriteBuilder::with_pos(x, y)
+            .color(White)
+            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y)
+            .color(LightGray)
+            .mask_row(0, [0, 1, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y)
+            .color(Black)
+            .mask_row(0, [0, 0, 0, 1, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y)
+            .color(DarkGray)
+            .mask_row(0, [0, 0, 1, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y)
+            .color(DarkGray)
+            .mask_row(0, [0, 0, 0, 0, 0, 0, 1, 0]),
+        SpriteBuilder::with_pos(x, y).mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
+        SpriteBuilder::with_pos(x, y)
+            .color(Black)
+            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+    ];
+
+    ImageBuilder::new()
+        .golden_fn(Box::new(golden_fn))
+        .add_sprites(&sprites)
+        .enable_sprites()
+        .run_and_assert_is_golden_fn(
+            format!("overlapping_same_pixel_{}_{}", x, y),
+            &IDENTITY_TRANSFORM,
+        );
+}
+
+#[test]
+fn test_sprite_overlapping_same_pixel() { test_sprite_overlapping_same_pixel_at(0, 0); }

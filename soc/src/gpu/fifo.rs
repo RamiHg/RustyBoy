@@ -19,7 +19,12 @@ impl FifoEntry {
         is_sprite: bool,
         priority: u8,
         palette: u8,
+        flip_x: bool,
     ) -> impl Iterator<Item = FifoEntry> {
+        if flip_x {
+            row = row.rotate_left(16);
+        }
+
         std::iter::from_fn(move || {
             let mut entry = FifoEntry(0);
             entry.set_index(((row & 0xC000) >> 14) as u8);
@@ -32,7 +37,7 @@ impl FifoEntry {
     }
 
     pub fn from_row(row: u16) -> impl Iterator<Item = FifoEntry> {
-        FifoEntry::from_sprite_row(row, false, 0, 0)
+        FifoEntry::from_sprite_row(row, false, 0, 0, false)
     }
 }
 
@@ -41,7 +46,7 @@ impl FifoEntry {
 pub struct PixelFifo {
     pub is_suspended: bool,
 
-    fifo: ArrayVec<[FifoEntry; 16]>,
+    pub fifo: ArrayVec<[FifoEntry; 16]>,
 
     pixels_to_scroll: i32,
 }
@@ -101,12 +106,12 @@ impl PixelFifo {
 
     fn blend_sprite(behind: FifoEntry, sprite: FifoEntry) -> FifoEntry {
         debug_assert!(sprite.is_sprite());
-        // We do not draw over existing sprites.
-        if behind.is_sprite() {
+        // We do not draw over existing sprites, or if the sprite is transparent.
+        if behind.is_sprite() || sprite.pixel_index() == 0 {
             return behind;
         }
         // Sprite will win over translucent bg, or if it is solid and priority 0.
-        if behind.pixel_index() == 0 || (sprite.pixel_index() != 0 && sprite.priority() == 0) {
+        if behind.pixel_index() == 0 || sprite.priority() == 0 {
             sprite
         } else {
             behind

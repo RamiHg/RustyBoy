@@ -63,13 +63,21 @@ impl PixelFetcher {
         sprite_index: i32,
         sprite: &SpriteEntry,
     ) -> PixelFetcher {
+        let mut y_within_tile = (gpu.current_y + gpu.scroll_y - sprite.top()) % 16;
+        if sprite.flip_y() {
+            y_within_tile = if gpu.lcd_control.large_sprites() {
+                15
+            } else {
+                7
+            } - y_within_tile;
+        }
         PixelFetcher {
             mode: Mode::ReadTileIndex {
                 address: Some(0xFE00 + sprite_index * 4 + 2),
             },
             sprite_mode: true,
             // Compute the y-offset now while we still have the sprite.
-            y_within_tile: (gpu.current_y + gpu.scroll_y - sprite.top()) % 16,
+            y_within_tile,
             // We must preserve the state of the background fetch.
             bg_tiles_read: self.bg_tiles_read,
             ..Default::default()
@@ -161,13 +169,15 @@ impl PixelFetcher {
                 // entirely if we know we're past its 8-pixel vertical bounds?
                 if !gpu.lcd_control.large_sprites() && self.y_within_tile >= 8 {
                     next_state.data0 = 0;
+                    panic!();
                 }
                 next_state.mode = ReadData1;
             }
             ReadData1 => {
                 next_state.data1 = gpu.vram(self.sprite_tiledata_address() + 1);
                 if !gpu.lcd_control.large_sprites() && self.y_within_tile >= 8 {
-                    next_state.data0 = 0;
+                    next_state.data1 = 0;
+                    panic!();
                 }
                 next_state.mode = Ready;
             }

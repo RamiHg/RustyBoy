@@ -35,24 +35,26 @@ impl SpriteEntry {
         )
     }
 
-    pub fn is_visible_on_line(&self, line: i32) -> bool {
-        self.top() <= line && self.bottom() > line
+    pub fn is_visible_on_line(self, line: i32, big_sprites: bool) -> bool {
+        self.top() <= line && self.bottom(big_sprites) > line
     }
 
-    pub fn top(&self) -> i32 { self.pos_y() as i32 - 16 }
-    pub fn bottom(&self) -> i32 { self.pos_y() as i32 }
+    pub fn top(self) -> i32 { self.pos_y() as i32 - 16 }
+    pub fn bottom(self, big_sprites: bool) -> i32 {
+        self.pos_y() as i32 - if big_sprites { 0 } else { 8 }
+    }
 
-    pub fn left(&self) -> i32 { self.pos_x() as i32 - 8 }
-    pub fn right(&self) -> i32 { self.pos_x() as i32 }
+    pub fn left(self) -> i32 { self.pos_x() as i32 - 8 }
+    pub fn right(self) -> i32 { self.pos_x() as i32 }
 }
 
-pub fn find_visible_sprites(oam: &[u8], line: i32) -> ArrayVec<[u8; 10]> {
+pub fn find_visible_sprites(oam: &[u8], line: i32, big_sprites: bool) -> ArrayVec<[u8; 10]> {
     debug_assert_eq!(oam.len(), 160);
     let mut sprites = ArrayVec::new();
     for (index, chunk) in oam.chunks(4).enumerate() {
         debug_assert_lt!(index, 40);
         let sprite = SpriteEntry::from_slice(chunk);
-        if sprite.is_visible_on_line(line) {
+        if sprite.is_visible_on_line(line, big_sprites) {
             sprites.push(index as u8);
         }
         if sprites.len() >= 10 {

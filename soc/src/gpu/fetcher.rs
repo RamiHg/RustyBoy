@@ -14,9 +14,8 @@ bitfield! {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Mode {
+pub enum Mode {
     Invalid,
-    InitialTilemapFetch,
     // TODO: Refactor this a bit. Currently only needed for sprite mode - but can easily put bg
     // addresses here too.
     ReadTileIndex { address: Option<i32> },
@@ -31,10 +30,11 @@ impl Default for Mode {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PixelFetcher {
-    mode: Mode,
-    tock: bool,
+    pub mode: Mode,
+    pub tock: bool,
     sprite_mode: bool,
     window_mode: bool,
+    pub is_initial_fetch: bool,
 
     y_within_tile: i32,
 
@@ -51,8 +51,8 @@ impl PixelFetcher {
 
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
-            // mode: Mode::InitialTilemapFetch,
             mode: Mode::ReadTileIndex { address: None },
+            is_initial_fetch: true,
             ..Default::default()
         }
     }
@@ -122,14 +122,22 @@ impl PixelFetcher {
         next_state
     }
 
+    pub fn next(mut self) -> PixelFetcher {
+        self.mode = Mode::ReadTileIndex { address: None };
+        self.tock = false;
+        if self.window_mode {
+            self.window_tiles_read += 1;
+        } else if !self.is_initial_fetch {
+            self.bg_tiles_read += 1;
+        }
+        self.is_initial_fetch = false;
+        self
+    }
+
     fn execute_bg_tcycle(self, gpu: &Gpu) -> PixelFetcher {
         let mut next_state = self;
         use Mode::*;
         match self.mode {
-            InitialTilemapFetch => {
-                // Don't actually read anything..
-                next_state.mode = ReadTileIndex { address: None };
-            }
             ReadTileIndex { .. } => {
                 let address = self.nametable_address(gpu);
                 next_state.tile_index = gpu.vram(address);
@@ -144,6 +152,10 @@ impl PixelFetcher {
             ReadData1 => {
                 next_state.data1 = self.read_tile_data(gpu, 1);
                 next_state.mode = Ready;
+                if self.is_initial_fetch {
+                    next_state.mode = ReadData0;
+                    next_state.is_initial_fetch = false;
+                }
             }
             Ready => (),
             Invalid => panic!(),
@@ -225,17 +237,6 @@ impl PixelFetcher {
         debug_assert_eq!(self.mode, Mode::Ready);
         debug_assert_eq!(expand_tile_bits(0b1010_0101), 0b01000100_00010001);
         decode_tile_data(self.data0, self.data1)
-    }
-
-    pub fn next(mut self) -> PixelFetcher {
-        self.mode = Mode::ReadTileIndex { address: None };
-        self.tock = false;
-        if self.window_mode {
-            self.window_tiles_read += 1;
-        } else {
-            self.bg_tiles_read += 1;
-        }
-        self
     }
 
     fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> u8 {

@@ -11,7 +11,6 @@ use soc::gpu;
 use soc::log;
 use soc::system;
 
-
 // Helpful links:
 // Cycle-accurate docs: https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 // https://github.com/gbdev/awesome-gbdev#emulator-development
@@ -144,7 +143,7 @@ fn main() -> error::Result<()> {
     //     gpu::LCD_HEIGHT as f64,
     // ));
     let context = glutin::ContextBuilder::new()
-        .with_vsync(true)
+        .with_vsync(false)
         .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
         .with_gl_profile(glutin::GlProfile::Core)
         .build_windowed(window, &events_loop)

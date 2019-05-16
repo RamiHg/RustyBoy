@@ -5,12 +5,7 @@
   "editor.rulers": [
     100
   ],
-  "rust-client.disableRustup": true,
   "workbench.editor.revealIfOpen": true,
   "files.autoSave": "onFocusChange",
-  "rust.jobs": 16,
-  "rust.build_on_save": true,
   "workbench.editor.enablePreview": false,
-  "rust.all_targets": true,
-  "rust.unstable_features": true,
 }

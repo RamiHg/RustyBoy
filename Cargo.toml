@@ -19,9 +19,9 @@ soc = { path = "soc" }
 
 
 [profile.release]
+codegen-units = 16
 overflow-checks = true
 debug-assertions = true
-lto = "fat"
 incremental = true
 
 # I use cargo test --release quite a bit.
@@ -29,8 +29,7 @@ incremental = true
 debug-assertions = true
 incremental = true
 overflow-checks = true
-lto = "thin"
-codegen-units = 16
+codegen-units = 32
 
 [profile.dev]
 codegen-units = 16

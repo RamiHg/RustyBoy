@@ -5,7 +5,7 @@ authors = ["Ramy"]
 edition = "2018"
 
 [dependencies]
-arrayvec = "0.4.10"
+arrayvec = {version = "0.4.10", features = ["serde-1"]}
 bitflags = "1.0.4"
 bitfield = "0.13.1"
 csv = "1.0.7"
@@ -16,6 +16,7 @@ more-asserts = "0.2.1"
 num-derive = "0.2.5"
 num-traits = "0.2.6"
 regex = "1.1.6"
+serde = {version = "1.0.91", features = ["derive", "rc"]}
 
 jemallocator = "0.3.0"
 

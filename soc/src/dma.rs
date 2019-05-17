@@ -8,7 +8,7 @@ pub struct DmaRequest {
 
 define_int_register!(Control, Addresses::Dma);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Dma {
     // The DMA control register.
     control: Control,

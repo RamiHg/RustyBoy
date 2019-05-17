@@ -13,7 +13,7 @@ bitfield! {
     nametable_number, set_nametable_number: 10, 10;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
     Invalid,
     // TODO: Refactor this a bit. Currently only needed for sprite mode - but can easily put bg
@@ -28,7 +28,7 @@ impl Default for Mode {
     fn default() -> Mode { Mode::Invalid }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct PixelFetcher {
     pub mode: Mode,
     pub tock: bool,

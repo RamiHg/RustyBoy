@@ -71,6 +71,26 @@ macro_rules! impl_bitfield_helpful_traits {
         impl Clone for $Type {
             fn clone(&self) -> Self { *self }
         }
+
+        impl serde::ser::Serialize for $Type {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::ser::Serializer,
+            {
+                i32::from(self.0).serialize(serializer)
+            }
+        }
+
+        impl<'de> serde::de::Deserialize<'de> for $Type {
+            fn deserialize<D>(deserializer: D) -> Result<$Type, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                use std::convert::TryInto as _;
+                let inner = i32::deserialize(deserializer)?;
+                Ok($Type(inner.try_into().unwrap()))
+            }
+        }
     };
 }
 
@@ -114,7 +134,7 @@ macro_rules! define_int_register {
         // //#[shrinkwrap(mutable)]
         // pub struct $Type(pub i32);
 
-        #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+        #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
         pub struct $Type(pub i32);
 
         define_common_register!($Type, $address);

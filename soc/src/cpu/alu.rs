@@ -11,7 +11,7 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Op {
     Invalid,
     // Binary ops.

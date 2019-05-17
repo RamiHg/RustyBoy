@@ -19,6 +19,7 @@ bitflags! {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct System {
     cpu: cpu::Cpu,
     gpu: gpu::Gpu,
@@ -27,13 +28,15 @@ pub struct System {
     timer: Box<timer::Timer>,
     serial: serial::Controller,
     dma: Box<dma::Dma>,
-    cart: Box<mmu::MemoryMapped>,
 
+    #[serde(skip)]
     screen: Vec<Pixel>,
+    #[serde(skip)]
+    pub cart: Option<Box<dyn mmu::MemoryMapped>>,
 }
 
 impl System {
-    pub fn new_with_cart(cart: Box<mmu::MemoryMapped>) -> System {
+    pub fn new() -> System {
         use cpu::register::Register;
         let mut cpu = cpu::Cpu::new();
         // Set the initial register values.
@@ -48,17 +51,22 @@ impl System {
         cpu.registers.set(Register::SP, 0xFFFE);
 
         System {
-            cpu: cpu,
+            cpu,
             gpu: gpu::Gpu::new(),
             memory: mmu::Memory::new(),
             timer: Box::new(timer::Timer::new()),
             serial: serial::Controller::new(),
             dma: Box::new(dma::Dma::new()),
-            cart,
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
+            cart: None,
         }
     }
+
+    pub fn restore_from_deserialize(&mut self) {
+        self.screen = vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
+    }
+    pub fn set_cart(&mut self, cart: Box<mmu::MemoryMapped>) { self.cart = Some(cart); }
 
     pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
     pub fn get_screen(&self) -> &[Pixel] { &self.screen }
@@ -66,7 +74,7 @@ impl System {
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
             self.timer.as_ref(),
-            self.cart.as_ref(),
+            self.cart.as_ref().unwrap().as_ref(),
             &self.serial,
             &self.gpu,
             self.dma.as_ref(),
@@ -87,7 +95,7 @@ impl System {
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
         let mut modules = [
             self.timer.as_mut(),
-            self.cart.as_mut(),
+            self.cart.as_mut().unwrap().as_mut(),
             &mut self.serial,
             &mut self.gpu,
             self.dma.as_mut(),
@@ -290,7 +298,8 @@ impl System {
 #[cfg(test)]
 impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
-        let mut system = System::new_with_cart(cart);
+        let mut system = System::new();
+        system.set_cart(cart);
         // Clear all registers.
         system.cpu.registers = cpu::register::File::new();
         // Start with the GPU disabled.

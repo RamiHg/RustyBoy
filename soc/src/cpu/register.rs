@@ -9,11 +9,11 @@ use crate::util::{is_16bit, is_8bit};
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.
 /// They are stored in the order B,C,D,E,H,L,A,F,TEMP,SP,PC.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct File([i32; Register::NumRegisters as usize]);
 
 /// The logical list of possible registers and register combination.
-#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq)]
+#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum Register {
     B,

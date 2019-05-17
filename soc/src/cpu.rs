@@ -13,7 +13,7 @@ pub mod register;
 #[cfg(test)]
 mod test;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DecodeMode {
     Fetch,
     Decode,
@@ -24,7 +24,7 @@ impl Default for DecodeMode {
     fn default() -> Self { DecodeMode::Fetch }
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct State {
     pub decode_mode: DecodeMode,
     in_cb_mode: bool,
@@ -37,7 +37,7 @@ pub struct State {
     exit_halt: bool,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TState(i32);
 
 impl TState {
@@ -46,6 +46,7 @@ impl TState {
     pub fn inc(&mut self) { self.0 = (self.0 + 1) & 0x3; }
 }
 
+#[derive(Serialize, Deserialize)]
 // This needs to get heavily refactored, with the control unit
 // code being migrated here, and state made private.
 pub struct Cpu {

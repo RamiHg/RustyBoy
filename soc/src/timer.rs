@@ -30,7 +30,7 @@ bitfield! {
 
 from_u8!(TimerFrequency);
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Timer {
     // DIV.
     div: TimerDiv,

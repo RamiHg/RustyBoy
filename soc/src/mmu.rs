@@ -95,8 +95,11 @@ pub trait MemoryMapped2 {
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their
 /// components directly.
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Memory {
-    mem: [u8; 0x10000],
+    //mem: [u8; 0x10000],
+    mem: Vec<u8>,
 }
 
 impl MemoryMapped for Memory {
@@ -145,7 +148,11 @@ impl Memory {
 }
 
 impl Memory {
-    pub fn new() -> Memory { Memory { mem: [0; 0x10000] } }
+    pub fn new() -> Memory {
+        Memory {
+            mem: vec![0; 0x10000],
+        }
+    }
 
     /// Temporary while the entire system moves away form direct memory access.
     pub fn read(&self, raw_address: i32) -> i32 {

@@ -4,11 +4,9 @@
 #![allow(unused_variables)]
 #![warn(clippy::all)]
 // #![deny(warnings)]
-
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::cast_lossless)]
 #![allow(clippy::new_without_default)]
-
 #![feature(trait_alias)]
 
 #[macro_use]
@@ -35,6 +33,8 @@ mod test;
 extern crate log as logging;
 #[macro_use]
 extern crate more_asserts;
+#[macro_use]
+extern crate serde;
 
 extern crate jemallocator;
 #[global_allocator]

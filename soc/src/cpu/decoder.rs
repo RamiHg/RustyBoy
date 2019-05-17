@@ -83,6 +83,7 @@ impl Into<Register> for AFPairTable {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Decoder {
     op_codes: Vec<Vec<MicroCode>>,
     cb_op_codes: Vec<Vec<MicroCode>>,

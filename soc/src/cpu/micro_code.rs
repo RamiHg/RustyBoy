@@ -3,7 +3,7 @@ use num_derive::FromPrimitive;
 use crate::cpu::alu;
 use crate::cpu::register::Register;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum IncOp {
     Mov = 0b00,
     Inc = 0b01,
@@ -14,7 +14,7 @@ impl Default for IncOp {
     fn default() -> Self { IncOp::Mov }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AluOutSelect {
     Result,
     Tmp,
@@ -23,7 +23,7 @@ pub enum AluOutSelect {
     F,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, FromPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, FromPrimitive, Serialize, Deserialize)]
 pub enum Condition {
     NZ,
     Z,
@@ -41,7 +41,7 @@ impl Default for AluOutSelect {
 
 /// This microcode format is nowhere near size-optimized. There are tons of mutually exclusive bits,
 /// and it could probably be cut down in half.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
     //  do much other than signal to the memory controller intent.

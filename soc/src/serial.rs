@@ -5,7 +5,7 @@ use crate::system;
 use num_traits::FromPrimitive;
 use system::Interrupts;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Controller {
     control: io_registers::SerialControl,
     data: i32,

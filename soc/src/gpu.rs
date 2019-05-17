@@ -32,7 +32,7 @@ pub enum Color {
     Black,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pixel {
     pub r: u8,
     pub g: u8,
@@ -45,7 +45,7 @@ impl Pixel {
     pub fn from_values(r: u8, g: u8, b: u8) -> Pixel { Pixel { r, g, b } }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum DrawingMode {
     /// Regular drawing mode. I.e., just drawing background.
     Bg,
@@ -53,7 +53,7 @@ enum DrawingMode {
     FetchingSprite,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Gpu {
     // Registers.
     lcd_control: LcdControl,
@@ -84,8 +84,10 @@ pub struct Gpu {
     fetched_sprites: [bool; 10],
 
     // VRAM.
-    vram: Rc<RefCell<[u8; 8192]>>,
-    oam: Rc<RefCell<[u8; 160]>>,
+    // vram: Rc<RefCell<[u8; 8192]>>,
+    // oam: Rc<RefCell<[u8; 160]>>,
+    vram: Rc<RefCell<Vec<u8>>>,
+    oam: Rc<RefCell<Vec<u8>>>,
 }
 
 impl Gpu {
@@ -123,8 +125,8 @@ impl Gpu {
             fetched_sprites: [false; 10],
 
             // Store OAM with Vram in order to reduce amount of copying.
-            vram: Rc::new(RefCell::new([0; 8192])),
-            oam: Rc::new(RefCell::new([0; 160])),
+            vram: Rc::new(RefCell::new(vec![0; 8192])),
+            oam: Rc::new(RefCell::new(vec![0; 160])),
         }
     }
 

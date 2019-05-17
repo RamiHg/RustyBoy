@@ -130,7 +130,8 @@ fn run_target(target: &str) {
     let golden_image = load_golden_image(target);
 
     let cart = cart::from_file(path.to_str().unwrap());
-    let mut system = system::System::new_with_cart(cart);
+    let mut system = system::System::new();
+    system.set_cart(cart);
 
     let mut before_screen = system.get_screen().to_vec();
 

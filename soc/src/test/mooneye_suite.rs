@@ -105,6 +105,46 @@ test_target!(
     acceptance__ppu__vblank_stat_intr___GS;
 );
 
+// Wilbert tests.
+test_target!(
+    wilbert__intr_0_timing;
+    wilbert__intr_1_timing;
+    wilbert__intr_2_timing;
+    wilbert__intr_2_0_timing;
+    wilbert__intr_2_mode0_timing;
+    wilbert__intr_2_mode3_timing;
+
+    wilbert__intr_2_mode0_scx1_timing_nops;
+    wilbert__intr_2_mode0_scx2_timing_nops;
+    wilbert__intr_2_mode0_scx3_timing_nops;
+    wilbert__intr_2_mode0_scx4_timing_nops;
+    wilbert__intr_2_mode0_scx5_timing_nops;
+    wilbert__intr_2_mode0_scx6_timing_nops;
+    wilbert__intr_2_mode0_scx7_timing_nops;
+    wilbert__intr_2_mode0_scx8_timing_nops;
+
+    wilbert__lcdon_mode_timing;
+    
+    wilbert__ly_lyc_0_write___GS;
+    wilbert__ly_lyc_0___GS;
+    wilbert__ly_lyc_144___GS;
+    wilbert__ly_lyc_153_write___GS;
+    wilbert__ly_lyc_153___GS;
+    wilbert__ly_lyc_write___GS;
+
+    wilbert__ly00_01_mode0_2;
+    wilbert__ly00_mode0_2___GS;
+    wilbert__ly00_mode2_3;
+    wilbert__ly00_mode3_0;
+
+    wilbert__ly143_144_145;
+    wilbert__ly143_144_152_153;
+    wilbert__ly143_144_mode0_1;
+    wilbert__ly143_144_mode3_0;
+
+    wilbert__ly_new_frame___GS;
+);
+
 //     acceptance__ppu__stat_irq_blocking;
 // acceptance__ppu__intr_2_mode0_timing_sprites;
 // acceptance__ppu__lcdon_timing___dmgABCmgbS;
@@ -127,7 +167,12 @@ fn run_target(target: &str) {
     let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
 
-    let golden_image = load_golden_image(target);
+    let golden_path = golden_image_path(target);
+    let golden_image = if golden_path.exists() {
+        Some(load_golden_image(golden_path))
+    } else {
+        None
+    };
 
     let cart = cart::from_file(path.to_str().unwrap());
     let mut system = system::System::new();
@@ -145,7 +190,9 @@ fn run_target(target: &str) {
         for _ in 0..17556 {
             system.execute_machine_cycle().unwrap();
         }
-        if system.get_screen() == golden_image.as_slice() {
+        if golden_image.is_some()
+            && system.get_screen() == golden_image.as_ref().unwrap().as_slice()
+        {
             break;
         } else if system.get_screen() == before_screen.as_slice() {
             num_frames_same_screen += 1;
@@ -159,7 +206,12 @@ fn run_target(target: &str) {
         }
     }
 
-    if system.get_screen() != load_golden_image(target).as_slice() {
+    if target.starts_with("wilbert") && golden_image.is_none() {
+        dump_system_image(Path::new("./wilbert_golden"), target, &system);
+        panic!();
+    }
+
+    if system.get_screen() != golden_image.unwrap().as_slice() {
         dump_system_image(Path::new("./failed_tests"), target, &system);
         panic!("{} failed.", target);
     } else {

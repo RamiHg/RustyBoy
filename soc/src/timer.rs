@@ -100,8 +100,9 @@ impl MemoryMapped2 for Timer {
 impl Timer {
     pub fn new() -> Timer {
         Timer {
-            div: TimerDiv(0),
-            tac: TimerControl(0xFF),
+            // The initial DIV here is set for MGB.
+            div: TimerDiv(0xABC8),
+            tac: TimerControl(0),
             tima: TimerTima(0),
             tma: TimerTma(0),
             should_interrupt: false,

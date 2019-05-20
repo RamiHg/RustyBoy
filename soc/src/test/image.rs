@@ -21,12 +21,19 @@ impl Into<bmp::Pixel> for gpu::Pixel {
     }
 }
 
-pub fn load_golden_image(test_name: &str) -> Vec<gpu::Pixel> {
-    use bmp::{Image, Pixel};
-    use std::path::PathBuf;
+pub fn golden_image_path(test_name: &str) -> PathBuf {
+    let mut path = if test_name.starts_with("acceptance") {
+        base_path_to("./test_golden/mooneye")
+    } else {
+        base_path_to("./test_golden")
+    };
 
-    let mut path = base_path_to("./test_golden/mooneye");
     path.push(format!("{}.bmp", test_name));
+    path
+}
+
+pub fn load_golden_image(path: impl AsRef<Path>) -> Vec<gpu::Pixel> {
+    use bmp::{Image, Pixel};
 
     let img = bmp::open(path).unwrap();
     assert_eq!(img.get_width(), LCD_WIDTH as u32);

@@ -130,14 +130,14 @@ impl Gpu {
         }
     }
 
-    fn enable_display(&mut self) {
+    pub fn enable_display(&mut self) {
         self.first_frame = true;
         self.current_y.0 = 0;
         self.window_ycount = 0;
         // The GPU starts off immediately in HBlank for a couple of cycles.
         self.lcd_status.set_mode(LcdMode::HBlank as u8);
         self.cycles_in_hblank = 0;
-        self.cycle = (75 + 0) * 4 - 0;
+        self.cycle = 75 * 4 + 1;
     }
 
     pub fn vram(&self, address: i32) -> u8 { self.vram.borrow()[(address - 0x8000) as usize] }
@@ -183,14 +183,12 @@ impl Gpu {
 
     pub fn execute_t_cycle(&self, tstate: i32, screen: &mut [Pixel]) -> (Gpu, Interrupts) {
         let mut next_state = self.clone();
-        //dbg!(self.cycle);
-        // println!("Enabled: {}", self.lcd_control.enable_display());
         if !self.lcd_control.enable_display() {
             next_state.lcd_status.set_mode(LcdMode::ReadingOAM as u8);
             next_state.current_y.0 = 0;
             return (next_state, Interrupts::empty());
         }
-        //debug_assert_eq!(self.cycle % 4, tstate - 1);
+        // debug_assert_eq!(self.cycle % 4, tstate % 4);
 
         let mut next_mode = self.lcd_status.mode();
         next_state.cycle += 1;
@@ -214,21 +212,7 @@ impl Gpu {
                 if self.pixels_pushed < LCD_WIDTH as i32 {
                     self.lcd_transfer_cycle(&mut next_state, screen);
                 }
-                // Moving at tstate == 4 is a hack. But hey, all the acceptance tests pass.
                 if next_state.pixels_pushed == LCD_WIDTH as i32 {
-                    // Base length of 172 cycles.
-                    let mut cycles = 172;
-                    // + SCX % 8
-                    cycles += self.scroll_x % 8;
-                    // At least 6 cycles per sprite.
-                    cycles += 6 * self.visible_sprites.len() as i32;
-                    // debug_assert_ge!(self.cycle, cycles);
-                    if self.visible_sprites.is_empty() {
-                        //debug_assert_eq!(self.cycle, cycles + 1);
-                    }
-
-                    // debug_assert_ge!(next_state.cycle, 43 * 4);
-                    // debug_assert_lt!(next_state.cycle, (43 + 25) * 4);
                     next_mode = LcdMode::HBlank;
                     next_state.cycles_in_hblank = 0;
                 }
@@ -236,16 +220,12 @@ impl Gpu {
             LcdMode::HBlank => {
                 // This is basically a signal to do the interrupt.
                 next_state.cycles_in_hblank += 1;
-                // This is a hack so that the CPU can see the new value on this clock.
-                if next_state.cycle == 94 * 4 - 1 {
-                    next_state.current_y += 1;
-                }
                 if next_state.cycle == 94 * 4 {
                     debug_assert_le!(next_state.cycles_in_hblank, 51 * 4);
 
                     next_state.cycle = 0;
                     next_state.pixels_pushed = 0;
-                    //next_state.current_y += 1;
+                    next_state.current_y += 1;
                     if next_state.current_y == LCD_HEIGHT as i32 {
                         next_mode = LcdMode::VBlank;
                     } else {
@@ -267,17 +247,12 @@ impl Gpu {
                     // debug_assert_eq!(tstate, 4);
                     next_state.current_y.0 = 0;
                 }
-                // Figure out how to relay LY to the CPU without resorting to this hack (maybe
-                // update all registers at 3rd tcycle?)
-                if next_state.cycle == 114 * 4 - 1 && self.current_y != 0 {
-                    next_state.current_y += 1;
-                }
                 if next_state.cycle == 114 * 4 {
                     next_state.cycle = 0;
                     if self.current_y == 0 {
                         next_mode = LcdMode::ReadingOAM;
                     } else {
-                        // next_state.current_y += 1;
+                        next_state.current_y += 1;
                     }
                 }
             }
@@ -291,14 +266,15 @@ impl Gpu {
             // );
         }
         next_state.lcd_status.set_mode(next_mode as u8);
-        let fire_interrupt = next_state.set_output(tstate % 4);
+        let fire_interrupt = next_state.poll_interrupts(tstate % 4);
         if fire_interrupt != Interrupts::empty() {
             trace!(target:"gpu",
-                "Firing interrupts {:?}. Mode is {:X?} cycle is {} line is {}",
+                "Firing interrupts {:?}. Mode is {:X?} cycle is {} line is {}. TState is {}",
                 fire_interrupt,
                 next_state.lcd_status.mode(),
                 next_state.cycle,
-                next_state.current_y.0
+                next_state.current_y.0,
+                tstate
             );
         }
 
@@ -314,7 +290,7 @@ impl Gpu {
     }
 
     // Emulating Moore machine. One day I will refactor this.
-    fn set_output(&mut self, t_state: i32) -> Interrupts {
+    fn poll_interrupts(&mut self, t_state: i32) -> Interrupts {
         let mut fire_interrupt = Interrupts::empty();
         let mode = self.lcd_status.mode();
         let is_doing_line = mode == LcdMode::ReadingOAM || mode == LcdMode::VBlank;
@@ -322,27 +298,31 @@ impl Gpu {
         let ly_is_lyc = self.current_y == self.lyc.0;
 
         // LY=LYC Interrupt.
-        if t_state == 0 && self.current_y != 0 {
-            self.lcd_status
-                .set_ly_is_lyc(ly_is_lyc && !in_line_first_mcycle);
-            if is_doing_line && self.cycle == 4 {
-                fire_interrupt |= self.fire_if_lyc_is(self.current_y.0);
-            }
-        } else if t_state == 0 && self.current_y == 0 {
+        if self.current_y == 0 {
             if self.lcd_status.mode() == LcdMode::VBlank {
                 debug_assert_ne!(self.cycle, 0);
-                if self.cycle == 4 {
+                if self.cycle == 0 {
+                    self.lcd_status.set_ly_is_lyc(false);
+                } else if self.cycle == 4 {
                     self.lcd_status.set_ly_is_lyc(self.lyc == 153);
                     fire_interrupt |= self.fire_if_lyc_is(153);
                 } else if self.cycle == 8 {
                     self.lcd_status.set_ly_is_lyc(false);
+                } else if self.cycle == 12 {
+                    self.lcd_status.set_ly_is_lyc(ly_is_lyc);
+                    fire_interrupt |= self.fire_if_lyc_is(0);
                 } else {
                     self.lcd_status.set_ly_is_lyc(ly_is_lyc);
-                    fire_interrupt |= self.fire_if_lyc_is(self.current_y.0);
                 }
             } else {
-                self.lcd_status
-                    .set_ly_is_lyc(ly_is_lyc && !in_line_first_mcycle);
+                self.lcd_status.set_ly_is_lyc(ly_is_lyc);
+            }
+        } else if self.current_y != 0 {
+            self.lcd_status
+                .set_ly_is_lyc(ly_is_lyc && !in_line_first_mcycle);
+            if is_doing_line && self.cycle == 4 {
+                debug_assert_ne!(self.current_y.0, 153);
+                fire_interrupt |= self.fire_if_lyc_is(self.current_y.0);
             }
         }
         // VBL Interrupt.
@@ -354,20 +334,15 @@ impl Gpu {
         // OAM Interrupt.
         if is_doing_line {
             let should_fire_oam = match self.current_y.0 {
-                1...143 => self.cycle == 0,
-                144 | 0 if self.cycle == 4 => true,
-                _ if self.cycle == 12 => true,
-                // 0 if mode == LcdMode::VBlank && self.cycle == 12 => true,
-                _ => false,
+                _ => self.cycle == 0,
+                /* 1...143 => self.cycle == 0,
+                 * _ => self.cycle == 4, */
             };
             if should_fire_oam {
                 fire_interrupt |= self.maybe_fire_interrupt(InterruptType::Oam);
             }
         }
-        // // HBlank interrupt.
-        // if mode == LcdMode::HBlank && self.cycles_in_hblank == 0 {
-        //     fire_interrupt |= self.maybe_fire_interrupt(InterruptType::HBlank);
-        // }
+        // HBlank interrupt.
         if mode == LcdMode::HBlank && self.cycles_in_hblank == 0 {
             fire_interrupt |= self.maybe_fire_interrupt(InterruptType::HBlank);
         }
@@ -563,15 +538,15 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => Some(self.lcd_control.0 as i32),
                 Some(Addresses::LcdStatus) => {
-                    let stat = self.lcd_status;
+                    let mut stat = self.lcd_status;
                     // This is really weird behavior. But alas, replicate.
                     if stat.mode() == LcdMode::ReadingOAM && self.cycle < 4 {
-                        //  stat.set_mode(LcdMode::HBlank as u8);
+                        stat.set_mode(LcdMode::HBlank as u8);
                     } else if stat.mode() == LcdMode::VBlank
                         && self.cycle < 4
                         && self.current_y == 144
                     {
-                        //  stat.set_mode(LcdMode::HBlank as u8);
+                        stat.set_mode(LcdMode::HBlank as u8);
                     }
                     let enable_mask = if self.lcd_control.enable_display() {
                         0xFF

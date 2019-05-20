@@ -1,4 +1,5 @@
 use crate::cpu;
+use crate::util;
 
 use cpu::alu;
 use cpu::alu::Flags;
@@ -108,10 +109,15 @@ fn condition_check_passes(flags: alu::Flags, cond: Condition) -> bool {
 
 fn alu_logic(
     code: &MicroCode,
+    data_bus: i32,
     current_regs: &register::File,
     new_regs: &mut register::File,
 ) -> i32 {
-    let act = current_regs.get(Register::ACT);
+    let mut act = current_regs.get(Register::ACT);
+    if code.alu_mem_as_act {
+        debug_assert!(util::is_8bit(data_bus));
+        act = data_bus;
+    }
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
@@ -209,7 +215,7 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     }
 
     let data_bus_value = if code.alu_to_data {
-        alu_logic(code, &current_regs, &mut new_regs)
+        alu_logic(code, cpu.state.data_latch, &current_regs, &mut new_regs)
     } else if code.reg_to_data {
         debug_assert!(!code.reg_write_enable);
         current_regs.get(code.reg_select)

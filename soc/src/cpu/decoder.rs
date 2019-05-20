@@ -359,13 +359,22 @@ impl DecoderBuilder {
         let op_p = (op_y & 0b110) >> 1;
 
         let is_hl = op_z == 6;
-        let alu_key = if is_hl { "alu(HL)(CB)" } else { "alur(CB)" };
 
         let alu_op = match op_x {
             0 => RotShiftTable::from_i32(op_y).unwrap().into(),
             1 => alu::Op::Bit,
             2 => alu::Op::Res,
             3 | _ => alu::Op::Set,
+        };
+
+        let alu_key = if is_hl {
+            if let alu::Op::Bit = alu_op {
+                "alu(HL)(BITCB)"
+            } else {
+                "alu(HL)(CB)"
+            }
+        } else {
+            "alur(CB)"
         };
 
         match op_x {

@@ -50,9 +50,12 @@ impl System {
         cpu.registers.set(Register::L, 0x4D);
         cpu.registers.set(Register::SP, 0xFFFE);
 
+        let mut gpu = gpu::Gpu::new();
+        gpu.enable_display();
+
         System {
             cpu,
-            gpu: gpu::Gpu::new(),
+            gpu,
             memory: mmu::Memory::new(),
             timer: Box::new(timer::Timer::new()),
             serial: serial::Controller::new(),
@@ -235,35 +238,7 @@ impl System {
     }
 
     fn execute_t_cycle(&mut self) -> Result<()> {
-        if self.cpu.t_state.get() == 1
-            && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
-            && !self.cpu.is_handling_interrupt
-        {
-            let pc_plus =
-                |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
-            let disas =
-                gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
-            if let core::result::Result::Ok(op) = disas {
-                trace!(
-                    target: "disas",
-                    "{:04X?}\t{:X?}\t{}",
-                    self.cpu.registers.get(cpu::register::Register::PC),
-                    pc_plus(0)?,
-                    op
-                );
-            } else {
-                trace!(
-                    target: "disas",
-                    "{:04X?}\tBad opcode {:X?}",
-                    self.cpu.registers.get(cpu::register::Register::PC),
-                    pc_plus(0)?
-                );
-            }
-        }
-        // println!(
-        //     "A is {:X}",
-        //     self.cpu.registers.get(cpu::register::Register::A)
-        // );
+        self.print_disassembly()?;
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         self.cpu.execute_t_cycle(&mut self.memory)?;
@@ -293,6 +268,35 @@ impl System {
 
     #[cfg(test)]
     pub fn is_fetching(&self) -> bool { self.cpu.state.decode_mode == cpu::DecodeMode::Fetch }
+
+    fn print_disassembly(&self) -> Result<()> {
+        if self.cpu.t_state.get() == 1
+            && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
+            && !self.cpu.is_handling_interrupt
+        {
+            let pc_plus =
+                |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
+            let disas =
+                gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
+            if let core::result::Result::Ok(op) = disas {
+                trace!(
+                    target: "disas",
+                    "{:04X?}\t{:X?}\t{}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    pc_plus(0)?,
+                    op
+                );
+            } else {
+                trace!(
+                    target: "disas",
+                    "{:04X?}\tBad opcode {:X?}",
+                    self.cpu.registers.get(cpu::register::Register::PC),
+                    pc_plus(0)?
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

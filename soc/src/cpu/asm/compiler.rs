@@ -99,6 +99,14 @@ fn compile_rd(op: &Op) -> MicroCode {
             alu_reg_write_enable: true,
             ..Default::default()
         },
+        // TODO: Move all of ALU register writing to be this.
+        // Register::ACT => MicroCode {
+        //     alu_mem_as_act: true,
+        //     alu_op: alu::Op::Mov,
+        //     alu_out_select: AluOutSelect::ACT,
+        //     alu_reg_write_enable: true,
+        //     ..Default::default()
+        // },
         Register::F => MicroCode {
             alu_out_select: AluOutSelect::F,
             alu_reg_write_enable: true,
@@ -172,6 +180,13 @@ fn compile_ld(op: &Op) -> MicroCode {
             alu_reg_write_enable: true,
             ..Default::default()
         },
+        Some(Arg::ConstantPlaceholder(string)) if string == "MEM" => {
+            debug_assert_eq!(destination, AluOutSelect::ACT);
+            MicroCode {
+                alu_mem_as_act: true,
+                ..Default::default()
+            }
+        }
         Some(Arg::ConstantPlaceholder(string)) => {
             let value: i32 = string
                 .parse()
@@ -210,13 +225,24 @@ fn compile_ld(op: &Op) -> MicroCode {
     }
 }
 
+// TODO: Refactor this since the addition of BIT.
 fn compile_alu(op: &Op) -> MicroCode {
-    let dst = op.lhs.expect_as_register();
     let alu_op = match &op.cmd {
         &Command::AluOp(alu_op) => alu_op,
         Command::MOV => alu::Op::Mov,
         _ => panic!(),
     };
+    if op.lhs.0.is_none() {
+        // We could very well want to throw away our results (e.g. in the case of BIT).
+        if let alu::Op::Bit = alu_op {
+            return MicroCode {
+                alu_op,
+                alu_to_data: true,
+                ..Default::default()
+            };
+        }
+    }
+    let dst = op.lhs.expect_as_register();
     if alu_op == alu::Op::Mov && dst.is_pair() {
         // This is actually an incrementer operation!
         return compile_incdec(op);
@@ -410,6 +436,7 @@ fn micro_code_combine(mut acc: MicroCode, code: MicroCode) -> MicroCode {
     move_if_unset!(alu_f_force_nz);
     move_if_unset!(alu_write_f_mask);
     move_if_unset!(alu_bit_select);
+    move_if_unset!(alu_mem_as_act);
     move_if_unset!(is_end);
     move_if_unset!(is_cond_end);
     move_if_unset!(is_halt);
@@ -503,5 +530,6 @@ fn verify_micro_code(code: &MicroCode) {
         !(code.is_halt && !code.is_end),
         "Must halt at the same time as an instruction end."
     );
+    assert!(!(code.alu_mem_as_act && (code.reg_write_enable || code.alu_reg_write_enable)));
     assert!(code.alu_bit_select < 8);
 }

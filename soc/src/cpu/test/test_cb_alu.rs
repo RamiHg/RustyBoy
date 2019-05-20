@@ -5,7 +5,15 @@ fn cond_carry(cond: bool) -> Flags {
     if cond { Flags::CARRY } else { Flags::empty() }
 }
 
-fn setup_op(op: u8, reg: Register, val: i32, flags: Flags, expected: i32, expected_flags: Flags) {
+fn setup_op_with_isbit(
+    op: u8,
+    is_bit: bool,
+    reg: Register,
+    val: i32,
+    flags: Flags,
+    expected: i32,
+    expected_flags: Flags,
+) {
     let is_hl = reg == Register::HL;
     let test = if is_hl {
         with_default().set_mem_8bit(0xD000, val).set_reg(HL, 0xD000)
@@ -15,12 +23,16 @@ fn setup_op(op: u8, reg: Register, val: i32, flags: Flags, expected: i32, expect
     .set_reg(F, flags.bits())
     .execute_instructions(&[0xCB, op])
     .assert_flags(expected_flags)
-    .assert_mcycles(if is_hl { 4 } else { 2 });
+    .assert_mcycles(if is_hl { 4 - is_bit as i32 } else { 2 });
     if is_hl {
         test.assert_mem_8bit_eq(0xD000, expected);
     } else {
         test.assert_reg_eq(reg, expected);
     }
+}
+
+fn setup_op(op: u8, reg: Register, val: i32, flags: Flags, expected: i32, expected_flags: Flags) {
+    setup_op_with_isbit(op, false, reg, val, flags, expected, expected_flags)
 }
 
 fn test_rotate_op(
@@ -136,16 +148,18 @@ fn test_bit() {
         let value = 1 << bit;
         for (&reg, reg_index) in UNARY_SOURCES.iter().zip(0..8) {
             let op = 0x40 + 8 * bit + reg_index;
-            setup_op(
+            setup_op_with_isbit(
                 op,
+                true,
                 reg,
                 value,
                 Flags::CARRY | Flags::SUB | Flags::ZERO,
                 value,
                 Flags::HCARRY | Flags::CARRY,
             );
-            setup_op(
+            setup_op_with_isbit(
                 op,
+                true,
                 reg,
                 0,
                 Flags::CARRY | Flags::SUB | Flags::ZERO,

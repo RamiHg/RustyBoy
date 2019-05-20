@@ -27,6 +27,9 @@ struct Opt {
         default_value = "./serialized.json"
     )]
     serialize_path: std::path::PathBuf,
+
+    #[structopt(long)]
+    little: bool,
 }
 
 // Helpful links:
@@ -41,11 +44,11 @@ struct Opt {
 
 fn main() -> error::Result<()> {
     let args = Opt::from_args();
-    let little = false;
+    let little = args.little;
 
     log::setup_logging(log::LogSettings {
         interrupts: little,
-        disassembly: false,
+        disassembly: little,
         timer: false,
         dma: false,
     })
@@ -83,20 +86,24 @@ fn main() -> error::Result<()> {
         for event in window.get_events() {
             match event {
                 glutin::WindowEvent::CloseRequested => running = false,
-                glutin::WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
-                    Some(glutin::VirtualKeyCode::F7) => {
-                        println!("Serializing to {}.", args.serialize_path.to_str().unwrap());
-                        serialize(&system, &args)
+                glutin::WindowEvent::KeyboardInput { input, .. }
+                    if input.state == glutin::ElementState::Released =>
+                {
+                    match input.virtual_keycode {
+                        Some(glutin::VirtualKeyCode::F7) => {
+                            println!("Serializing to {}.", args.serialize_path.to_str().unwrap());
+                            serialize(&system, &args)
+                        }
+                        Some(glutin::VirtualKeyCode::F8) => {
+                            println!(
+                                "Deserializing from {}.",
+                                args.serialize_path.to_str().unwrap()
+                            );
+                            deserialize(&mut system, &args)
+                        }
+                        _ => (),
                     }
-                    Some(glutin::VirtualKeyCode::F8) => {
-                        println!(
-                            "Deserializing from {}.",
-                            args.serialize_path.to_str().unwrap()
-                        );
-                        deserialize(&mut system, &args)
-                    }
-                    _ => (),
-                },
+                }
                 _ => (),
             }
         }

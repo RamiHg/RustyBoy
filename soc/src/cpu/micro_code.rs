@@ -83,6 +83,8 @@ pub struct MicroCode {
     pub alu_f_force_nz: bool,
     pub alu_write_f_mask: u8,
     pub alu_bit_select: u8,
+    // Instead of using ACT, sample memory bus as the op LHS.
+    pub alu_mem_as_act: bool,
 
     // Control flow.
     pub is_end: bool,

@@ -361,7 +361,7 @@ impl Gpu {
         if self.lcd_control.enable_sprites() {
             next_state.visible_sprites = sprites::find_visible_sprites(
                 &*self.oam.borrow(),
-                (self.current_y + self.scroll_y) % 256,
+                self.current_y.0,
                 self.lcd_control.large_sprites(),
             );
         } else {
@@ -429,7 +429,7 @@ impl Gpu {
         next_fifo: &mut PixelFifo,
         next_state: &mut Gpu,
     ) {
-        let true_x = (self.pixels_pushed + self.scroll_x) % 256;
+        let true_x = self.pixels_pushed;
         let maybe_visible_sprite_array_index = sprites::get_visible_sprite(
             true_x,
             &self.visible_sprites,
@@ -437,7 +437,7 @@ impl Gpu {
             self.oam.borrow().as_ref(),
         );
         let has_visible_sprite = maybe_visible_sprite_array_index.is_some();
-        let sprite_array_index = maybe_visible_sprite_array_index.unwrap_or(0);
+
         let sprite_index = if let Some(index) = maybe_visible_sprite_array_index {
             self.visible_sprites[index]
         } else {
@@ -456,7 +456,7 @@ impl Gpu {
                     // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
                     // the first place! Also, if we need to fine x-scroll, do it before any sprite
                     // work.
-                    if next_fifo.has_pixels_or_suspended() && next_fifo.is_good_pixel() {
+                    if next_fifo.enough_for_sprite() && next_fifo.is_good_pixel() {
                         next_fifo.is_suspended = true;
                         *next_fetcher = next_fetcher.start_new_sprite(
                             &self,
@@ -470,6 +470,7 @@ impl Gpu {
                 }
             }
             DrawingMode::FetchingSprite => {
+                let sprite_array_index = maybe_visible_sprite_array_index.unwrap();
                 debug_assert!(self.lcd_control.enable_sprites());
                 debug_assert!(has_visible_sprite);
                 debug_assert!(!self.fetched_sprites[sprite_array_index]);

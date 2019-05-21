@@ -30,7 +30,7 @@ incremental = true
 debug-assertions = true
 incremental = true
 overflow-checks = true
-codegen-units = 32
+codegen-units = 16
 
 [profile.dev]
 codegen-units = 16

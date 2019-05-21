@@ -91,6 +91,10 @@ macro_rules! impl_bitfield_helpful_traits {
                 Ok($Type(inner.try_into().unwrap()))
             }
         }
+
+        impl Default for $Type {
+            fn default() -> $Type { $Type(0) }
+        }
     };
 }
 

@@ -63,7 +63,7 @@ impl PixelFetcher {
         sprite_index: i32,
         sprite: &SpriteEntry,
     ) -> PixelFetcher {
-        let mut y_within_tile = (gpu.current_y + gpu.scroll_y - sprite.top()) % 16;
+        let mut y_within_tile = (gpu.current_y.0 - sprite.top()) % 16;
         if sprite.flip_y() {
             y_within_tile = if gpu.lcd_control.large_sprites() {
                 15

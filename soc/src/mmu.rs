@@ -88,9 +88,6 @@ impl MemoryBus {
 
 pub trait MemoryMapped2 {
     fn execute_tcycle(self: Box<Self>, memory_bus: &MemoryBus) -> (Box<Self>, Interrupts);
-
-    // fn read_register(&self, address: io_registers::Addresses) -> Option<i32>;
-    // fn write_register(&mut self, address: io_registers::Addresses, value: i32) -> Option<()>;
 }
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their
@@ -98,7 +95,6 @@ pub trait MemoryMapped2 {
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Memory {
-    //mem: [u8; 0x10000],
     mem: Vec<u8>,
 }
 
@@ -110,10 +106,6 @@ impl MemoryMapped for Memory {
             Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
                 let flag = self.mem[raw as usize] as i32;
                 Some((flag & 0x1F) | 0xE0)
-            }
-            Registers if raw == io_registers::Addresses::Joypad as i32 => {
-                let value = self.mem[raw as usize] as i32;
-                Some((value & 0x30) | 0xCF)
             }
             InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
             UnusedOAM => panic!(),
@@ -127,8 +119,8 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
-            Registers if raw == io_registers::Addresses::Joypad as i32 => {
-                self.mem[raw as usize] |= (value & 0x30) as u8;
+            Registers if raw == io_registers::Addresses::InterruptEnable as i32 => {
+                self.mem[raw as usize] = value as u8;
                 Some(())
             }
             InternalRam | Registers | HighRam => {

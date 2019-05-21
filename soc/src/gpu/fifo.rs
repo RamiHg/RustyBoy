@@ -22,7 +22,7 @@ impl FifoEntry {
         flip_x: bool,
     ) -> impl Iterator<Item = FifoEntry> {
         if flip_x {
-            row = row.rotate_left(16);
+            row = row.reverse_bits();
         }
 
         std::iter::from_fn(move || {
@@ -62,7 +62,7 @@ impl PixelFifo {
         }
     }
 
-    pub fn has_pixels_or_suspended(&self) -> bool { self.fifo.len() > 8 }
+    pub fn enough_for_sprite(&self) -> bool { self.fifo.len() >= 8 }
 
     pub fn has_pixels(&self) -> bool { !self.is_suspended && self.fifo.len() > 8 }
     pub fn has_room(&self) -> bool { !self.is_suspended && self.fifo.len() <= 8 }
@@ -76,7 +76,7 @@ impl PixelFifo {
         mut self,
         sprite_row: impl Iterator<Item = FifoEntry>,
     ) -> PixelFifo {
-        for (i, entry) in sprite_row.enumerate() {
+        for (i, entry) in sprite_row.collect::<Vec<_>>().into_iter().enumerate() {
             self.fifo[i] = PixelFifo::blend_sprite(self.fifo[i], entry);
         }
         self

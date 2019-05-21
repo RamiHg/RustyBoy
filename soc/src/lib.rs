@@ -8,6 +8,7 @@
 #![allow(clippy::cast_lossless)]
 #![allow(clippy::new_without_default)]
 #![feature(trait_alias)]
+#![feature(reverse_bits)]
 
 #[macro_use]
 mod io_registers;
@@ -16,6 +17,7 @@ mod io_registers;
 pub mod cart;
 pub mod error;
 pub mod gpu;
+pub mod joypad;
 pub mod log;
 pub mod system;
 

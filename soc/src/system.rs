@@ -2,6 +2,7 @@ use crate::cpu;
 use crate::error;
 use crate::gpu;
 use crate::io_registers;
+use crate::joypad;
 use crate::mmu;
 use crate::{dma, serial, timer, util};
 
@@ -16,6 +17,7 @@ bitflags! {
         const STAT   = 0b0010;
         const TIMER  = 0b0100;
         const SERIAL = 0b1000;
+        const JOYPAD = 0b10000;
     }
 }
 
@@ -28,6 +30,7 @@ pub struct System {
     timer: Box<timer::Timer>,
     serial: serial::Controller,
     dma: Box<dma::Dma>,
+    joypad: joypad::Joypad,
 
     #[serde(skip)]
     screen: Vec<Pixel>,
@@ -60,6 +63,7 @@ impl System {
             timer: Box::new(timer::Timer::new()),
             serial: serial::Controller::new(),
             dma: Box::new(dma::Dma::new()),
+            joypad: joypad::Joypad::new(),
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
@@ -74,6 +78,8 @@ impl System {
     pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
     pub fn get_screen(&self) -> &[Pixel] { &self.screen }
 
+    pub fn get_joypad_mut(&mut self) -> &mut joypad::Joypad { &mut self.joypad }
+
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
             self.timer.as_ref(),
@@ -81,6 +87,7 @@ impl System {
             &self.serial,
             &self.gpu,
             self.dma.as_ref(),
+            &self.joypad,
             &self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -102,6 +109,7 @@ impl System {
             &mut self.serial,
             &mut self.gpu,
             self.dma.as_mut(),
+            &mut self.joypad,
             &mut self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -237,6 +245,11 @@ impl System {
         next_gpu
     }
 
+    fn handle_joypad(&mut self) {
+        let should_interrupt = self.joypad.execute_tcycle();
+        self.maybe_fire_interrupt(should_interrupt);
+    }
+
     fn execute_t_cycle(&mut self) -> Result<()> {
         self.print_disassembly()?;
         // Do all the rising edge sampling operations.
@@ -245,6 +258,7 @@ impl System {
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
         let new_gpu = self.handle_gpu();
+        self.handle_joypad();
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;

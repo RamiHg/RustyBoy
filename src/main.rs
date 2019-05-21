@@ -11,6 +11,7 @@ use graphics::*;
 use soc::cart;
 use soc::error;
 use soc::gpu;
+use soc::joypad;
 use soc::log;
 use soc::system;
 
@@ -42,13 +43,33 @@ struct Opt {
 
 /// Helpful macro to run a GL command and make sure no errors are generated.
 
+fn key_map(key: glutin::VirtualKeyCode) -> Option<joypad::Key> {
+    use joypad::Key;
+    let pad = match key {
+        glutin::VirtualKeyCode::Space => Key::A,
+        glutin::VirtualKeyCode::M => Key::B,
+        glutin::VirtualKeyCode::Escape => Key::Start,
+        glutin::VirtualKeyCode::Tab => Key::Select,
+        glutin::VirtualKeyCode::W => Key::Up,
+        glutin::VirtualKeyCode::A => Key::Left,
+        glutin::VirtualKeyCode::S => Key::Down,
+        glutin::VirtualKeyCode::D => Key::Right,
+        _ => Key::NumKeys,
+    };
+    if let Key::NumKeys = pad {
+        None
+    } else {
+        Some(pad)
+    }
+}
+
 fn main() -> error::Result<()> {
     let args = Opt::from_args();
     let little = args.little;
 
     log::setup_logging(log::LogSettings {
-        interrupts: little,
-        disassembly: little,
+        interrupts: false,
+        disassembly: false,
         timer: false,
         dma: false,
     })
@@ -61,6 +82,7 @@ fn main() -> error::Result<()> {
     let cart = cart::from_file(args.cart_path.to_str().unwrap());
     let mut system = system::System::new();
     system.set_cart(cart);
+
     loop {
         //let now = std::time::Instant::now();
         if little {
@@ -71,13 +93,11 @@ fn main() -> error::Result<()> {
                 system.execute_machine_cycle()?;
             }
         } else {
-            while system.is_vsyncing() {
-                system.execute_machine_cycle()?;
-            }
             while !system.is_vsyncing() {
                 system.execute_machine_cycle()?;
             }
         }
+
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
         // Update the screen.
         window.update_screen(system.get_screen());
@@ -101,7 +121,21 @@ fn main() -> error::Result<()> {
                             );
                             deserialize(&mut system, &args)
                         }
+                        Some(virtual_key @ _) => {
+                            if let Some(key) = key_map(virtual_key) {
+                                system.get_joypad_mut().release(key);
+                            }
+                        }
                         _ => (),
+                    }
+                }
+                glutin::WindowEvent::KeyboardInput { input, .. }
+                    if input.state == glutin::ElementState::Pressed =>
+                {
+                    if let Some(virtual_key) = input.virtual_keycode {
+                        if let Some(key) = key_map(virtual_key) {
+                            system.get_joypad_mut().press(key);
+                        }
                     }
                 }
                 _ => (),
@@ -109,6 +143,9 @@ fn main() -> error::Result<()> {
         }
         if !running {
             break;
+        }
+        while system.is_vsyncing() {
+            system.execute_machine_cycle()?;
         }
         window.swap_buffers();
         if little {

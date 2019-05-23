@@ -10,6 +10,7 @@ use error::Result;
 use gpu::Pixel;
 
 use bitflags::bitflags;
+use std::rc::Rc;
 
 bitflags! {
     pub struct Interrupts: i32 {

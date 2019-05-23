@@ -4,10 +4,12 @@ pub struct LogSettings {
     pub disassembly: bool,
     pub timer: bool,
     pub dma: bool,
+    pub gpu: bool,
 }
 
 pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
-    if settings.interrupts || settings.disassembly || settings.timer {
+    if settings.interrupts || settings.disassembly || settings.timer || settings.dma || settings.gpu
+    {
         fern::Dispatch::new()
             .filter(move |metadata| {
                 if metadata.target() == "disas" {
@@ -18,6 +20,8 @@ pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
                     settings.timer
                 } else if metadata.target() == "dma" {
                     settings.dma
+                } else if metadata.target() == "gpu" {
+                    settings.gpu
                 } else {
                     true
                 }

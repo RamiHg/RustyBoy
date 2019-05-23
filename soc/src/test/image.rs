@@ -70,3 +70,18 @@ pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
     }
     img.save(path).unwrap();
 }
+
+pub fn is_white_screen(screen: &[gpu::Pixel]) -> bool {
+    for pixel in screen {
+        if *pixel
+            != (gpu::Pixel {
+                r: 255,
+                g: 255,
+                b: 255,
+            })
+        {
+            return false;
+        }
+    }
+    true
+}

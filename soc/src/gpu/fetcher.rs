@@ -52,7 +52,7 @@ impl PixelFetcher {
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
             mode: Mode::ReadTileIndex { address: None },
-            is_initial_fetch: true,
+            is_initial_fetch: gpu.options.use_fetcher_initial_fetch,
             ..Default::default()
         }
     }
@@ -148,14 +148,14 @@ impl PixelFetcher {
             ReadData0 => {
                 next_state.data0 = self.read_tile_data(gpu, 0);
                 next_state.mode = ReadData1;
-            }
-            ReadData1 => {
-                next_state.data1 = self.read_tile_data(gpu, 1);
-                next_state.mode = Ready;
                 if self.is_initial_fetch {
                     next_state.mode = ReadData0;
                     next_state.is_initial_fetch = false;
                 }
+            }
+            ReadData1 => {
+                next_state.data1 = self.read_tile_data(gpu, 1);
+                next_state.mode = Ready;
             }
             Ready => (),
             Invalid => panic!(),

@@ -20,17 +20,20 @@ soc = { path = "soc" }
 
 
 [profile.release]
-codegen-units = 16
-overflow-checks = true
-debug-assertions = true
-incremental = true
+# codegen-units = 16
+# overflow-checks = true
+# debug-assertions = true
+# incremental = true
+codegen-units = 1
+lto = "fat"
 
 # I use cargo test --release quite a bit.
 [profile.bench]
-debug-assertions = true
-incremental = true
-overflow-checks = true
-codegen-units = 16
+debug-assertions = false
+incremental = false
+overflow-checks = false
+codegen-units = 1
+lto = "fat"
 
 [profile.dev]
 codegen-units = 16

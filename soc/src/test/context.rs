@@ -140,6 +140,7 @@ impl TestContext {
                 disassembly: false,
                 timer: false,
                 dma: false,
+                gpu: false,
             })
             .unwrap();
         });

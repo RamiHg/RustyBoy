@@ -72,6 +72,7 @@ fn main() -> error::Result<()> {
         disassembly: false,
         timer: false,
         dma: false,
+        gpu: false,
     })
     .unwrap();
 
@@ -89,7 +90,7 @@ fn main() -> error::Result<()> {
             while !system.is_vsyncing() {
                 system.execute_machine_cycle()?;
             }
-            for _ in 0..37000 {
+            for _ in 0..370000 {
                 system.execute_machine_cycle()?;
             }
         } else {

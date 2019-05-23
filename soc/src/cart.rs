@@ -4,6 +4,8 @@ use crate::mmu;
 
 mod mbc1;
 
+pub type Cart = dyn mmu::MemoryMapped;
+
 #[derive(Debug)]
 enum MbcVersion {
     None,
@@ -46,22 +48,25 @@ fn get_ram_size(setting: u8) -> usize {
     }
 }
 
-pub fn from_file(file_name: &str) -> Box<dyn mmu::MemoryMapped> {
+pub fn read_file(file_name: &str) -> Vec<u8> {
     let mut f = File::open(file_name).unwrap();
-    let mut file_contents = Vec::<u8>::new();
+    let mut file_contents = Vec::new();
     f.read_to_end(&mut file_contents).unwrap();
-    from_file_contents(file_contents)
+    file_contents
 }
 
-fn from_file_contents(file_contents: Vec<u8>) -> Box<dyn mmu::MemoryMapped> {
+pub fn from_file(file_name: &str) -> Box<dyn mmu::MemoryMapped> {
+    from_file_contents(&read_file(file_name))
+}
+
+pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn mmu::MemoryMapped> {
     let cart_type = CartType::from_setting(file_contents[0x0147]);
     let rom_size = get_rom_size(file_contents[0x148]);
     let ram_size = get_ram_size(file_contents[0x149]);
     let mut mem = vec![0; rom_size];
     // Copy over contents from file into memory.
-    mem[0..file_contents.len()].copy_from_slice(file_contents.as_slice());
+    mem[0..file_contents.len()].copy_from_slice(file_contents);
     assert_eq!(mem[0x148], file_contents[0x148]);
-    dbg!(&cart_type);
     match cart_type.mbc {
         MbcVersion::None => Box::new(none::Cart::from_mem(mem, ram_size)),
         MbcVersion::Mbc1 => Box::new(mbc1::Cart::from_mem(mem, ram_size)),

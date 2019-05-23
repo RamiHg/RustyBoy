@@ -10,7 +10,7 @@
             // },
             "program": "${workspaceRoot}/target/debug/rusty_boy",
             "args": [
-                "tetris.gb"
+                "opus5.gb"
             ],
             "sourceLanguages": [
                 "rust"

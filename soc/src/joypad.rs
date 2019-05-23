@@ -40,10 +40,7 @@ bitfield! {
 define_typed_register!(PadControl, Addresses::Joypad);
 
 impl Joypad {
-    pub fn new() -> Joypad {
-        let mut joypad = Joypad::default();
-        joypad
-    }
+    pub fn new() -> Joypad { Joypad::default() }
 
     pub fn execute_tcycle(&mut self) -> Interrupts {
         // let new_reg_value = self.reg_value();

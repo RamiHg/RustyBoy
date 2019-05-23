@@ -28,31 +28,33 @@ impl Controller {
     }
 
     pub fn execute_tcycle(&self) -> (Controller, Interrupts) {
+        #[allow(unused_mut)]
         let mut next_state = self.clone();
+        #[allow(unused_mut)]
         let mut fire_interrupt = Interrupts::empty();
-        next_state.counter = self.counter.wrapping_add(1);
-        if self.control.is_transferring() {
-            if self.counter >= 0 && (self.counter % 512) == 0 {
-                // println!("dat: {:#010b}", self.data);
-                // println!("buf: {:#010b}", self.buffer);
-                // println!("Counter: {}", self.counter);
-                // Clock in/out one bit.
-                if self.bit_index < 7 {
-                    next_state.buffer = (next_state.buffer << 1) | ((self.data & 0x80) >> 7);
-                    next_state.data = ((self.data << 1) | 1) & 0xFF;
-                    next_state.bit_index += 1;
-                } else {
-                    //assert_eq!(self.bit_index, 8);
-                    // End the transfer!
-                    next_state.control.set_transferring(false);
-                    //fire_interrupt = Interrupts::SERIAL;
-                    next_state.buffer = 0;
-                    next_state.bit_index = 0;
-                }
-            }
-        } else {
-            next_state.bit_index = 0;
-        }
+        // next_state.counter = self.counter.wrapping_add(1);
+        // if self.control.is_transferring() {
+        //     if self.counter >= 0 && (self.counter % 512) == 0 {
+        //         // println!("dat: {:#010b}", self.data);
+        //         // println!("buf: {:#010b}", self.buffer);
+        //         // println!("Counter: {}", self.counter);
+        //         // Clock in/out one bit.
+        //         if self.bit_index < 7 {
+        //             next_state.buffer = (next_state.buffer << 1) | ((self.data & 0x80) >> 7);
+        //             next_state.data = ((self.data << 1) | 1) & 0xFF;
+        //             next_state.bit_index += 1;
+        //         } else {
+        //             //assert_eq!(self.bit_index, 8);
+        //             // End the transfer!
+        //             next_state.control.set_transferring(false);
+        //             fire_interrupt = Interrupts::SERIAL;
+        //             next_state.buffer = 0;
+        //             next_state.bit_index = 0;
+        //         }
+        //     }
+        // } else {
+        //     next_state.bit_index = 0;
+        // }
         (next_state, fire_interrupt)
     }
 }

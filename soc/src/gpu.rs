@@ -53,6 +53,51 @@ enum DrawingMode {
     FetchingSprite,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Options {
+    pub cycle_after_enable: i32,
+    pub vblank_cycle: i32,
+    pub hblank_cycle: i32,
+    pub oam_1_143_cycle: i32,
+    pub oam_144_cycle: i32,
+    pub oam_145_152_cycle: i32,
+    pub oam_0_cycle: i32,
+    pub oam_0_vblank_cycle_first: i32,
+    pub oam_0_vblank_cycle_second: i32,
+
+    pub use_fetcher_initial_fetch: bool,
+}
+
+impl Default for Options {
+    fn default() -> Options {
+        // Options {
+        //     cycle_after_enable: 73 * 4 + 4,
+        //     vblank_cycle: 0,
+        //     hblank_cycle: 0,
+        //     oam_1_143_cycle: 0, //-4,
+        //     oam_144_cycle: 0,
+        //     oam_145_152_cycle: 0,
+        //     oam_0_cycle: 0,
+        //     oam_0_vblank_cycle_first: 0,
+        //     oam_0_vblank_cycle_second: 8,
+
+        //     use_fetcher_initial_fetch: false,
+        // }
+        Options {
+            cycle_after_enable: 74 * 4 + 2,
+            vblank_cycle: 0,
+            hblank_cycle: 0,
+            oam_1_143_cycle: 0,
+            oam_144_cycle: 0,
+            oam_145_152_cycle: 8,
+            oam_0_cycle: 0,
+            oam_0_vblank_cycle_first: 0,
+            oam_0_vblank_cycle_second: 8,
+            use_fetcher_initial_fetch: true,
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Gpu {
     // Registers.
@@ -88,6 +133,8 @@ pub struct Gpu {
     // oam: Rc<RefCell<[u8; 160]>>,
     vram: Rc<RefCell<Vec<u8>>>,
     oam: Rc<RefCell<Vec<u8>>>,
+
+    pub options: Options,
 }
 
 impl Gpu {
@@ -127,6 +174,8 @@ impl Gpu {
             // Store OAM with Vram in order to reduce amount of copying.
             vram: Rc::new(RefCell::new(vec![0; 8192])),
             oam: Rc::new(RefCell::new(vec![0; 160])),
+
+            options: Options::default(),
         }
     }
 
@@ -136,8 +185,8 @@ impl Gpu {
         self.window_ycount = 0;
         // The GPU starts off immediately in HBlank for a couple of cycles.
         self.lcd_status.set_mode(LcdMode::HBlank as u8);
-        self.cycles_in_hblank = 0;
-        self.cycle = 75 * 4 + 1;
+        self.cycles_in_hblank = 1;
+        self.cycle = self.options.cycle_after_enable;
     }
 
     pub fn vram(&self, address: i32) -> u8 { self.vram.borrow()[(address - 0x8000) as usize] }
@@ -197,7 +246,7 @@ impl Gpu {
         match self.lcd_status.mode() {
             LcdMode::ReadingOAM => {
                 if self.cycle == 4 {
-                    self.start_new_scanline(&mut next_state);
+                    next_state.start_new_scanline();
                 }
                 if next_state.cycle == 20 * 4 {
                     // Switch to LCD transfer.
@@ -205,12 +254,12 @@ impl Gpu {
                     next_mode = LcdMode::TransferringToLcd;
                     // TODO: This is currently not exactly right, since we haven't reset self.cycle.
                     // Refactor this entire function into a proper Mealy machine.
-                    self.lcd_transfer_cycle(&mut next_state, screen);
+                    next_state.lcd_transfer_cycle(screen);
                 }
             }
             LcdMode::TransferringToLcd => {
                 if self.pixels_pushed < LCD_WIDTH as i32 {
-                    self.lcd_transfer_cycle(&mut next_state, screen);
+                    next_state.lcd_transfer_cycle(screen);
                 }
                 if next_state.pixels_pushed == LCD_WIDTH as i32 {
                     next_mode = LcdMode::HBlank;
@@ -220,12 +269,15 @@ impl Gpu {
             LcdMode::HBlank => {
                 // This is basically a signal to do the interrupt.
                 next_state.cycles_in_hblank += 1;
-                if next_state.cycle == 94 * 4 {
-                    debug_assert_le!(next_state.cycles_in_hblank, 51 * 4);
 
+                if next_state.cycle == 93 * 4 && !self.first_frame {
+                    next_state.current_y += 1;
+                }
+
+                if next_state.cycle == 94 * 4 {
                     next_state.cycle = 0;
                     next_state.pixels_pushed = 0;
-                    next_state.current_y += 1;
+                    // next_state.current_y += 1;
                     if next_state.current_y == LCD_HEIGHT as i32 {
                         next_mode = LcdMode::VBlank;
                     } else {
@@ -236,39 +288,39 @@ impl Gpu {
                         next_state.current_y.0 = 0;
                         next_mode = LcdMode::TransferringToLcd;
                         next_state.first_frame = false;
-                        self.start_new_scanline(&mut next_state);
+                        next_state.start_new_scanline();
+                        next_state.lcd_transfer_cycle(screen);
                     }
                 }
             }
             LcdMode::VBlank => {
+                if next_state.cycle == 113 * 4 && self.current_y != 0 {
+                    next_state.current_y += 1;
+                }
                 // This is super odd behavior with line 153 - which actually lasts for one mcycle,
                 // and switches to line 0.
-                if self.current_y == 153 && next_state.cycle == 4 {
-                    // debug_assert_eq!(tstate, 4);
+                if self.current_y == 153 && self.cycle == 0 {
                     next_state.current_y.0 = 0;
                 }
                 if next_state.cycle == 114 * 4 {
                     next_state.cycle = 0;
-                    if self.current_y == 0 {
+                    if next_state.current_y == 0 {
                         next_mode = LcdMode::ReadingOAM;
-                    } else {
-                        next_state.current_y += 1;
                     }
                 }
             }
         }
 
         if next_mode != self.lcd_status.mode() {
-            // trace!(target: "gpu", "Going to {:?}", next_mode);
             // println!(
-            //     "Going to {:?}. Y {}. Cycle {}",
-            //     next_mode, self.current_y.0, self.cycle
+            //     "Going to {:?}. Y {}. Cycle {}. Tstate {}.",
+            //     next_mode, self.current_y.0, next_state.cycle, tstate
             // );
         }
         next_state.lcd_status.set_mode(next_mode as u8);
-        let fire_interrupt = next_state.poll_interrupts(tstate % 4);
+        let fire_interrupt = next_state.poll_interrupts();
         if fire_interrupt != Interrupts::empty() {
-            trace!(target:"gpu",
+            trace!(target: "gpu",
                 "Firing interrupts {:?}. Mode is {:X?} cycle is {} line is {}. TState is {}",
                 fire_interrupt,
                 next_state.lcd_status.mode(),
@@ -290,20 +342,22 @@ impl Gpu {
     }
 
     // Emulating Moore machine. One day I will refactor this.
-    fn poll_interrupts(&mut self, t_state: i32) -> Interrupts {
+    fn poll_interrupts(&mut self) -> Interrupts {
+        use LcdMode::*;
         let mut fire_interrupt = Interrupts::empty();
         let mode = self.lcd_status.mode();
         let is_doing_line = mode == LcdMode::ReadingOAM || mode == LcdMode::VBlank;
         let in_line_first_mcycle = is_doing_line && self.cycle < 4;
         let ly_is_lyc = self.current_y == self.lyc.0;
 
+        let in_last_hblank =
+            mode == HBlank && self.cycle >= 93 * 4 || mode == VBlank && self.cycle < 4;
+
         // LY=LYC Interrupt.
         if self.current_y == 0 {
             if self.lcd_status.mode() == LcdMode::VBlank {
                 debug_assert_ne!(self.cycle, 0);
-                if self.cycle == 0 {
-                    self.lcd_status.set_ly_is_lyc(false);
-                } else if self.cycle == 4 {
+                if self.cycle == 4 {
                     self.lcd_status.set_ly_is_lyc(self.lyc == 153);
                     fire_interrupt |= self.fire_if_lyc_is(153);
                 } else if self.cycle == 8 {
@@ -311,73 +365,111 @@ impl Gpu {
                 } else if self.cycle == 12 {
                     self.lcd_status.set_ly_is_lyc(ly_is_lyc);
                     fire_interrupt |= self.fire_if_lyc_is(0);
-                } else {
-                    self.lcd_status.set_ly_is_lyc(ly_is_lyc);
                 }
             } else {
                 self.lcd_status.set_ly_is_lyc(ly_is_lyc);
             }
         } else if self.current_y != 0 {
-            self.lcd_status
-                .set_ly_is_lyc(ly_is_lyc && !in_line_first_mcycle);
+            self.lcd_status.set_ly_is_lyc(ly_is_lyc && !in_last_hblank);
             if is_doing_line && self.cycle == 4 {
                 debug_assert_ne!(self.current_y.0, 153);
                 fire_interrupt |= self.fire_if_lyc_is(self.current_y.0);
             }
         }
         // VBL Interrupt.
-        if self.current_y == 144 && self.cycle == 4 {
+        if self.current_y == 144 && self.cycle == self.options.vblank_cycle {
             debug_assert_eq!(self.lcd_status.mode(), LcdMode::VBlank);
             fire_interrupt |= Interrupts::VBLANK;
             fire_interrupt |= self.maybe_fire_interrupt(InterruptType::VBlank);
         }
         // OAM Interrupt.
-        if is_doing_line {
-            let should_fire_oam = match self.current_y.0 {
-                _ => self.cycle == 0,
-                /* 1...143 => self.cycle == 0,
-                 * _ => self.cycle == 4, */
-            };
-            if should_fire_oam {
-                fire_interrupt |= self.maybe_fire_interrupt(InterruptType::Oam);
+        let should_fire_oam = match self.current_y.0 {
+            1...143 => {
+                if self.options.oam_1_143_cycle < 0 {
+                    match mode {
+                        HBlank => self.cycle == 94 * 4 + self.options.oam_1_143_cycle,
+                        _ => false,
+                    }
+                } else {
+                    mode == ReadingOAM && self.cycle == self.options.oam_1_143_cycle
+                }
             }
+            144 => {
+                if self.options.oam_144_cycle < 0 {
+                    mode == HBlank && self.cycle == 94 * 4 + self.options.oam_144_cycle
+                } else {
+                    mode == VBlank && self.cycle == self.options.oam_144_cycle
+                }
+            }
+            145...152 => {
+                if self.options.oam_145_152_cycle < 0 {
+                    self.cycle == 114 * 4 + self.options.oam_145_152_cycle
+                } else {
+                    self.cycle == self.options.oam_145_152_cycle
+                }
+            }
+            0 if mode == LcdMode::VBlank => {
+                self.cycle == self.options.oam_0_vblank_cycle_first
+                    || self.cycle == self.options.oam_0_vblank_cycle_second
+            }
+            0 if mode == LcdMode::ReadingOAM => self.cycle == self.options.oam_0_cycle,
+            0 => false,
+            153 => false,
+            _ => panic!(),
+        };
+        if should_fire_oam {
+            fire_interrupt |= self.maybe_fire_interrupt(InterruptType::Oam);
         }
         // HBlank interrupt.
-        if mode == LcdMode::HBlank && self.cycles_in_hblank == 0 {
+        let should_fire_hblank = if self.options.hblank_cycle < 0 {
+            mode == LcdMode::TransferringToLcd && self.will_hblank()
+        } else {
+            mode == LcdMode::HBlank
+                && self.cycles_in_hblank == self.options.hblank_cycle
+                && !self.first_frame
+        };
+        if should_fire_hblank {
             fire_interrupt |= self.maybe_fire_interrupt(InterruptType::HBlank);
         }
 
         fire_interrupt
     }
 
-    fn start_new_scanline(&self, next_state: &mut Gpu) {
-        next_state.window_ycount = 0;
+    fn start_new_scanline(&mut self) {
+        self.window_ycount = 0;
+        self.pixels_pushed = 0;
 
-        next_state.fetcher = PixelFetcher::start_new_scanline(&self);
-        next_state.fifo = PixelFifo::start_new_scanline(self.scroll_x);
+        self.fetcher = PixelFetcher::start_new_scanline(&self);
+        self.fifo = PixelFifo::start_new_scanline(self.scroll_x);
 
-        next_state.fetched_sprites = [false; 10];
+        self.fetched_sprites = [false; 10];
 
         if self.lcd_control.enable_sprites() {
-            next_state.visible_sprites = sprites::find_visible_sprites(
+            self.visible_sprites = sprites::find_visible_sprites(
                 &*self.oam.borrow(),
                 self.current_y.0,
                 self.lcd_control.large_sprites(),
             );
         } else {
-            next_state.visible_sprites.clear();
+            self.visible_sprites.clear();
         }
     }
 
-    fn lcd_transfer_cycle(&self, next_state: &mut Gpu, screen: &mut [Pixel]) {
+    fn will_hblank(&self) -> bool {
+        self.pixels_pushed == LCD_WIDTH as i32 - 1
+            && self.fifo.has_pixels()
+            && self.fifo.is_good_pixel()
+    }
+
+    fn lcd_transfer_cycle(&mut self, screen: &mut [Pixel]) {
         let mut next_fetcher = self.fetcher.execute_tcycle(&self);
         let mut next_fifo = self.fifo.clone();
 
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
-        self.handle_sprites(&mut next_fetcher, &mut next_fifo, next_state);
+        self.handle_sprites(&mut next_fetcher, &mut next_fifo);
 
         // Handle window.
-        self.handle_window(next_state);
+        self.handle_window();
 
         if next_fifo.has_room() && next_fetcher.has_data() {
             if !next_fetcher.is_initial_fetch {
@@ -396,22 +488,18 @@ impl Gpu {
                         self.fifo_entry_to_pixel(next_fifo.peek());
                 }
 
-                next_state.pixels_pushed += 1;
+                self.pixels_pushed += 1;
             }
             // Pop the pixel regardless if we drew it or not.
             next_fifo = next_fifo.popped();
         }
-        // if self.current_y == 0 {
-        //     println!("Cycle {}. Pushed {}", self.cycle, self.pixels_pushed);
-        //     dbg!(self.fetcher.mode);
-        // }
-        next_state.fetcher = next_fetcher;
-        next_state.fifo = next_fifo;
+        self.fetcher = next_fetcher;
+        self.fifo = next_fifo;
     }
 
-    fn handle_window(&self, next_state: &mut Gpu) {
-        let next_fetcher = &mut next_state.fetcher;
-        let next_fifo = &mut next_state.fifo;
+    fn handle_window(&mut self) {
+        let next_fetcher = &mut self.fetcher;
+        let next_fifo = &mut self.fifo;
 
         if self.lcd_control.enable_window()
             && self.window_xpos <= 166
@@ -423,12 +511,7 @@ impl Gpu {
         }
     }
 
-    fn handle_sprites(
-        &self,
-        next_fetcher: &mut PixelFetcher,
-        next_fifo: &mut PixelFifo,
-        next_state: &mut Gpu,
-    ) {
+    fn handle_sprites(&mut self, next_fetcher: &mut PixelFetcher, next_fifo: &mut PixelFifo) {
         let true_x = self.pixels_pushed;
         let maybe_visible_sprite_array_index = sprites::get_visible_sprite(
             true_x,
@@ -443,12 +526,6 @@ impl Gpu {
         } else {
             0
         };
-        // if has_visible_sprite && self.current_y == 0 {
-        //     println!(
-        //         "Am in {:?} pixel {}. Maybe is {:?}.",
-        //         self.drawing_mode, self.pixels_pushed, sprite_index
-        //     );
-        // }
         match self.drawing_mode {
             DrawingMode::Bg => {
                 if has_visible_sprite {
@@ -463,7 +540,7 @@ impl Gpu {
                             sprite_index as i32,
                             &self.get_sprite(sprite_index),
                         );
-                        next_state.drawing_mode = DrawingMode::FetchingSprite;
+                        self.drawing_mode = DrawingMode::FetchingSprite;
                     }
                 } else {
                     next_fifo.is_suspended = false;
@@ -499,8 +576,8 @@ impl Gpu {
                     *next_fifo = next_fifo.clone().combined_with_sprite(row);
 
                     // Go back to drawing as usual.
-                    next_state.drawing_mode = DrawingMode::Bg;
-                    next_state.fetched_sprites[sprite_array_index] = true;
+                    self.drawing_mode = DrawingMode::Bg;
+                    self.fetched_sprites[sprite_array_index] = true;
                 }
             }
         }
@@ -539,22 +616,12 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::Registers => match Addresses::from_i32(raw) {
                 Some(Addresses::LcdControl) => Some(self.lcd_control.0 as i32),
                 Some(Addresses::LcdStatus) => {
-                    let mut stat = self.lcd_status;
-                    // This is really weird behavior. But alas, replicate.
-                    if stat.mode() == LcdMode::ReadingOAM && self.cycle < 4 {
-                        stat.set_mode(LcdMode::HBlank as u8);
-                    } else if stat.mode() == LcdMode::VBlank
-                        && self.cycle < 4
-                        && self.current_y == 144
-                    {
-                        stat.set_mode(LcdMode::HBlank as u8);
-                    }
                     let enable_mask = if self.lcd_control.enable_display() {
                         0xFF
                     } else {
                         !0b111
                     };
-                    Some((stat.0 as i32 & enable_mask) | 0x80)
+                    Some((self.lcd_status.0 as i32 & enable_mask) | 0x80)
                 }
                 Some(Addresses::ScrollX) => Some(self.scroll_x),
                 Some(Addresses::ScrollY) => Some(self.scroll_y),

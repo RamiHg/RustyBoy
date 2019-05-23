@@ -1,6 +1,8 @@
 pub mod context;
 pub mod image;
 
+mod automated_solver;
+mod integration;
 mod mooneye_suite;
 
 pub use context::*;

@@ -84,6 +84,16 @@ impl MemoryBus {
     pub fn writes_to_reg(&self, reg: impl io_registers::Register) -> bool {
         self.writes_to(reg.address()).is_some()
     }
+
+    pub fn reads_from(&self, reg: impl io_registers::Register) -> bool {
+        reg.address() == self.address_latch
+    }
+
+    pub fn maybe_read(&mut self, reg: impl io_registers::Register) {
+        if self.read_latch && self.reads_from(reg) {
+            self.data_latch = reg.value();
+        }
+    }
 }
 
 pub trait MemoryMapped2 {

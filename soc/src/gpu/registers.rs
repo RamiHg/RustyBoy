@@ -98,6 +98,13 @@ impl LcdControl {
     }
 }
 
+impl io_registers::Register for LcdStatus {
+    fn set(&mut self, value: i32) {
+        let mask = 0b111;
+        self.0 = (self.0 & mask) | (value & !mask);
+    }
+}
+
 /// LCD Status Register (STAT). 0xFF41.
 #[derive(Clone, Copy, FromPrimitive, PartialEq, Debug)]
 pub enum LcdMode {
@@ -113,6 +120,15 @@ pub enum InterruptType {
     VBlank = 0b10000,
     Oam = 0b100000,
     LyIsLyc = 0b1000000,
+}
+
+bitflags! {
+    pub struct Interrupts: i32 {
+        const HBLANK = 0b0000_1000;
+        const VBLANK = 0b0001_0000;
+        const OAM    = 0b0010_0000;
+        const LYC    = 0b0100_0000;
+    }
 }
 
 bitfield! {
@@ -139,5 +155,7 @@ define_typed_register!(LcdControl, io_registers::Addresses::LcdControl);
 
 define_int_register!(CurrentY, io_registers::Addresses::LcdY);
 define_int_register!(Lyc, io_registers::Addresses::LcdYCompare);
+define_int_register!(ScrollX, io_registers::Addresses::ScrollX);
+define_int_register!(ScrollY, io_registers::Addresses::ScrollY);
 
 from_u8!(LcdMode);

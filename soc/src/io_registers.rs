@@ -53,16 +53,19 @@ pub trait Register: AsRef<i32> + AsMut<i32> {
     const ADDRESS: i32;
 
     fn set_bus_or(&mut self, bus: &MemoryBus, or: i32) {
-        *self.as_mut() = bus.writes_to(self.address()).unwrap_or(or);
+        self.set(bus.writes_to(self.address()).unwrap_or(or));
     }
 
     fn or_bus(&self, bus: &MemoryBus) -> i32 {
         bus.writes_to(self.address()).unwrap_or(*self.as_ref())
     }
 
-    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, *self.as_ref()); }
+    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, self.as_read()); }
 
     fn address(&self) -> i32;
+
+    fn value(&self) -> i32 { *self.as_ref() }
+    fn set(&mut self, value: i32) { *self.as_mut() = value; }
 }
 
 macro_rules! impl_bitfield_helpful_traits {

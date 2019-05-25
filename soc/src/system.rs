@@ -22,6 +22,14 @@ bitflags! {
     }
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub enum TState {
+    T1,
+    T2,
+    T3,
+    T4,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct System {
     cpu: cpu::Cpu,

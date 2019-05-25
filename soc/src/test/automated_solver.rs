@@ -61,12 +61,12 @@ fn solve_best_gpu_params() {
     // hblank_cycle: 0, oam_1_143_cycle: 0, oam_144_cycle: 0, oam_145_153_cycle: 0, oam_0_cycle: 0,
     // oam_0_vblank_cycle: 0, use_fetcher_initial_fetch: true }
 
-    let cycle_after_enables = (74 * 4 + 2)..=(74 * 4 + 2);
+    let cycle_after_enables = (74 * 4 + 0)..=(74 * 4 + 3);
     let vblank_cycles = [0].into_iter();
     let hblank_cycles = [-4, 0].into_iter();
-    let oam_1_143_cycles = [-4, 0].into_iter();
-    let oam_144_cycles = [-4, 0].into_iter();
-    let oam_145_152_cycles = [0, 8].into_iter();
+    let oam_1_143_cycles = [-4, 0, 4].into_iter();
+    let oam_144_cycles = [-4, 0, 4].into_iter();
+    let oam_145_152_cycles = [0, 4, 8].into_iter();
     let oam_0_cycles = [0, 4].into_iter();
     let oam_0_vblank_cycle_firsts = [0].into_iter();
     let oam_0_vblank_cycle_seconds = [8].into_iter();
@@ -119,6 +119,7 @@ fn solve_best_gpu_params() {
                     oam_0_vblank_cycle_first,
                     oam_0_vblank_cycle_second: 8,
                     use_fetcher_initial_fetch,
+                    oam_cycles: 21,
                     // ..Default::default()
                 };
 

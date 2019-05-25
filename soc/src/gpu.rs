@@ -411,6 +411,8 @@ impl Gpu {
             0 if mode == LcdMode::VBlank => {
                 self.cycle == self.options.oam_0_vblank_cycle_first
                     || self.cycle == self.options.oam_0_vblank_cycle_second
+                    || (self.options.oam_0_cycle < 0
+                        && self.cycle == 114 * 4 + self.options.oam_0_cycle)
             }
             0 if mode == LcdMode::ReadingOAM => self.cycle == self.options.oam_0_cycle,
             0 => false,

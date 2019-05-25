@@ -144,14 +144,14 @@ impl PixelFetcher {
                 // Latch the y-offset into the tile data now.
                 next_state.y_within_tile = self.y_within_tile(gpu);
                 next_state.mode = ReadData0;
+                if self.is_initial_fetch {
+                    next_state.mode = ReadTileIndex { address: None };
+                    next_state.is_initial_fetch = false;
+                }
             }
             ReadData0 => {
                 next_state.data0 = self.read_tile_data(gpu, 0);
                 next_state.mode = ReadData1;
-                if self.is_initial_fetch {
-                    next_state.mode = ReadData0;
-                    next_state.is_initial_fetch = false;
-                }
             }
             ReadData1 => {
                 next_state.data1 = self.read_tile_data(gpu, 1);

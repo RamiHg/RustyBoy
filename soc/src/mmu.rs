@@ -117,6 +117,13 @@ impl MemoryMapped for Memory {
                 let flag = self.mem[raw as usize] as i32;
                 Some((flag & 0x1F) | 0xE0)
             }
+            Registers
+                if raw == io_registers::Addresses::LcdControl as i32
+                    || raw == io_registers::Addresses::LcdStatus as i32
+                    || raw == io_registers::Addresses::LcdY as i32 =>
+            {
+                None
+            }
             InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
             UnusedOAM => panic!(),
             UnknownRegisters => Some(0xFF),
@@ -133,6 +140,13 @@ impl MemoryMapped for Memory {
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }
+            // Registers
+            //     if raw == io_registers::Addresses::LcdControl
+            //         || raw == io_registers::Addresses::LcdStatus
+            //         || raw == io_registers::Addresses::LcdY =>
+            // {
+            //     None
+            // }
             InternalRam | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
                 Some(())

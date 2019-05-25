@@ -30,6 +30,18 @@ pub enum TState {
     T4,
 }
 
+impl cpu::TState {
+    pub fn get_as_tstate(&self) -> TState {
+        match self.get() {
+            1 => TState::T1,
+            2 => TState::T2,
+            3 => TState::T3,
+            4 => TState::T4,
+            _ => panic!(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct System {
     cpu: cpu::Cpu,
@@ -141,22 +153,17 @@ impl System {
         if self.cpu.state.read_latch {
             if t_state >= 3 {
                 // During DMA, reads return 0xFF.
-                self.cpu.state.data_latch = if self.dma.is_active()
+                let maybe_data = if self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch)
                     && self.cpu.state.address_latch > 0x100
                 {
-                    0xFF
+                    Ok(0xFF)
                 } else {
-                    self.read_request(self.cpu.state.address_latch)?
+                    self.read_request(self.cpu.state.address_latch)
                 };
-            // println!(
-            //     "Read from {:X?} value {:X?}. check is {}",
-            //     self.cpu.state.address_latch,
-            //     self.cpu.state.data_latch,
-            //     self.dma.is_active()
-            //         && System::is_invalid_source_address(self.cpu.state.address_latch)
-            //         && self.cpu.state.address_latch > 0x100
-            // );
+                if let Ok(value) = maybe_data {
+                    self.cpu.state.data_latch = value;
+                }
             } else if false {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
@@ -177,14 +184,6 @@ impl System {
                 && !(self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch))
             {
-                // println!(
-                //     "Write to {:X?} value {:X?}.",
-                //     self.cpu.state.address_latch,
-                //     self.cpu.state.data_latch /* self.dma.is_active()
-                //                                * && System::is_invalid_source_address(self.
-                //                                * cpu.state.address_latch)
-                //                                * && self.cpu.state.address_latch > 0x100 */
-                // );
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -246,12 +245,17 @@ impl System {
         new_serial
     }
 
-    fn handle_gpu(&mut self) -> gpu::Gpu {
-        let (next_gpu, should_interrupt) = self
-            .gpu
-            .execute_t_cycle(self.cpu.t_state.get(), &mut self.screen);
+    fn handle_gpu(&mut self) {
+        let mut bus = self.temp_hack_get_bus();
+        self.gpu
+            .execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
+        let should_interrupt = self.gpu.execute_tcycle_tock(
+            self.cpu.t_state.get_as_tstate(),
+            &mut bus,
+            &mut self.screen,
+        );
+        self.cpu.state.data_latch = bus.data_latch;
         self.maybe_fire_interrupt(should_interrupt);
-        next_gpu
     }
 
     fn handle_joypad(&mut self) {
@@ -266,12 +270,11 @@ impl System {
         self.cpu.execute_t_cycle(&mut self.memory)?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
-        let new_gpu = self.handle_gpu();
+        self.handle_gpu();
         self.handle_joypad();
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
-        self.gpu = new_gpu;
         self.handle_cpu_memory_writes()?;
         // Last step is DMA.
         self.handle_dma()?;

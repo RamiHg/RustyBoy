@@ -23,7 +23,7 @@ jemallocator = "0.3.0"
 gb_disas = { path = "../gb_disas" }
 
 [dev-dependencies]
-backtrace = "0.3.20"
+backtrace = "0.3.26"
 bmp = "0.4.0"
 itertools = "0.8.0"
 threadpool = "1.7.1"

@@ -1,6 +1,6 @@
 mod test_bg;
 mod test_sprites;
-mod test_timing;
+// mod test_timing;
 
 use std::path::Path;
 
@@ -139,7 +139,7 @@ impl ImageBuilder {
         transform_fn: impl TransformFn,
     ) {
         let golden = build_golden(self.golden_fn.as_ref().unwrap(), transform_fn);
-        let system = self.as_test().wait_for_vsync().system;
+        let system = self.as_test().wait_for_vsync().wait_for_vsync().system;
         compare_with_golden(title.as_ref(), &system, &golden);
     }
 

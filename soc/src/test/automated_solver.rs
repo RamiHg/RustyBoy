@@ -4,7 +4,7 @@ use super::*;
 
 use crate::cart;
 use crate::gpu;
-use crate::gpu::Options;
+use crate::gpu::options::Options;
 
 use itertools::iproduct;
 use std::rc::Rc;

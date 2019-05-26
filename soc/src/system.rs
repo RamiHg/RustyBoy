@@ -2,6 +2,7 @@ use crate::cpu;
 use crate::error;
 use crate::gpu;
 use crate::io_registers;
+use crate::io_registers::Register as _;
 use crate::joypad;
 use crate::mmu;
 use crate::{dma, serial, timer, util};
@@ -10,6 +11,7 @@ use error::Result;
 use gpu::Pixel;
 
 use bitflags::bitflags;
+use num_traits::FromPrimitive as _;
 use std::rc::Rc;
 
 bitflags! {
@@ -22,7 +24,7 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum TState {
     T1,
     T2,
@@ -203,7 +205,7 @@ impl System {
         mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
-            read_latch: false,
+            read_latch: self.cpu.state.read_latch,
             write_latch: self.cpu.state.write_latch,
             t_state: self.cpu.t_state.get(),
         }
@@ -254,6 +256,9 @@ impl System {
             &mut bus,
             &mut self.screen,
         );
+        if self.gpu.at_vblank() {
+            self.maybe_fire_interrupt(Interrupts::VBLANK);
+        }
         self.cpu.state.data_latch = bus.data_latch;
         self.maybe_fire_interrupt(should_interrupt);
     }
@@ -346,7 +351,31 @@ impl System {
     pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
     pub fn gpu_mut(&mut self) -> &mut gpu::Gpu { &mut self.gpu }
 
+    pub fn memory_read(&self, raw_address: i32) -> i32 {
+        if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
+            use io_registers::Addresses::*;
+            match address {
+                LcdControl => return self.gpu.ctrl(),
+                LcdStatus => return self.gpu.stat(),
+                LcdY => return self.gpu.y(),
+                LcdYCompare => return self.gpu.lyc(),
+                _ => (),
+            };
+        }
+        self.read_request(raw_address).unwrap()
+    }
+
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
+        debug_assert!(util::is_8bit(value));
+        if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
+            use io_registers::Addresses::*;
+            match address {
+                LcdControl => self.gpu.ctrl_mut().set(value),
+                LcdStatus => self.gpu.stat_mut().set(value),
+                //LcdYCompare => return self.gpu.lyc(),
+                _ => (),
+            };
+        }
         if raw_address == io_registers::Addresses::Dma as i32 {
             self.dma.set_control(value);
         } else if raw_address == io_registers::Addresses::TimerControl as i32 {
@@ -355,8 +384,6 @@ impl System {
             self.write_request(raw_address, value).unwrap();
         }
     }
-
-    pub fn memory_read(&self, raw_address: i32) -> i32 { self.read_request(raw_address).unwrap() }
     pub fn memory_read_16(&self, raw_address: i32) -> i32 {
         self.memory_read(raw_address) | (self.memory_read(raw_address + 1) << 8)
     }

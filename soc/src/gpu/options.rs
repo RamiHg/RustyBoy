@@ -14,7 +14,7 @@ pub struct Options {
 impl Options {
     pub fn new() -> Options {
         Options {
-            use_fetcher_initial_fetch: true,
+            use_fetcher_initial_fetch: false,
 
             num_tcycles_in_line: 456,
             num_hblank_delay_tcycles: 8,

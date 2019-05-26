@@ -68,7 +68,7 @@ fn main() -> error::Result<()> {
     let little = args.little;
 
     log::setup_logging(log::LogSettings {
-        interrupts: false,
+        interrupts: true,
         disassembly: false,
         timer: false,
         dma: false,
@@ -90,7 +90,7 @@ fn main() -> error::Result<()> {
             while !system.is_vsyncing() {
                 system.execute_machine_cycle()?;
             }
-            for _ in 0..370000 {
+            for _ in 0..37000 {
                 system.execute_machine_cycle()?;
             }
         } else {

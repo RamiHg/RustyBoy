@@ -86,7 +86,7 @@ impl MemoryBus {
     }
 
     pub fn reads_from(&self, reg: impl io_registers::Register) -> bool {
-        reg.address() == self.address_latch
+        self.read_latch && reg.address() == self.address_latch
     }
 
     pub fn maybe_read(&mut self, reg: impl io_registers::Register) {

@@ -99,5 +99,5 @@ pub fn run_target(target: &str) -> bool {
     path.push(format!("{}.gb", target));
 
     let cart = cart::from_file(path.to_str().unwrap());
-    run_target_with_options(target, cart, &golden_image, gpu::Options::default())
+    run_target_with_options(target, cart, &golden_image, gpu::Options::new())
 }

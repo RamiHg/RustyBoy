@@ -63,13 +63,13 @@ fn solve_best_gpu_params() {
 
     let cycle_after_enables = (74 * 4 + 0)..=(74 * 4 + 3);
     let vblank_cycles = [0].into_iter();
-    let hblank_cycles = [-4, 0].into_iter();
+    let hblank_cycles = [-4].into_iter();
     let oam_1_143_cycles = [-4, 0, 4].into_iter();
     let oam_144_cycles = [-4, 0, 4].into_iter();
     let oam_145_152_cycles = [0, 4, 8].into_iter();
-    let oam_0_cycles = [0, 4].into_iter();
-    let oam_0_vblank_cycle_firsts = [0].into_iter();
-    let oam_0_vblank_cycle_seconds = [8].into_iter();
+    let oam_0_cycles = [-4, 0, 4].into_iter();
+    let oam_0_vblank_cycle_firsts = [0, 4].into_iter();
+    let oam_0_vblank_cycle_seconds = [8, 12];
 
     #[derive(Copy, Clone)]
     struct Status {
@@ -104,54 +104,56 @@ fn solve_best_gpu_params() {
         oam_0_vblank_cycle_firsts
     ) {
         for &use_fetcher_initial_fetch in &[true, false] {
-            let min_status = Arc::clone(&min_status);
-            let golden_images = Arc::clone(&golden_images);
-            let cart_contents = Arc::clone(&cart_contents);
-            pool.execute(move || {
-                let options = Options {
-                    cycle_after_enable,
-                    vblank_cycle,
-                    hblank_cycle,
-                    oam_1_143_cycle,
-                    oam_144_cycle,
-                    oam_145_152_cycle,
-                    oam_0_cycle,
-                    oam_0_vblank_cycle_first,
-                    oam_0_vblank_cycle_second: 8,
-                    use_fetcher_initial_fetch,
-                    oam_cycles: 21,
-                    // ..Default::default()
-                };
+            for &oam_0_vblank_cycle_second in oam_0_vblank_cycle_seconds.iter() {
+                let min_status = Arc::clone(&min_status);
+                let golden_images = Arc::clone(&golden_images);
+                let cart_contents = Arc::clone(&cart_contents);
+                pool.execute(move || {
+                    let options = Options {
+                        cycle_after_enable,
+                        vblank_cycle,
+                        hblank_cycle,
+                        oam_1_143_cycle,
+                        oam_144_cycle,
+                        oam_145_152_cycle,
+                        oam_0_cycle,
+                        oam_0_vblank_cycle_first,
+                        oam_0_vblank_cycle_second,
+                        use_fetcher_initial_fetch,
+                        // ..Default::default()
+                    };
 
-                let mut num_errors = 0;
-                for (i, target) in targets_to_run.iter().enumerate() {
-                    let cart = cart::from_file_contents(&cart_contents[i]);
-                    num_errors +=
-                        !run_target_with_options(target, cart, &golden_images[i], options) as i32;
-                    if num_errors > 0 && i <= 4 {
+                    let mut num_errors = 0;
+                    for (i, target) in targets_to_run.iter().enumerate() {
+                        let cart = cart::from_file_contents(&cart_contents[i]);
+                        num_errors +=
+                            !run_target_with_options(target, cart, &golden_images[i], options)
+                                as i32;
+                        if num_errors > 0 && i <= 4 {
+                            return;
+                        }
+                        // if i > 5 {
+                        //     println!("Found viable candidate {:X?}", options);
+                        // }
+                        let status = min_status.lock().unwrap();
+                        if num_errors >= status.errors {
+                            // Give up on this option set.
+                            break;
+                        }
+                    }
+                    let mut status = min_status.lock().unwrap();
+                    if num_errors < status.errors {
+                        println!(
+                            "Found better candidate with {} errors: {:?}",
+                            num_errors, options
+                        );
+                        status.errors = num_errors;
+                        status.options = options;
+                    } else if status.errors == 0 {
                         return;
                     }
-                    // if i > 5 {
-                    //     println!("Found viable candidate {:X?}", options);
-                    // }
-                    let status = min_status.lock().unwrap();
-                    if num_errors >= status.errors {
-                        // Give up on this option set.
-                        break;
-                    }
-                }
-                let mut status = min_status.lock().unwrap();
-                if num_errors < status.errors {
-                    println!(
-                        "Found better candidate with {} errors: {:?}",
-                        num_errors, options
-                    );
-                    status.errors = num_errors;
-                    status.options = options;
-                } else if status.errors == 0 {
-                    return;
-                }
-            });
+                });
+            }
         }
     }
 

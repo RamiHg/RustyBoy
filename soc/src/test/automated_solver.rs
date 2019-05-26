@@ -61,15 +61,15 @@ fn solve_best_gpu_params() {
     // hblank_cycle: 0, oam_1_143_cycle: 0, oam_144_cycle: 0, oam_145_153_cycle: 0, oam_0_cycle: 0,
     // oam_0_vblank_cycle: 0, use_fetcher_initial_fetch: true }
 
-    let cycle_after_enables = (74 * 4 + 0)..=(74 * 4 + 3);
-    let vblank_cycles = [0].into_iter();
-    let hblank_cycles = [-4].into_iter();
-    let oam_1_143_cycles = [-4, 0, 4].into_iter();
-    let oam_144_cycles = [-4, 0, 4].into_iter();
-    let oam_145_152_cycles = [0, 4, 8].into_iter();
-    let oam_0_cycles = [-4, 0, 4].into_iter();
-    let oam_0_vblank_cycle_firsts = [0, 4].into_iter();
-    let oam_0_vblank_cycle_seconds = [8, 12];
+    let cycle_after_enables = (74 * 4 + 0)..=(75 * 4 + 0);
+    let vblank_cycles = [0, 4].into_iter();
+    let hblank_cycles = [-4, 0].into_iter();
+    let oam_1_143_cycles = [-4, 0].into_iter();
+    let oam_144_cycles = [0, 4].into_iter();
+    let oam_145_152_cycles = [4].into_iter();
+    let oam_0_cycles = [4].into_iter();
+    let oam_0_vblank_cycle_firsts = [4].into_iter();
+    let oam_0_vblank_cycle_seconds = [12];
 
     #[derive(Copy, Clone)]
     struct Status {
@@ -104,7 +104,9 @@ fn solve_best_gpu_params() {
         oam_0_vblank_cycle_firsts
     ) {
         for &use_fetcher_initial_fetch in &[true, false] {
-            for &oam_0_vblank_cycle_second in oam_0_vblank_cycle_seconds.iter() {
+            for (&oam_0_vblank_cycle_second, &hblank_hack) in
+                iproduct!(oam_0_vblank_cycle_seconds.iter(), &[true, false])
+            {
                 let min_status = Arc::clone(&min_status);
                 let golden_images = Arc::clone(&golden_images);
                 let cart_contents = Arc::clone(&cart_contents);
@@ -120,7 +122,7 @@ fn solve_best_gpu_params() {
                         oam_0_vblank_cycle_first,
                         oam_0_vblank_cycle_second,
                         use_fetcher_initial_fetch,
-                        // ..Default::default()
+                        hblank_hack,
                     };
 
                     let mut num_errors = 0;

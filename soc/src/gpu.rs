@@ -66,6 +66,7 @@ pub struct Options {
     pub oam_0_vblank_cycle_second: i32,
 
     pub use_fetcher_initial_fetch: bool,
+    pub hblank_hack: bool,
 }
 
 impl Default for Options {
@@ -84,16 +85,17 @@ impl Default for Options {
         //     use_fetcher_initial_fetch: false,
         // }
         Options {
-            cycle_after_enable: 74 * 4 + 2,
-            vblank_cycle: 0,
+            cycle_after_enable: 74 * 4 + 0,
+            vblank_cycle: 4,
             hblank_cycle: 0,
             oam_1_143_cycle: 0,
-            oam_144_cycle: 0,
-            oam_145_152_cycle: 8,
-            oam_0_cycle: 0,
-            oam_0_vblank_cycle_first: 0,
-            oam_0_vblank_cycle_second: 8,
+            oam_144_cycle: 4,
+            oam_145_152_cycle: 4,
+            oam_0_cycle: 4,
+            oam_0_vblank_cycle_first: 4,
+            oam_0_vblank_cycle_second: 12,
             use_fetcher_initial_fetch: true,
+            hblank_hack: true,
         }
     }
 }
@@ -271,13 +273,13 @@ impl Gpu {
                 next_state.cycles_in_hblank += 1;
 
                 if next_state.cycle == 93 * 4 && !self.first_frame {
-                    next_state.current_y += 1;
+                    //next_state.current_y += 1;
                 }
 
                 if next_state.cycle == 94 * 4 {
                     next_state.cycle = 0;
                     next_state.pixels_pushed = 0;
-                    // next_state.current_y += 1;
+                    next_state.current_y += 1;
                     if next_state.current_y == LCD_HEIGHT as i32 {
                         next_mode = LcdMode::VBlank;
                     } else {
@@ -295,7 +297,7 @@ impl Gpu {
             }
             LcdMode::VBlank => {
                 if next_state.cycle == 113 * 4 && self.current_y != 0 {
-                    next_state.current_y += 1;
+                    //next_state.current_y += 1;
                 }
                 // This is super odd behavior with line 153 - which actually lasts for one mcycle,
                 // and switches to line 0.
@@ -306,6 +308,8 @@ impl Gpu {
                     next_state.cycle = 0;
                     if next_state.current_y == 0 {
                         next_mode = LcdMode::ReadingOAM;
+                    } else {
+                        next_state.current_y += 1;
                     }
                 }
             }
@@ -623,7 +627,16 @@ impl mmu::MemoryMapped for Gpu {
                     } else {
                         !0b111
                     };
-                    Some((self.lcd_status.0 as i32 & enable_mask) | 0x80)
+                    let mut status = self.lcd_status;
+                    if self.cycle == 0
+                        && (self.lcd_status.mode() == LcdMode::ReadingOAM
+                            || (self.lcd_status.mode() == LcdMode::VBlank && self.current_y == 144))
+                    {
+                        if self.options.hblank_hack {
+                            status.set_mode(LcdMode::HBlank as u8);
+                        }
+                    }
+                    Some((status.0 as i32 & enable_mask) | 0x80)
                 }
                 Some(Addresses::ScrollX) => Some(self.scroll_x),
                 Some(Addresses::ScrollY) => Some(self.scroll_y),

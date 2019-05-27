@@ -71,6 +71,22 @@ pub fn run_target_with_options(
         }
     }
 
+    // loop {
+    //     system.execute_machine_cycle().unwrap();
+    //     if system
+    //         .cpu_mut()
+    //         .registers
+    //         .get(cpu::register::Register::INSTR)
+    //         == 0x40
+    //     {
+    //         break;
+    //     }
+    // }
+    //
+
+    // let passes = system.cpu_mut().registers.get(cpu::register::Register::A) == 0;
+    // return passes;
+
     if target.starts_with("wilbert") && golden_image.is_none() {
         //dump_system_image(Path::new("./wilbert_golden"), target, &system);
         return false;

@@ -20,7 +20,7 @@ impl Options {
             num_hblank_delay_tcycles: 8,
 
             transfer_mode_start_tcycle: 84,
-            transfer_start_tcycle: 86,
+            transfer_start_tcycle: 84,
         }
     }
 }

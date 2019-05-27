@@ -55,9 +55,15 @@ impl PixelFifo {
     pub fn new() -> PixelFifo { PixelFifo::default() }
 
     pub fn start_new_scanline(scroll_x: i32) -> PixelFifo {
-        let pixels_to_scroll = scroll_x % 8;
+        // Start the FIFO up with a bunch of garbage.
+        let pixels_to_scroll = (scroll_x % 8) + 8;
+        let mut fifo = ArrayVec::new();
+        for _ in 0..8 {
+            fifo.push(FifoEntry(0));
+        }
         PixelFifo {
             pixels_to_scroll,
+            fifo,
             ..PixelFifo::new()
         }
     }

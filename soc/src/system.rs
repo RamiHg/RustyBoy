@@ -24,7 +24,7 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TState {
     T1,
     T2,
@@ -272,10 +272,12 @@ impl System {
         self.print_disassembly()?;
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
-        self.cpu.execute_t_cycle(&mut self.memory)?;
+        self.handle_gpu();
+        self.cpu
+            .execute_t_cycle(&mut self.memory, self.gpu.hack())?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
-        self.handle_gpu();
+
         self.handle_joypad();
         // Finally, do all the next state replacement.
         self.timer = new_timer;

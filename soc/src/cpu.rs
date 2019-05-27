@@ -134,11 +134,7 @@ impl Cpu {
 
     fn has_pending_interrupts(&mut self, memory: &Memory, hack: bool) -> Result<bool> {
         debug_assert!(self.interrupts_enabled || self.is_halted);
-        let (mode, t_to_check) = if self.is_halted && false {
-            (DecodeMode::Fetch, 1)
-        } else {
-            (DecodeMode::Decode, 3)
-        };
+        let (mode, t_to_check) = (DecodeMode::Decode, 3);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
         if self.state.decode_mode != mode || self.t_state.get() != t_to_check {
             return Ok(false);

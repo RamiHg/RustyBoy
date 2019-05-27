@@ -216,26 +216,22 @@ impl InternalState {
         if self.counter == 0 {
             self.pixels_pushed = 0;
         }
-        // if let TState::T1 | TState::T3 = t_state
-        {
-            if self.lcd_status.mode() != self.mode {
-                print!(
-                    "On cycle {}, LY {}, delay {} going to {:?}.",
-                    self.counter, self.current_y, self.hblank_delay_tcycles, self.mode
-                );
-                if self.is_first_frame {
-                    print!("Is first frame.");
-                }
-                print!("\n");
-            }
+        if let TState::T1 | TState::T3 = t_state {
+            // if self.lcd_status.mode() != self.mode {
+            //     print!(
+            //         "On cycle {}, LY {}, LYC {}, delay {} going to {:?}.",
+            //         self.counter, self.current_y, self.lyc.0, self.hblank_delay_tcycles,
+            // self.mode     );
+            //     if self.is_first_frame {
+            //         print!("Is first frame.");
+            //     }
+            //     print!("\n");
+            // }
             self.lcd_status.set_mode(self.mode as u8);
             self.lcd_status
                 .set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
-            if self.interrupts.contains(Interrupts::LYC) {
-                println!("Yeah hi");
-            }
+            if self.interrupts.contains(Interrupts::LYC) {}
         }
-
         // Handle bus requests now.
         self.handle_bus_reads(bus);
         self.handle_bus_writes(bus);
@@ -261,6 +257,8 @@ impl InternalState {
             self.interrupts |= Interrupts::VBLANK;
         }
         if self.lyc == self.required_lyc_for_interrupt() && self.current_y > 0 {
+            // TODO: To fix the ly_lyc_write wilbert tests, I have to recheck for LYC interrupts
+            // after a CPU write has happened.
             self.interrupts |= Interrupts::LYC;
         }
         if let TState::T1 = t_state {

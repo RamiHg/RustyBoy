@@ -129,11 +129,12 @@ test_target!(
 
     wilbert__ly_lyc___GS;
     
-    wilbert__ly_lyc_0_write___GS;
+    // wilbert__ly_lyc_write___GS;
+    // wilbert__ly_lyc_0_write___GS;
+    // wilbert__ly_lyc_153_write___GS;
+
     wilbert__ly_lyc_0___GS;
    
-    wilbert__ly_lyc_write___GS;
-
     wilbert__ly00_01_mode0_2;
     wilbert__ly00_mode0_2___GS;
     wilbert__ly00_mode1_0___GS;
@@ -146,7 +147,6 @@ test_target!(
     wilbert__ly143_144_mode3_0;
 
     wilbert__ly_lyc_144___GS;
-    wilbert__ly_lyc_153_write___GS;
     wilbert__ly_lyc_153___GS;
 
     wilbert__ly_new_frame___GS;

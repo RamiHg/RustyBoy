@@ -68,7 +68,7 @@ fn main() -> error::Result<()> {
     let little = args.little;
 
     log::setup_logging(log::LogSettings {
-        interrupts: true,
+        interrupts: false,
         disassembly: false,
         timer: false,
         dma: false,

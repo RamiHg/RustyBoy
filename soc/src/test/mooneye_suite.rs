@@ -107,6 +107,15 @@ test_target!(
     wilbert__intr_2_mode0_timing;
     wilbert__intr_2_mode3_timing;
 
+    wilbert__hblank_ly_scx_timing___GS;
+    wilbert__hblank_ly_scx_timing_nops;
+    wilbert__hblank_ly_scx_timing_variant_nops;
+
+    wilbert__vblank_if_timing;
+
+    wilbert__intr_1_2_timing___GS;
+    wilbert__vblank_stat_intr___GS;
+
     wilbert__intr_2_mode0_scx1_timing_nops;
     wilbert__intr_2_mode0_scx2_timing_nops;
     wilbert__intr_2_mode0_scx3_timing_nops;
@@ -117,16 +126,17 @@ test_target!(
     wilbert__intr_2_mode0_scx8_timing_nops;
 
     wilbert__lcdon_mode_timing;
+
+    wilbert__ly_lyc___GS;
     
     wilbert__ly_lyc_0_write___GS;
     wilbert__ly_lyc_0___GS;
-    wilbert__ly_lyc_144___GS;
-    wilbert__ly_lyc_153_write___GS;
-    wilbert__ly_lyc_153___GS;
+   
     wilbert__ly_lyc_write___GS;
 
     wilbert__ly00_01_mode0_2;
     wilbert__ly00_mode0_2___GS;
+    wilbert__ly00_mode1_0___GS;
     wilbert__ly00_mode2_3;
     wilbert__ly00_mode3_0;
 
@@ -134,6 +144,10 @@ test_target!(
     wilbert__ly143_144_152_153;
     wilbert__ly143_144_mode0_1;
     wilbert__ly143_144_mode3_0;
+
+    wilbert__ly_lyc_144___GS;
+    wilbert__ly_lyc_153_write___GS;
+    wilbert__ly_lyc_153___GS;
 
     wilbert__ly_new_frame___GS;
 );

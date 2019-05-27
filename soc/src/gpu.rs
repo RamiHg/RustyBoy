@@ -181,7 +181,7 @@ impl InternalState {
             || (self.current_y > 0 && self.current_y <= 144 && self.counter == 0);
 
         if self.entered_oam {
-            debug_assert_eq!(t_state, TState::T1);
+            // debug_assert_eq!(t_state, TState::T1);
         }
 
         if self.counter == 0 {
@@ -216,18 +216,24 @@ impl InternalState {
         if self.counter == 0 {
             self.pixels_pushed = 0;
         }
-        if let TState::T1 | TState::T3 = t_state {
-            // if self.lcd_status.mode() != self.mode {
-            //     print!(
-            //         "On cycle {}, LY {}, delay {} going to {:?}.",
-            //         self.counter, self.current_y, self.hblank_delay_tcycles, self.mode
-            //     );
-            //     if self.is_first_frame {
-            //         print!("Is first frame.");
-            //     }
-            //     print!("\n");
-            // }
+        // if let TState::T1 | TState::T3 = t_state
+        {
+            if self.lcd_status.mode() != self.mode {
+                print!(
+                    "On cycle {}, LY {}, delay {} going to {:?}.",
+                    self.counter, self.current_y, self.hblank_delay_tcycles, self.mode
+                );
+                if self.is_first_frame {
+                    print!("Is first frame.");
+                }
+                print!("\n");
+            }
             self.lcd_status.set_mode(self.mode as u8);
+            self.lcd_status
+                .set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
+            if self.interrupts.contains(Interrupts::LYC) {
+                println!("Yeah hi");
+            }
         }
 
         // Handle bus requests now.
@@ -251,10 +257,10 @@ impl InternalState {
         if self.hblank_delay_tcycles < 7 {
             self.interrupts |= Interrupts::HBLANK;
         }
-        if (self.current_y == 144 && self.counter >= 4) || self.counter >= 145 {
+        if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 {
             self.interrupts |= Interrupts::VBLANK;
         }
-        if self.lyc == self.required_lyc_for_interrupt() {
+        if self.lyc == self.required_lyc_for_interrupt() && self.current_y > 0 {
             self.interrupts |= Interrupts::LYC;
         }
         if let TState::T1 = t_state {
@@ -292,7 +298,11 @@ impl InternalState {
     /// 256 if it is impossible for LY=LYC to fire.
     fn required_lyc_for_interrupt(&self) -> i32 {
         if self.current_y == 0 {
-            0
+            // This is useless.
+            match self.counter {
+                0...3 => 0,
+                _ => self.external_y.0,
+            }
         } else if self.current_y == 153 {
             match self.counter {
                 0...3 => 256, // Impossible.

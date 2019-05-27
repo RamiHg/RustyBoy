@@ -88,7 +88,7 @@ pub fn run_target_with_options(
     // return passes;
 
     if target.starts_with("wilbert") && golden_image.is_none() {
-        //dump_system_image(Path::new("./wilbert_golden"), target, &system);
+        dump_system_image(Path::new("./wilbert_golden"), target, &system);
         return false;
     }
 
@@ -113,6 +113,8 @@ pub fn run_target(target: &str) -> bool {
 
     let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
+
+    assert!(path.exists(), "{:?} does not exist.", path);
 
     let cart = cart::from_file(path.to_str().unwrap());
     run_target_with_options(target, cart, &golden_image, gpu::Options::new())

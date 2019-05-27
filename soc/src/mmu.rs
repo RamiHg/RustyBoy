@@ -120,7 +120,8 @@ impl MemoryMapped for Memory {
             Registers
                 if raw == io_registers::Addresses::LcdControl as i32
                     || raw == io_registers::Addresses::LcdStatus as i32
-                    || raw == io_registers::Addresses::LcdY as i32 =>
+                    || raw == io_registers::Addresses::LcdY as i32
+                    || raw == io_registers::Addresses::LcdYCompare as i32 =>
             {
                 None
             }

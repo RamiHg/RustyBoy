@@ -177,12 +177,8 @@ impl InternalState {
         //     println!("Is first frame");
         // }
 
-        self.entered_oam = (self.current_y == 0 && self.counter == 4)
-            || (self.current_y > 0 && self.current_y <= 144 && self.counter == 0);
-
-        if self.entered_oam {
-            // debug_assert_eq!(t_state, TState::T1);
-        }
+        self.entered_oam =
+            self.current_y == 0 && self.counter == 4 || self.current_y <= 144 && self.counter == 0;
 
         if self.counter == 0 {
             self.hblank_delay_tcycles = self.options.num_hblank_delay_tcycles;
@@ -190,26 +186,28 @@ impl InternalState {
 
         // Do operations that should only happen at every PPU tick.
         //println!("tstate {:?}", t_state);
-        // Update the external LY.
-        self.update_external_y();
+        if let TState::T1 | TState::T3 = t_state {
+            // Update the external LY.
+            self.update_external_y();
 
-        // Update interrupts.
-        self.update_interrupts(t_state);
+            // Update interrupts.
+            self.update_interrupts(t_state);
 
-        // Everything is a state machine..
-        // TODO: Fix this mess.
-        self.mode = match self.counter {
-            _ if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 => {
-                LcdMode::VBlank
-            }
-            _ if self.hblank_delay_tcycles < self.options.num_hblank_delay_tcycles => {
-                LcdMode::HBlank
-            }
-            0 => LcdMode::HBlank,
-            4 if !self.is_first_frame || self.current_y != 0 => LcdMode::ReadingOAM,
-            84 => LcdMode::TransferringToLcd,
-            _ => self.mode,
-        };
+            // Everything is a state machine..
+            // TODO: Fix this mess.
+            self.mode = match self.counter {
+                _ if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 => {
+                    LcdMode::VBlank
+                }
+                _ if self.hblank_delay_tcycles < self.options.num_hblank_delay_tcycles => {
+                    LcdMode::HBlank
+                }
+                0 => LcdMode::HBlank,
+                4 if !self.is_first_frame || self.current_y != 0 => LcdMode::ReadingOAM,
+                84 => LcdMode::TransferringToLcd,
+                _ => self.mode,
+            };
+        }
     }
 
     pub fn update_tock(&mut self, t_state: TState, bus: &mut mmu::MemoryBus) {
@@ -217,21 +215,19 @@ impl InternalState {
             self.pixels_pushed = 0;
         }
         if let TState::T1 | TState::T3 = t_state {
-            // if self.lcd_status.mode() != self.mode {
-            //     print!(
-            //         "On cycle {}, LY {}, LYC {}, delay {} going to {:?}.",
-            //         self.counter, self.current_y, self.lyc.0, self.hblank_delay_tcycles,
-            // self.mode     );
-            //     if self.is_first_frame {
-            //         print!("Is first frame.");
-            //     }
-            //     print!("\n");
-            // }
+            if self.lcd_status.mode() != self.mode {
+                print!(
+                    "On cycle {}, LY {}, delay {} going to {:?}.",
+                    self.counter, self.current_y, self.hblank_delay_tcycles, self.mode
+                );
+                if self.is_first_frame {
+                    print!("Is first frame.");
+                }
+                print!("\n");
+            }
             self.lcd_status.set_mode(self.mode as u8);
-            self.lcd_status
-                .set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
-            if self.interrupts.contains(Interrupts::LYC) {}
         }
+
         // Handle bus requests now.
         self.handle_bus_reads(bus);
         self.handle_bus_writes(bus);
@@ -253,12 +249,10 @@ impl InternalState {
         if self.hblank_delay_tcycles < 7 {
             self.interrupts |= Interrupts::HBLANK;
         }
-        if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 {
+        if (self.current_y == 144 && self.counter >= 4) || self.counter >= 145 {
             self.interrupts |= Interrupts::VBLANK;
         }
-        if self.lyc == self.required_lyc_for_interrupt() && self.current_y > 0 {
-            // TODO: To fix the ly_lyc_write wilbert tests, I have to recheck for LYC interrupts
-            // after a CPU write has happened.
+        if self.lyc == self.required_lyc_for_interrupt() {
             self.interrupts |= Interrupts::LYC;
         }
         if let TState::T1 = t_state {
@@ -296,11 +290,7 @@ impl InternalState {
     /// 256 if it is impossible for LY=LYC to fire.
     fn required_lyc_for_interrupt(&self) -> i32 {
         if self.current_y == 0 {
-            // This is useless.
-            match self.counter {
-                0...3 => 0,
-                _ => self.external_y.0,
-            }
+            0
         } else if self.current_y == 153 {
             match self.counter {
                 0...3 => 256, // Impossible.
@@ -337,7 +327,7 @@ impl InternalState {
     }
 
     pub fn update_tock_disabled(&mut self, bus: &mut mmu::MemoryBus) {
-        self.counter = 7;
+        self.counter = 5;
         self.current_y = 0;
         self.external_y.0 = 0;
         self.is_first_frame = true;
@@ -390,8 +380,6 @@ impl Gpu {
         self.cycles_in_hblank = 1;
     }
 
-    pub fn hack(&self) -> bool { self.state.fire_interrupt_oam_hack }
-
     pub fn vram(&self, address: i32) -> u8 { self.vram.borrow()[(address - 0x8000) as usize] }
     fn set_vram(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
@@ -441,13 +429,13 @@ impl Gpu {
         }
 
         self.state.update_tock(t_state, bus);
-        if self.state.counter == 80 //self.options.transfer_start_tcycle
+        if self.state.counter == self.options.transfer_start_tcycle
             || self.fetcher.mode == fetcher::Mode::Invalid
         {
             self.start_new_scanline();
         }
 
-        if self.state.counter >= 82 //self.options.transfer_start_tcycle
+        if self.state.counter >= self.options.transfer_start_tcycle
             && self.state.hblank_delay_tcycles > 7
         // && self.state.mode == LcdMode::TransferringToLcd
         {
@@ -456,8 +444,86 @@ impl Gpu {
 
         self.state.update_tock_after_render(bus);
 
+<<<<<<< HEAD
         let mut interrupts = if self.state.fire_interrupt {
             system::Interrupts::STAT
+=======
+        let in_last_hblank =
+            mode == HBlank && self.cycle >= 93 * 4 || mode == VBlank && self.cycle < 4;
+
+        // LY=LYC Interrupt.
+        if self.current_y == 0 {
+            if self.lcd_status.mode() == LcdMode::VBlank {
+                debug_assert_ne!(self.cycle, 0);
+                if self.cycle == 4 {
+                    self.lcd_status.set_ly_is_lyc(self.lyc == 153);
+                    fire_interrupt |= self.fire_if_lyc_is(153);
+                } else if self.cycle == 8 {
+                    self.lcd_status.set_ly_is_lyc(false);
+                } else if self.cycle == 12 {
+                    self.lcd_status.set_ly_is_lyc(ly_is_lyc);
+                    fire_interrupt |= self.fire_if_lyc_is(0);
+                }
+            } else {
+                self.lcd_status.set_ly_is_lyc(ly_is_lyc);
+            }
+        } else if self.current_y != 0 {
+            self.lcd_status.set_ly_is_lyc(ly_is_lyc && !in_last_hblank);
+            if is_doing_line && self.cycle == 4 {
+                debug_assert_ne!(self.current_y.0, 153);
+                fire_interrupt |= self.fire_if_lyc_is(self.current_y.0);
+            }
+        }
+        // VBL Interrupt.
+        if self.current_y == 144 && self.cycle == self.options.vblank_cycle {
+            debug_assert_eq!(self.lcd_status.mode(), LcdMode::VBlank);
+            fire_interrupt |= Interrupts::VBLANK;
+            fire_interrupt |= self.maybe_fire_interrupt(InterruptType::VBlank);
+        }
+        // OAM Interrupt.
+        let should_fire_oam = match self.current_y.0 {
+            1...143 => {
+                if self.options.oam_1_143_cycle < 0 {
+                    match mode {
+                        HBlank => self.cycle == 94 * 4 + self.options.oam_1_143_cycle,
+                        _ => false,
+                    }
+                } else {
+                    mode == ReadingOAM && self.cycle == self.options.oam_1_143_cycle
+                }
+            }
+            144 => {
+                if self.options.oam_144_cycle < 0 {
+                    mode == HBlank && self.cycle == 94 * 4 + self.options.oam_144_cycle
+                } else {
+                    mode == VBlank && self.cycle == self.options.oam_144_cycle
+                }
+            }
+            145...152 => {
+                if self.options.oam_145_152_cycle < 0 {
+                    self.cycle == 114 * 4 + self.options.oam_145_152_cycle
+                } else {
+                    self.cycle == self.options.oam_145_152_cycle
+                }
+            }
+            0 if mode == LcdMode::VBlank => {
+                self.cycle == self.options.oam_0_vblank_cycle_first
+                    || self.cycle == self.options.oam_0_vblank_cycle_second
+                    || (self.options.oam_0_cycle < 0
+                        && self.cycle == 114 * 4 + self.options.oam_0_cycle)
+            }
+            0 if mode == LcdMode::ReadingOAM => self.cycle == self.options.oam_0_cycle,
+            0 => false,
+            153 => false,
+            _ => panic!(),
+        };
+        if should_fire_oam {
+            fire_interrupt |= self.maybe_fire_interrupt(InterruptType::Oam);
+        }
+        // HBlank interrupt.
+        let should_fire_hblank = if self.options.hblank_cycle < 0 {
+            mode == LcdMode::TransferringToLcd && self.will_hblank()
+>>>>>>> master
         } else {
             system::Interrupts::empty()
         };
@@ -503,7 +569,7 @@ impl Gpu {
             next_fetcher = next_fetcher.next()
         }
 
-        if next_fifo.has_pixels() && self.state.counter >= self.options.transfer_start_tcycle {
+        if next_fifo.has_pixels() {
             if next_fifo.is_good_pixel() {
                 // Push a pixel into the screen.
                 let entry = next_fifo.peek();
@@ -511,7 +577,6 @@ impl Gpu {
                     && self.current_y() < LCD_HEIGHT as i32
                 //&& !self.state.is_first_frame
                 {
-                    debug_assert_ge!(self.state.hblank_delay_tcycles, 7);
                     debug_assert_lt!(self.current_y(), LCD_HEIGHT as i32);
                     debug_assert_lt!(self.pixels_pushed(), LCD_WIDTH as i32);
                     screen[(self.pixels_pushed() + self.current_y() * LCD_WIDTH as i32) as usize] =
@@ -524,15 +589,10 @@ impl Gpu {
             next_fifo = next_fifo.popped();
         }
 
-        if self.state.current_y == 1 && !self.state.is_first_frame {
-            // println!(
-            //     "Cycle {}. Mode is {:?}. Len is {}. Pushed {} pixels",
-            //     self.state.counter,
-            //     next_fetcher.mode,
-            //     next_fifo.fifo.len(),
-            //     self.state.pixels_pushed
-            // );
-        }
+        // if self.state.current_y == 0 {
+        //     dbg!(&next_fetcher.mode);
+        //     dbg!(&next_fifo.fifo.len());
+        // }
         self.fetcher = next_fetcher;
         self.fifo = next_fifo;
     }
@@ -722,9 +782,6 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => {
-                if raw == 0x8000 && self.vram(0x8000) as i32 != value {
-                    println!("Setting VRAM to {:X?}", value);
-                }
                 if self.can_access_vram() || true {
                     self.set_vram(raw, value);
                 }

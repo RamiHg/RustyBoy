@@ -81,10 +81,10 @@ impl Cpu {
         cpu
     }
 
-    pub fn execute_t_cycle(&mut self, memory: &mut Memory) -> Result<()> {
+    pub fn execute_t_cycle(&mut self, memory: &mut Memory, hack: bool) -> Result<()> {
         // First step is to handle interrupts. Save off the is_halted flag since the next function
         // can unset it.
-        self.handle_interrupts_or_unhalt(memory)?;
+        self.handle_interrupts_or_unhalt(memory, hack)?;
         let (next_state, is_done) = control_unit::cycle(self);
         self.state = next_state;
         // This will be tricky to translate to hardware.
@@ -102,12 +102,12 @@ impl Cpu {
     }
 
     // TODO: Clean up the logic and make this function stateless.. It's nasty.
-    fn handle_interrupts_or_unhalt(&mut self, memory: &mut Memory) -> Result<()> {
+    fn handle_interrupts_or_unhalt(&mut self, memory: &mut Memory, hack: bool) -> Result<()> {
         // If interrupts are enabled, check for any fired interrupts. Otherwise, check if we are
         // currently handling an interrupt. If none of that, proceed as usual.
         if self.interrupts_enabled || self.is_halted {
             debug_assert!(!self.is_handling_interrupt);
-            if self.has_pending_interrupts(memory)? {
+            if self.has_pending_interrupts(memory, hack)? {
                 trace!(target: "int", "Caught interrupt. Halted is {}", self.is_halted);
                 if self.interrupts_enabled {
                     self.enter_interrupt_handler();
@@ -132,10 +132,11 @@ impl Cpu {
         Ok(())
     }
 
-    fn has_pending_interrupts(&mut self, memory: &Memory) -> Result<bool> {
+    fn has_pending_interrupts(&mut self, memory: &Memory, hack: bool) -> Result<bool> {
         debug_assert!(self.interrupts_enabled || self.is_halted);
+        let (mode, t_to_check) = (DecodeMode::Decode, 3);
         // Only look at interrupts in the beginning of T3, right before PC is incremented.
-        if self.state.decode_mode != DecodeMode::Decode || self.t_state.get() != 3 {
+        if self.state.decode_mode != mode || self.t_state.get() != t_to_check {
             return Ok(false);
         }
         // TODO: All interrupts can be disabled if CPU writes to IF in the same cycle. Somehow
@@ -145,6 +146,9 @@ impl Cpu {
         if self.state.write_latch && self.state.address_latch == 0xFF0F {
             warn!("It aint good");
             interrupt_fired_flag = self.state.data_latch;
+        }
+        if self.is_halted && interrupt_fired_flag.trailing_zeros() == 1 && !hack {
+            return Ok(false);
         }
         let ie_flag = memory.read(0xFFFF) & 0x1F;
         Ok((interrupt_fired_flag & ie_flag) != 0)

@@ -84,6 +84,16 @@ impl MemoryBus {
     pub fn writes_to_reg(&self, reg: impl io_registers::Register) -> bool {
         self.writes_to(reg.address()).is_some()
     }
+
+    pub fn reads_from(&self, reg: impl io_registers::Register) -> bool {
+        self.read_latch && reg.address() == self.address_latch
+    }
+
+    pub fn maybe_read(&mut self, reg: impl io_registers::Register) {
+        if self.read_latch && self.reads_from(reg) {
+            self.data_latch = reg.value();
+        }
+    }
 }
 
 pub trait MemoryMapped2 {
@@ -107,6 +117,14 @@ impl MemoryMapped for Memory {
                 let flag = self.mem[raw as usize] as i32;
                 Some((flag & 0x1F) | 0xE0)
             }
+            Registers
+                if raw == io_registers::Addresses::LcdControl as i32
+                    || raw == io_registers::Addresses::LcdStatus as i32
+                    || raw == io_registers::Addresses::LcdY as i32
+                    || raw == io_registers::Addresses::LcdYCompare as i32 =>
+            {
+                None
+            }
             InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
             UnusedOAM => panic!(),
             UnknownRegisters => Some(0xFF),
@@ -123,6 +141,13 @@ impl MemoryMapped for Memory {
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }
+            // Registers
+            //     if raw == io_registers::Addresses::LcdControl
+            //         || raw == io_registers::Addresses::LcdStatus
+            //         || raw == io_registers::Addresses::LcdY =>
+            // {
+            //     None
+            // }
             InternalRam | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
                 Some(())

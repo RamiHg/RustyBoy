@@ -2,6 +2,7 @@ use crate::cpu;
 use crate::error;
 use crate::gpu;
 use crate::io_registers;
+use crate::io_registers::Register as _;
 use crate::joypad;
 use crate::mmu;
 use crate::{dma, serial, timer, util};
@@ -10,6 +11,7 @@ use error::Result;
 use gpu::Pixel;
 
 use bitflags::bitflags;
+use num_traits::FromPrimitive as _;
 use std::rc::Rc;
 
 bitflags! {
@@ -19,6 +21,26 @@ bitflags! {
         const TIMER  = 0b0100;
         const SERIAL = 0b1000;
         const JOYPAD = 0b10000;
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TState {
+    T1,
+    T2,
+    T3,
+    T4,
+}
+
+impl cpu::TState {
+    pub fn get_as_tstate(&self) -> TState {
+        match self.get() {
+            1 => TState::T1,
+            2 => TState::T2,
+            3 => TState::T3,
+            4 => TState::T4,
+            _ => panic!(),
+        }
     }
 }
 
@@ -133,22 +155,17 @@ impl System {
         if self.cpu.state.read_latch {
             if t_state >= 3 {
                 // During DMA, reads return 0xFF.
-                self.cpu.state.data_latch = if self.dma.is_active()
+                let maybe_data = if self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch)
                     && self.cpu.state.address_latch > 0x100
                 {
-                    0xFF
+                    Ok(0xFF)
                 } else {
-                    self.read_request(self.cpu.state.address_latch)?
+                    self.read_request(self.cpu.state.address_latch)
                 };
-            // println!(
-            //     "Read from {:X?} value {:X?}. check is {}",
-            //     self.cpu.state.address_latch,
-            //     self.cpu.state.data_latch,
-            //     self.dma.is_active()
-            //         && System::is_invalid_source_address(self.cpu.state.address_latch)
-            //         && self.cpu.state.address_latch > 0x100
-            // );
+                if let Ok(value) = maybe_data {
+                    self.cpu.state.data_latch = value;
+                }
             } else if false {
                 // Write garbage in data latch to catch bad reads.
                 self.cpu.state.data_latch = -1;
@@ -169,14 +186,6 @@ impl System {
                 && !(self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch))
             {
-                // println!(
-                //     "Write to {:X?} value {:X?}.",
-                //     self.cpu.state.address_latch,
-                //     self.cpu.state.data_latch /* self.dma.is_active()
-                //                                * && System::is_invalid_source_address(self.
-                //                                * cpu.state.address_latch)
-                //                                * && self.cpu.state.address_latch > 0x100 */
-                // );
                 self.write_request(self.cpu.state.address_latch, self.cpu.state.data_latch)?;
             }
         }
@@ -196,7 +205,7 @@ impl System {
         mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
-            read_latch: false,
+            read_latch: self.cpu.state.read_latch,
             write_latch: self.cpu.state.write_latch,
             t_state: self.cpu.t_state.get(),
         }
@@ -238,12 +247,20 @@ impl System {
         new_serial
     }
 
-    fn handle_gpu(&mut self) -> gpu::Gpu {
-        let (next_gpu, should_interrupt) = self
-            .gpu
-            .execute_t_cycle(self.cpu.t_state.get(), &mut self.screen);
+    fn handle_gpu(&mut self) {
+        let mut bus = self.temp_hack_get_bus();
+        self.gpu
+            .execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
+        let should_interrupt = self.gpu.execute_tcycle_tock(
+            self.cpu.t_state.get_as_tstate(),
+            &mut bus,
+            &mut self.screen,
+        );
+        if self.gpu.at_vblank() {
+            self.maybe_fire_interrupt(Interrupts::VBLANK);
+        }
+        self.cpu.state.data_latch = bus.data_latch;
         self.maybe_fire_interrupt(should_interrupt);
-        next_gpu
     }
 
     fn handle_joypad(&mut self) {
@@ -255,15 +272,16 @@ impl System {
         self.print_disassembly()?;
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
-        self.cpu.execute_t_cycle(&mut self.memory)?;
+        self.handle_gpu();
+        self.cpu
+            .execute_t_cycle(&mut self.memory, self.gpu.hack())?;
         let new_timer = self.handle_timer()?;
         let new_serial = self.handle_serial();
-        let new_gpu = self.handle_gpu();
+
         self.handle_joypad();
         // Finally, do all the next state replacement.
         self.timer = new_timer;
         self.serial = new_serial;
-        self.gpu = new_gpu;
         self.handle_cpu_memory_writes()?;
         // Last step is DMA.
         self.handle_dma()?;
@@ -335,7 +353,31 @@ impl System {
     pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
     pub fn gpu_mut(&mut self) -> &mut gpu::Gpu { &mut self.gpu }
 
+    pub fn memory_read(&self, raw_address: i32) -> i32 {
+        if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
+            use io_registers::Addresses::*;
+            match address {
+                LcdControl => return self.gpu.ctrl(),
+                LcdStatus => return self.gpu.stat(),
+                LcdY => return self.gpu.y(),
+                LcdYCompare => return self.gpu.lyc(),
+                _ => (),
+            };
+        }
+        self.read_request(raw_address).unwrap()
+    }
+
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
+        debug_assert!(util::is_8bit(value));
+        if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
+            use io_registers::Addresses::*;
+            match address {
+                LcdControl => self.gpu.ctrl_mut().set(value),
+                LcdStatus => self.gpu.stat_mut().set(value),
+                //LcdYCompare => return self.gpu.lyc(),
+                _ => (),
+            };
+        }
         if raw_address == io_registers::Addresses::Dma as i32 {
             self.dma.set_control(value);
         } else if raw_address == io_registers::Addresses::TimerControl as i32 {
@@ -344,8 +386,6 @@ impl System {
             self.write_request(raw_address, value).unwrap();
         }
     }
-
-    pub fn memory_read(&self, raw_address: i32) -> i32 { self.read_request(raw_address).unwrap() }
     pub fn memory_read_16(&self, raw_address: i32) -> i32 {
         self.memory_read(raw_address) | (self.memory_read(raw_address + 1) << 8)
     }

@@ -49,20 +49,23 @@ bitfield! {
     pub is_transferring, set_transferring: 7;
 }
 
-pub trait Register: AsRef<i32> + AsMut<i32> {
+pub trait Register: Copy {
     const ADDRESS: i32;
 
     fn set_bus_or(&mut self, bus: &MemoryBus, or: i32) {
-        *self.as_mut() = bus.writes_to(self.address()).unwrap_or(or);
+        self.set(bus.writes_to(self.address()).unwrap_or(or));
     }
 
     fn or_bus(&self, bus: &MemoryBus) -> i32 {
-        bus.writes_to(self.address()).unwrap_or(*self.as_ref())
+        bus.writes_to(self.address()).unwrap_or(self.value())
     }
 
-    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, *self.as_ref()); }
+    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, self.value()); }
 
     fn address(&self) -> i32;
+
+    fn value(&self) -> i32;
+    fn set(&mut self, value: i32);
 }
 
 macro_rules! impl_bitfield_helpful_traits {
@@ -103,12 +106,15 @@ macro_rules! define_common_register {
         impl $crate::io_registers::Register for $Type {
             const ADDRESS: i32 = $address as i32;
             fn address(&self) -> i32 { $Type::ADDRESS }
+
+            fn value(&self) -> i32 { self.0 }
+            fn set(&mut self, value: i32) { self.0 = value }
         }
     };
 }
 
-macro_rules! define_typed_register {
-    ($Type:ident, $address:expr) => {
+macro_rules! impl_bitfield_bitrange {
+    ($Type:ident) => {
         impl bitfield::BitRange<u8> for $Type {
             fn bit_range(&self, msb: usize, lsb: usize) -> u8 {
                 (self.0 as u32).bit_range(msb, lsb)
@@ -119,16 +125,14 @@ macro_rules! define_typed_register {
                 self.0 = tmp as i32;
             }
         }
+    };
+}
 
-        impl AsRef<i32> for $Type {
-            fn as_ref(&self) -> &i32 { &self.0 }
-        }
-        impl AsMut<i32> for $Type {
-            fn as_mut(&mut self) -> &mut i32 { &mut self.0 }
-        }
-
-        impl_bitfield_helpful_traits!($Type);
+macro_rules! define_typed_register {
+    ($Type:ident, $address:expr) => {
         define_common_register!($Type, $address);
+        impl_bitfield_bitrange!($Type);
+        impl_bitfield_helpful_traits!($Type);
     };
 }
 

@@ -2,6 +2,7 @@
 
 use crate::io_registers;
 use bitfield::bitfield;
+use bitflags::bitflags;
 use num_derive::FromPrimitive;
 
 // Column viewports wrap around
@@ -99,7 +100,7 @@ impl LcdControl {
 }
 
 /// LCD Status Register (STAT). 0xFF41.
-#[derive(Clone, Copy, FromPrimitive, PartialEq, Debug)]
+#[derive(Clone, Copy, FromPrimitive, PartialEq, Debug, Serialize, Deserialize)]
 pub enum LcdMode {
     HBlank,
     VBlank,
@@ -115,6 +116,16 @@ pub enum InterruptType {
     LyIsLyc = 0b1000000,
 }
 
+bitflags! {
+    #[derive(Serialize, Deserialize)]
+    pub struct Interrupts: i32 {
+        const HBLANK = 0b0000_1000;
+        const VBLANK = 0b0001_0000;
+        const OAM    = 0b0010_0000;
+        const LYC    = 0b0100_0000;
+    }
+}
+
 bitfield! {
     pub struct LcdStatus(i32);
     no default BitRange;
@@ -128,16 +139,31 @@ bitfield! {
     pub enable_coincident_int, set_enable_coincident_int: 6;
 }
 
+impl io_registers::Register for LcdStatus {
+    const ADDRESS: i32 = io_registers::Addresses::LcdStatus as i32;
+    fn address(&self) -> i32 { Self::ADDRESS }
+
+    fn value(&self) -> i32 { self.0 }
+    fn set(&mut self, value: i32) {
+        let mask = 0b111;
+        self.0 = (self.0 as i32 & mask) | (value & !mask);
+    }
+}
+
+impl_bitfield_bitrange!(LcdStatus);
+
 // BgPalette Register. 0xFF47.
 bitfield! {
     pub struct BgPalette(u8);
     u8;
 }
 
-define_typed_register!(LcdStatus, io_registers::Addresses::LcdStatus);
+impl_bitfield_helpful_traits!(LcdStatus);
 define_typed_register!(LcdControl, io_registers::Addresses::LcdControl);
 
 define_int_register!(CurrentY, io_registers::Addresses::LcdY);
 define_int_register!(Lyc, io_registers::Addresses::LcdYCompare);
+define_int_register!(ScrollX, io_registers::Addresses::ScrollX);
+define_int_register!(ScrollY, io_registers::Addresses::ScrollY);
 
 from_u8!(LcdMode);

@@ -72,13 +72,12 @@ impl PixelFetcher {
         }
         PixelFetcher {
             mode: Mode::ReadTileIndex,
+            tock: false,
             sprite_mode: true,
             tile_index: sprite.tile_index(),
             // Compute the y-offset now while we still have the sprite.
             y_within_tile,
-            // We must preserve the state of the background fetch.
-            bg_tiles: self.bg_tiles,
-            ..Default::default()
+            ..self
         }
     }
 
@@ -86,6 +85,7 @@ impl PixelFetcher {
         debug_assert!(self.sprite_mode);
         PixelFetcher {
             mode: Mode::ReadTileIndex,
+            tock: false,
             sprite_mode: false,
             ..self
         }
@@ -93,6 +93,7 @@ impl PixelFetcher {
 
     pub fn start_window_mode(&mut self) {
         self.mode = Mode::ReadTileIndex;
+        self.tock = false;
         self.window_mode = true;
     }
 
@@ -106,10 +107,7 @@ impl PixelFetcher {
             next_state.tock = true;
             return next_state;
         }
-        // let mut next_state = if self.sprite_mode {
-        //     self.execute_sprite_tcycle(gpu)
-        // } else
-        let mut next_state = { self.execute_bg_tcycle(gpu) };
+        let mut next_state = self.execute_bg_tcycle(gpu);
         next_state.tock = false;
         next_state
     }

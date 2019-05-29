@@ -118,9 +118,7 @@ fn test_sprite_xscroll() {
             .add_sprite(sprite)
             .enable_sprites()
             .xscroll(xscroll)
-            .run_and_assert_is_golden_fn(format!("sprite_xscroll{}", xscroll), |i, j| {
-                (i + xscroll, j)
-            });
+            .run_and_assert_is_golden_fn(format!("sprite_xscroll{}", xscroll), |i, j| (i, j));
     }
 }
 
@@ -134,9 +132,7 @@ fn test_sprite_yscroll() {
             .add_sprite(sprite)
             .enable_sprites()
             .yscroll(yscroll)
-            .run_and_assert_is_golden_fn(format!("sprite_yscroll_{}", yscroll), |i, j| {
-                (i, j + yscroll)
-            });
+            .run_and_assert_is_golden_fn(format!("sprite_yscroll_{}", yscroll), |i, j| (i, j));
     }
 }
 
@@ -159,7 +155,7 @@ fn test_sprite_move_and_scroll() {
                                 "sprite_move_and_scroll_{}_{}_scrollx{}_scrolly{}",
                                 i, j, xscroll, yscroll
                             ),
-                            |i, j| (i + xscroll, j + yscroll),
+                            |i, j| (i, j),
                         );
                 }
             }

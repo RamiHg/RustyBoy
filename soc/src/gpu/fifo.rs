@@ -88,19 +88,13 @@ impl PixelFifo {
         self
     }
 
-    pub fn pushed(&self, row: impl Iterator<Item = FifoEntry>) -> PixelFifo {
-        let mut new_me = self.clone();
-        new_me.fifo.extend(row.take(8));
-        new_me
-    }
+    pub fn push(&mut self, row: impl Iterator<Item = FifoEntry>) { self.fifo.extend(row.take(8)); }
 
-    pub fn popped(&self) -> PixelFifo {
-        let mut new_me = self.clone();
-        new_me.fifo.remove(0);
-        if new_me.pixels_to_scroll > 0 {
-            new_me.pixels_to_scroll -= 1;
+    pub fn pop(&mut self) {
+        self.fifo.remove(0);
+        if self.pixels_to_scroll > 0 {
+            self.pixels_to_scroll -= 1;
         }
-        new_me
     }
 
     pub fn cleared(self) -> PixelFifo {

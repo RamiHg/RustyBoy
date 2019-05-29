@@ -85,7 +85,7 @@ impl ImageBuilder {
         let mut lcdc = LcdControl(0);
         lcdc.set_enable_bg(true);
         lcdc.set_enable_sprites(self.sprites_enabled);
-        lcdc.set_bg_set(false);
+        lcdc.set_bg_set_id(0);
         lcdc.set_enable_display(true);
 
         let mut oam = Vec::new();

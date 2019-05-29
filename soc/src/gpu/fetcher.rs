@@ -16,9 +16,7 @@ bitfield! {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
     Invalid,
-    // TODO: Refactor this a bit. Currently only needed for sprite mode - but can easily put bg
-    // addresses here too.
-    ReadTileIndex { address: Option<i32> },
+    ReadTileIndex,
     ReadData0,
     ReadData1,
     Ready,
@@ -36,10 +34,10 @@ pub struct PixelFetcher {
     window_mode: bool,
     pub is_initial_fetch: bool,
 
-    y_within_tile: i32,
-
     bg_tiles: i32,
     window_tiles_read: i32,
+    // Mostly (i.e. just) needed for sprites. Can easily just pass this in the execute functions.
+    y_within_tile: i32,
 
     tile_index: u8,
     data0: u8,
@@ -51,58 +49,52 @@ impl PixelFetcher {
 
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
-            mode: Mode::ReadTileIndex { address: None },
+            mode: Mode::ReadTileIndex,
             is_initial_fetch: gpu.options.use_fetcher_initial_fetch,
             bg_tiles: util::upper_5_bits(gpu.scroll_x),
             ..Default::default()
         }
     }
 
-    // pub fn start_new_sprite(
-    //     &self,
-    //     gpu: &Gpu,
-    //     sprite_index: i32,
-    //     sprite: &SpriteEntry,
-    // ) -> PixelFetcher {
-    //     let mut y_within_tile = (gpu.current_y.0 - sprite.top()) % 16;
-    //     if sprite.flip_y() {
-    //         y_within_tile = if gpu.lcd_control.large_sprites() {
-    //             15
-    //         } else {
-    //             7
-    //         } - y_within_tile;
-    //     }
-    //     PixelFetcher {
-    //         mode: Mode::ReadTileIndex {
-    //             address: Some(0xFE00 + sprite_index * 4 + 2),
-    //         },
-    //         sprite_mode: true,
-    //         // Compute the y-offset now while we still have the sprite.
-    //         y_within_tile,
-    //         // We must preserve the state of the background fetch.
-    //         bg_tile: self.bg_tile,
-    //         ..Default::default()
-    //     }
-    // }
+    pub fn start_new_sprite(
+        self,
+        gpu: &Gpu,
+        sprite_index: i32,
+        sprite: &SpriteEntry,
+    ) -> PixelFetcher {
+        let mut y_within_tile = (gpu.current_y() - sprite.top()) % 16;
+        if sprite.flip_y() {
+            y_within_tile = if gpu.lcd_control().large_sprites() {
+                15
+            } else {
+                7
+            } - y_within_tile;
+        }
+        PixelFetcher {
+            mode: Mode::ReadTileIndex,
+            sprite_mode: true,
+            tile_index: sprite.tile_index(),
+            // Compute the y-offset now while we still have the sprite.
+            y_within_tile,
+            // We must preserve the state of the background fetch.
+            bg_tiles: self.bg_tiles,
+            ..Default::default()
+        }
+    }
 
-    // pub fn start_continue_scanline(&self) -> PixelFetcher {
-    //     debug_assert!(self.sprite_mode);
-    //     PixelFetcher {
-    //         mode: Mode::ReadTileIndex { address: None },
-    //         sprite_mode: false,
-    //         bg_tiles_read: self.bg_tiles_read,
-    //         ..*self
-    //     }
-    // }
+    pub fn continue_scanline(self) -> PixelFetcher {
+        debug_assert!(self.sprite_mode);
+        PixelFetcher {
+            mode: Mode::ReadTileIndex,
+            sprite_mode: false,
+            ..self
+        }
+    }
 
-    // pub fn start_window_mode(self) -> PixelFetcher {
-    //     PixelFetcher {
-    //         mode: Mode::ReadTileIndex { address: None },
-    //         window_mode: true,
-    //         bg_tiles_read: self.bg_tiles_read,
-    //         ..Default::default()
-    //     }
-    // }
+    pub fn start_window_mode(&mut self) {
+        self.mode = Mode::ReadTileIndex;
+        self.window_mode = true;
+    }
 
     pub fn has_data(&self) -> bool { self.mode == Mode::Ready }
 
@@ -123,12 +115,11 @@ impl PixelFetcher {
     }
 
     pub fn next(mut self) -> PixelFetcher {
-        self.mode = Mode::ReadTileIndex { address: None };
+        self.mode = Mode::ReadTileIndex;
         self.tock = false;
-        // if self.window_mode {
-        //     self.window_tiles_read += 1;
-        // } else if !self.is_initial_fetch
-        {
+        if self.window_mode {
+            self.window_tiles_read += 1;
+        } else {
             self.bg_tiles += 1;
         }
         self.is_initial_fetch = false;
@@ -139,16 +130,16 @@ impl PixelFetcher {
         let mut next_state = self;
         use Mode::*;
         match self.mode {
-            ReadTileIndex { .. } => {
+            ReadTileIndex if self.sprite_mode => {
+                // Do nothing - just go to the next state.
+                next_state.mode = ReadData0;
+            }
+            ReadTileIndex /* if !self.sprite_mode */ => {
                 let address = self.nametable_address(gpu);
                 next_state.tile_index = gpu.vram(address);
                 // Latch the y-offset into the tile data now.
-                next_state.y_within_tile = self.y_within_tile(gpu);
+                next_state.y_within_tile = self.bg_y_within_tile(gpu);
                 next_state.mode = ReadData0;
-                if self.is_initial_fetch {
-                    next_state.mode = ReadTileIndex { address: None };
-                    next_state.is_initial_fetch = false;
-                }
             }
             ReadData0 => {
                 next_state.data0 = self.read_tile_data(gpu, 0);
@@ -226,7 +217,7 @@ impl PixelFetcher {
         (addr.0 as i32) | 0x9800
     }
 
-    fn y_within_tile(&self, gpu: &Gpu) -> i32 {
+    fn bg_y_within_tile(&self, gpu: &Gpu) -> i32 {
         if self.window_mode {
             (gpu.window_ycount - gpu.scroll_y) % 8
         } else {
@@ -236,38 +227,30 @@ impl PixelFetcher {
 
     pub fn get_row(&self) -> u16 {
         debug_assert_eq!(self.mode, Mode::Ready);
-        debug_assert_eq!(expand_tile_bits(0b1010_0101), 0b01000100_00010001);
+        debug_assert_eq!(expand_tile_bits(0b1010_0101), 0b01000100_00010001); // move this to unit test!
         decode_tile_data(self.data0, self.data1)
     }
 
     fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> u8 {
-        let address = if self.window_mode {
-            0x8800 + self.tile_index as i32 * 16
+        let tileset_id = if self.sprite_mode {
+            1
         } else {
-            self.bg_tiledata_address(gpu)
+            gpu.lcd_control().bg_set_id() as i32
         };
-        // If address is -1, it means we are rows 8-16 of a sprite in 8x8 mode.
+        let address =
+            PixelFetcher::tileset_address(tileset_id, self.tile_index) + self.y_within_tile * 2;
         gpu.vram(address + byte)
     }
 
-    fn sprite_tiledata_address(&self) -> i32 {
-        0x8000 + self.tile_index as i32 * 16 + self.y_within_tile * 2
+    fn tileset_address(tileset_id: i32, tile_index: u8) -> i32 {
+        if tileset_id == 0 {
+            PixelFetcher::tileset_0_address(tile_index)
+        } else {
+            PixelFetcher::tileset_1_address(tile_index)
+        }
     }
-
-    fn bg_tiledata_address(&self, gpu: &Gpu) -> i32 {
-        let base = gpu
-            .state
-            .lcd_control
-            .translate_bg_set_index(self.tile_index);
-        base + self.y_within_tile * 2
-        // // tile_index * 16 + y_within_tile * 2
-        // let tile_address = if gpu.lcd_control.bg_set_select() {
-        //     ((self.tile_index as i32) << 4) | (y_within_tile << 1)
-        // } else {
-        //     (0x1000 - ((self.tile_index as i32) << 4)) | (y_within_tile << 1)
-        // };
-        // 0x8000 + tile_address
-    }
+    fn tileset_0_address(tile_index: u8) -> i32 { 0x9000 + (tile_index as i8) as i32 * 16 }
+    fn tileset_1_address(tile_index: u8) -> i32 { 0x8000 + tile_index as i32 * 16 }
 }
 
 fn expand_tile_bits(bits_u8: u8) -> u16 {

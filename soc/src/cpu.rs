@@ -147,11 +147,12 @@ impl Cpu {
             warn!("It aint good");
             interrupt_fired_flag = self.state.data_latch;
         }
-        if self.is_halted && interrupt_fired_flag.trailing_zeros() == 1 && !hack {
+        let ie_flag = memory.read(0xFFFF) & 0x1F;
+        let interrupt_fired_mask = interrupt_fired_flag & ie_flag;
+        if self.is_halted && interrupt_fired_mask.trailing_zeros() == 1 && !hack {
             return Ok(false);
         }
-        let ie_flag = memory.read(0xFFFF) & 0x1F;
-        Ok((interrupt_fired_flag & ie_flag) != 0)
+        Ok(interrupt_fired_mask != 0)
     }
 
     fn enter_interrupt_handler(&mut self) {

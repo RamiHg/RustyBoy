@@ -76,8 +76,7 @@ impl System {
         cpu.registers.set(Register::L, 0x4D);
         cpu.registers.set(Register::SP, 0xFFFE);
 
-        let mut gpu = gpu::Gpu::new();
-        gpu.enable_display();
+        let gpu = gpu::Gpu::new();
 
         System {
             cpu,

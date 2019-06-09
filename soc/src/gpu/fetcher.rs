@@ -31,11 +31,10 @@ pub struct PixelFetcher {
     pub mode: Mode,
     pub tock: bool,
     sprite_mode: bool,
-    window_mode: bool,
-    pub is_initial_fetch: bool,
+    pub window_mode: bool,
 
     bg_tiles: i32,
-    window_tiles_read: i32,
+    pub window_tiles_read: i32,
     // Mostly (i.e. just) needed for sprites. Can easily just pass this in the execute functions.
     y_within_tile: i32,
 
@@ -50,7 +49,6 @@ impl PixelFetcher {
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
             mode: Mode::ReadTileIndex,
-            is_initial_fetch: gpu.options.use_fetcher_initial_fetch,
             bg_tiles: util::upper_5_bits(gpu.scroll_x),
             ..Default::default()
         }
@@ -100,7 +98,7 @@ impl PixelFetcher {
     pub fn has_data(&self) -> bool { self.mode == Mode::Ready }
 
     pub fn execute_tcycle(self, gpu: &Gpu) -> PixelFetcher {
-        debug_assert_ne!(self.mode, Mode::Invalid);
+        //    debug_assert_ne!(self.mode, Mode::Invalid);
         // We only read memory at every 2nd tcycle.
         if !self.tock {
             let mut next_state = self;
@@ -120,7 +118,6 @@ impl PixelFetcher {
         } else {
             self.bg_tiles += 1;
         }
-        self.is_initial_fetch = false;
         self
     }
 
@@ -148,46 +145,10 @@ impl PixelFetcher {
                 next_state.mode = Ready;
             }
             Ready => (),
-            Invalid => panic!(),
+            Invalid => (),
         }
         next_state
     }
-
-    // fn execute_sprite_tcycle(self, gpu: &Gpu) -> PixelFetcher {
-    //     let mut next_state = self;
-    //     use Mode::*;
-    //     match self.mode {
-    //         ReadTileIndex {
-    //             address: Some(address),
-    //         } => {
-    //             // The tile index is the 3rd byte of its entry.
-    //             // let address = 0xFE00 + sprite_index as i32 * 4 + 2;
-    //             next_state.tile_index = gpu.oam(address);
-    //             next_state.mode = ReadData0;
-    //         }
-    //         ReadData0 => {
-    //             next_state.data0 = gpu.vram(self.sprite_tiledata_address());
-    //             // HW: I'm not actually sure what the timing is like here. Do we skip the sprite
-    //             // entirely if we know we're past its 8-pixel vertical bounds?
-    //             if !gpu.lcd_control.large_sprites() && self.y_within_tile >= 8 {
-    //                 next_state.data0 = 0;
-    //                 panic!();
-    //             }
-    //             next_state.mode = ReadData1;
-    //         }
-    //         ReadData1 => {
-    //             next_state.data1 = gpu.vram(self.sprite_tiledata_address() + 1);
-    //             if !gpu.lcd_control.large_sprites() && self.y_within_tile >= 8 {
-    //                 next_state.data1 = 0;
-    //                 panic!();
-    //             }
-    //             next_state.mode = Ready;
-    //         }
-    //         Ready => (),
-    //         _ => panic!(),
-    //     }
-    //     next_state
-    // }
 
     fn nametable_address(&self, gpu: &Gpu) -> i32 {
         if self.window_mode {
@@ -200,7 +161,7 @@ impl PixelFetcher {
     fn window_nametable_address(&self, gpu: &Gpu) -> i32 {
         let mut addr = NametableAddress(0);
         addr.set_upper_xscroll(self.window_tiles_read as u8);
-        let base_w = gpu.window_ycount - gpu.scroll_y;
+        let base_w = gpu.window_ycount;
         addr.set_upper_ybase(util::upper_5_bits(base_w) as u8);
         addr.set_nametable_number(gpu.lcd_control().window_map_select());
         (addr.0 as i32) | 0x9800
@@ -217,16 +178,21 @@ impl PixelFetcher {
 
     fn bg_y_within_tile(&self, gpu: &Gpu) -> i32 {
         if self.window_mode {
-            (gpu.window_ycount - gpu.scroll_y) % 8
+            gpu.window_ycount % 8
         } else {
             (gpu.scroll_y + gpu.current_y()) % 8
         }
     }
 
-    pub fn get_row(&self) -> u16 {
+    pub fn get_row(&mut self) -> u16 {
         debug_assert_eq!(self.mode, Mode::Ready);
         debug_assert_eq!(expand_tile_bits(0b1010_0101), 0b01000100_00010001); // move this to unit test!
-        decode_tile_data(self.data0, self.data1)
+        let data = decode_tile_data(self.data0, self.data1);
+        self.mode = Mode::Invalid;
+        self.data0 = 0;
+        self.data1 = 0;
+        self.tile_index = 255;
+        data
     }
 
     fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> u8 {

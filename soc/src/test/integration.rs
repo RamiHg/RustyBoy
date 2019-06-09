@@ -27,7 +27,6 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
     let mut system = system::System::new();
     system.set_cart(cart);
     system.gpu_mut().options = options;
-    system.gpu_mut().enable_display();
 
     let break_opcode = if target.contains("wilbert") {
         0xED

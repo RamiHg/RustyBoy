@@ -9,6 +9,8 @@ bitfield! {
     pub is_sprite, set_is_sprite: 2;
     pub priority, set_priority: 3, 3;
     pub palette, set_palette: 4, 4;
+    // Just for debugging.
+    pub is_window, set_is_window: 5;
 }
 
 impl_bitfield_helpful_traits!(FifoEntry);
@@ -36,8 +38,32 @@ impl FifoEntry {
         })
     }
 
-    pub fn from_row(row: u16) -> impl Iterator<Item = FifoEntry> {
-        FifoEntry::from_sprite_row(row, false, 0, 0, false)
+    pub fn from_row(row: u16, is_window: bool) -> impl Iterator<Item = FifoEntry> {
+        FifoEntry::from_general_row(row, false, 0, 0, false, is_window)
+    }
+
+    fn from_general_row(
+        mut row: u16,
+        is_sprite: bool,
+        priority: u8,
+        palette: u8,
+        flip_x: bool,
+        is_window: bool,
+    ) -> impl Iterator<Item = FifoEntry> {
+        if flip_x {
+            row = row.reverse_bits();
+        }
+
+        std::iter::from_fn(move || {
+            let mut entry = FifoEntry(0);
+            entry.set_index(((row & 0xC000) >> 14) as u8);
+            entry.set_is_sprite(is_sprite);
+            entry.set_priority(priority);
+            entry.set_palette(palette);
+            entry.set_is_window(is_window);
+            row <<= 2;
+            Some(entry)
+        })
     }
 }
 
@@ -97,11 +123,9 @@ impl PixelFifo {
         }
     }
 
-    pub fn cleared(self) -> PixelFifo {
-        PixelFifo {
-            pixels_to_scroll: self.pixels_to_scroll,
-            ..PixelFifo::new()
-        }
+    pub fn clear(&mut self) {
+        self.fifo.clear();
+        self.pixels_to_scroll = 0;
     }
 
     fn blend_sprite(behind: FifoEntry, sprite: FifoEntry) -> FifoEntry {

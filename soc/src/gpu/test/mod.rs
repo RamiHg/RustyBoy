@@ -1,5 +1,6 @@
 mod test_bg;
 mod test_sprites;
+mod test_window;
 // mod test_timing;
 
 use std::path::Path;
@@ -23,7 +24,10 @@ pub struct ImageBuilder {
     oam: Vec<SpriteEntry>,
     xscroll: usize,
     yscroll: usize,
+    wx: usize,
+    wy: usize,
     sprites_enabled: bool,
+    window_enabled: bool,
 
     golden_fn: Option<Box<dyn ImageFn>>,
 }
@@ -36,7 +40,10 @@ impl ImageBuilder {
             oam: Vec::new(),
             xscroll: 0,
             yscroll: 0,
+            wx: 0,
+            wy: 0,
             sprites_enabled: false,
+            window_enabled: false,
 
             golden_fn: None,
         }
@@ -75,8 +82,23 @@ impl ImageBuilder {
         self
     }
 
+    pub fn wx(mut self, wx: usize) -> ImageBuilder {
+        self.wx = wx;
+        self
+    }
+
+    pub fn wy(mut self, wy: usize) -> ImageBuilder {
+        self.wy = wy;
+        self
+    }
+
     pub fn enable_sprites(mut self) -> ImageBuilder {
         self.sprites_enabled = true;
+        self
+    }
+
+    pub fn enable_window(mut self) -> ImageBuilder {
+        self.window_enabled = true;
         self
     }
 
@@ -85,8 +107,10 @@ impl ImageBuilder {
         let mut lcdc = LcdControl(0);
         lcdc.set_enable_bg(true);
         lcdc.set_enable_sprites(self.sprites_enabled);
+        lcdc.set_enable_window(self.window_enabled);
         lcdc.set_bg_set_id(0);
         lcdc.set_enable_display(true);
+        lcdc.set_window_map_select(0);
 
         let mut oam = Vec::new();
         for entry in self.oam {
@@ -107,6 +131,8 @@ impl ImageBuilder {
             )
             .set_mem_8bit(io_registers::Addresses::ScrollX as i32, self.xscroll as i32)
             .set_mem_8bit(io_registers::Addresses::ScrollY as i32, self.yscroll as i32)
+            .set_mem_8bit(io_registers::Addresses::WindowXPos as i32, self.wx as i32)
+            .set_mem_8bit(io_registers::Addresses::WindowYPos as i32, self.wy as i32)
     }
 
     /// Image setup controls.

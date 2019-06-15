@@ -44,7 +44,9 @@ impl Op {
         }
     }
 
-    pub fn with_size(self, byte_size: u8) -> Op { Op { byte_size, ..self } }
+    pub fn with_size(self, byte_size: u8) -> Op {
+        Op { byte_size, ..self }
+    }
 
     pub fn with_lhs(self, arg: Arg) -> Op {
         Op {
@@ -62,12 +64,24 @@ impl Op {
 }
 
 impl Arg {
-    pub fn from_i8(value: u8) -> Arg { Arg::Signed8bit(value as i8) }
-    pub fn from_u8(value: u8) -> Arg { Arg::Unsigned8bit(value) }
-    pub fn from_reg(name: &'static str) -> Arg { Arg::Register(name) }
-    pub fn as_indirect(self) -> Arg { Arg::IndirectRef(Box::new(self)) }
-    pub fn as_ffplus(self) -> Arg { Arg::FFPlus(Box::new(self)).as_indirect() }
-    pub fn as_spplus(self) -> Arg { Arg::SPPlus(Box::new(self)) }
+    pub fn from_i8(value: u8) -> Arg {
+        Arg::Signed8bit(value as i8)
+    }
+    pub fn from_u8(value: u8) -> Arg {
+        Arg::Unsigned8bit(value)
+    }
+    pub fn from_reg(name: &'static str) -> Arg {
+        Arg::Register(name)
+    }
+    pub fn as_indirect(self) -> Arg {
+        Arg::IndirectRef(Box::new(self))
+    }
+    pub fn as_ffplus(self) -> Arg {
+        Arg::FFPlus(Box::new(self)).as_indirect()
+    }
+    pub fn as_spplus(self) -> Arg {
+        Arg::SPPlus(Box::new(self))
+    }
 
     pub fn from_cond(value: u8) -> Arg {
         Arg::Condition(match value {
@@ -111,6 +125,10 @@ impl Arg {
             7 => "A",
             _ => panic!(),
         });
-        if value == 6 { reg.as_indirect() } else { reg }
+        if value == 6 {
+            reg.as_indirect()
+        } else {
+            reg
+        }
     }
 }

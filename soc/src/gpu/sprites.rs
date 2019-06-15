@@ -21,7 +21,9 @@ bitfield! {
 }
 
 impl Clone for SpriteEntry {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 impl Copy for SpriteEntry {}
 
@@ -39,13 +41,19 @@ impl SpriteEntry {
         self.top() <= line && self.bottom(big_sprites) > line
     }
 
-    pub fn top(self) -> i32 { self.pos_y() as i32 - 16 }
+    pub fn top(self) -> i32 {
+        self.pos_y() as i32 - 16
+    }
     pub fn bottom(self, big_sprites: bool) -> i32 {
         self.pos_y() as i32 - if big_sprites { 0 } else { 8 }
     }
 
-    pub fn left(self) -> i32 { self.pos_x() as i32 - 8 }
-    pub fn right(self) -> i32 { self.pos_x() as i32 }
+    pub fn left(self) -> i32 {
+        self.pos_x() as i32 - 8
+    }
+    pub fn right(self) -> i32 {
+        self.pos_x() as i32
+    }
 }
 
 pub fn find_visible_sprites(oam: &[u8], line: i32, big_sprites: bool) -> ArrayVec<[u8; 10]> {

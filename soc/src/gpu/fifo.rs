@@ -1,3 +1,5 @@
+use crate::util;
+
 use arrayvec::ArrayVec;
 use bitfield::bitfield;
 
@@ -17,25 +19,13 @@ impl_bitfield_helpful_traits!(FifoEntry);
 
 impl FifoEntry {
     pub fn from_sprite_row(
-        mut row: u16,
+        row: u16,
         is_sprite: bool,
         priority: u8,
         palette: u8,
         flip_x: bool,
     ) -> impl Iterator<Item = FifoEntry> {
-        if flip_x {
-            row = row.reverse_bits();
-        }
-
-        std::iter::from_fn(move || {
-            let mut entry = FifoEntry(0);
-            entry.set_index(((row & 0xC000) >> 14) as u8);
-            entry.set_is_sprite(is_sprite);
-            entry.set_priority(priority);
-            entry.set_palette(palette);
-            row <<= 2;
-            Some(entry)
-        })
+        FifoEntry::from_general_row(row, true, priority, palette, flip_x, false)
     }
 
     pub fn from_row(row: u16, is_window: bool) -> impl Iterator<Item = FifoEntry> {
@@ -51,7 +41,7 @@ impl FifoEntry {
         is_window: bool,
     ) -> impl Iterator<Item = FifoEntry> {
         if flip_x {
-            row = row.reverse_bits();
+            row = util::reverse_16bits(row.into()) as u16;
         }
 
         std::iter::from_fn(move || {
@@ -78,7 +68,9 @@ pub struct PixelFifo {
 }
 
 impl PixelFifo {
-    pub fn new() -> PixelFifo { PixelFifo::default() }
+    pub fn new() -> PixelFifo {
+        PixelFifo::default()
+    }
 
     pub fn start_new_scanline(scroll_x: i32) -> PixelFifo {
         // Start the FIFO up with a bunch of garbage.
@@ -94,15 +86,25 @@ impl PixelFifo {
         }
     }
 
-    pub fn enough_for_sprite(&self) -> bool { self.fifo.len() >= 8 }
+    pub fn enough_for_sprite(&self) -> bool {
+        self.fifo.len() >= 8
+    }
 
-    pub fn has_pixels(&self) -> bool { !self.is_suspended && self.fifo.len() > 8 }
-    pub fn has_room(&self) -> bool { !self.is_suspended && self.fifo.len() <= 8 }
+    pub fn has_pixels(&self) -> bool {
+        !self.is_suspended && self.fifo.len() > 8
+    }
+    pub fn has_room(&self) -> bool {
+        !self.is_suspended && self.fifo.len() <= 8
+    }
 
     /// Will return false if this pixel should be skipped due to fine x-scroll.
-    pub fn is_good_pixel(&self) -> bool { self.pixels_to_scroll == 0 }
+    pub fn is_good_pixel(&self) -> bool {
+        self.pixels_to_scroll == 0
+    }
 
-    pub fn peek(&self) -> FifoEntry { self.fifo[0] }
+    pub fn peek(&self) -> FifoEntry {
+        self.fifo[0]
+    }
 
     pub fn combined_with_sprite(
         mut self,
@@ -114,7 +116,9 @@ impl PixelFifo {
         self
     }
 
-    pub fn push(&mut self, row: impl Iterator<Item = FifoEntry>) { self.fifo.extend(row.take(8)); }
+    pub fn push(&mut self, row: impl Iterator<Item = FifoEntry>) {
+        self.fifo.extend(row.take(8));
+    }
 
     pub fn pop(&mut self) {
         self.fifo.remove(0);

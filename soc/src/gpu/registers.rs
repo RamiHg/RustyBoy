@@ -120,9 +120,13 @@ bitfield! {
 
 impl io_registers::Register for LcdStatus {
     const ADDRESS: i32 = io_registers::Addresses::LcdStatus as i32;
-    fn address(&self) -> i32 { Self::ADDRESS }
+    fn address(&self) -> i32 {
+        Self::ADDRESS
+    }
 
-    fn value(&self) -> i32 { self.0 }
+    fn value(&self) -> i32 {
+        self.0
+    }
     fn set(&mut self, value: i32) {
         let mask = 0b111;
         self.0 = (self.0 as i32 & mask) | (value & !mask);

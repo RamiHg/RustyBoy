@@ -40,7 +40,9 @@ bitfield! {
 define_typed_register!(PadControl, Addresses::Joypad);
 
 impl Joypad {
-    pub fn new() -> Joypad { Joypad::default() }
+    pub fn new() -> Joypad {
+        Joypad::default()
+    }
 
     pub fn execute_tcycle(&mut self) -> Interrupts {
         // let new_reg_value = self.reg_value();
@@ -88,9 +90,13 @@ impl Joypad {
         ctrl
     }
 
-    pub fn press(&mut self, key: Key) { self.keys_pressed[key as usize] = true; }
+    pub fn press(&mut self, key: Key) {
+        self.keys_pressed[key as usize] = true;
+    }
 
-    pub fn release(&mut self, key: Key) { self.keys_pressed[key as usize] = false; }
+    pub fn release(&mut self, key: Key) {
+        self.keys_pressed[key as usize] = false;
+    }
 }
 
 impl mmu::MemoryMapped for Joypad {

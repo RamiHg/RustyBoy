@@ -95,12 +95,20 @@ impl System {
     pub fn restore_from_deserialize(&mut self) {
         self.screen = vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
     }
-    pub fn set_cart(&mut self, cart: Box<dyn mmu::MemoryMapped>) { self.cart = Some(cart); }
+    pub fn set_cart(&mut self, cart: Box<dyn mmu::MemoryMapped>) {
+        self.cart = Some(cart);
+    }
 
-    pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
-    pub fn get_screen(&self) -> &[Pixel] { &self.screen }
+    pub fn gpu(&self) -> &gpu::Gpu {
+        &self.gpu
+    }
+    pub fn get_screen(&self) -> &[Pixel] {
+        &self.screen
+    }
 
-    pub fn get_joypad_mut(&mut self) -> &mut joypad::Joypad { &mut self.joypad }
+    pub fn get_joypad_mut(&mut self) -> &mut joypad::Joypad {
+        &mut self.joypad
+    }
 
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
@@ -146,7 +154,9 @@ impl System {
         )));
     }
 
-    fn is_invalid_source_address(address: i32) -> bool { address >= 0xFE00 && address < 0xFEA0 }
+    fn is_invalid_source_address(address: i32) -> bool {
+        address >= 0xFE00 && address < 0xFEA0
+    }
 
     fn handle_cpu_memory_reads(&mut self) -> Result<()> {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
@@ -296,10 +306,14 @@ impl System {
         Ok(())
     }
 
-    pub fn is_vsyncing(&self) -> bool { self.gpu.is_vsyncing() }
+    pub fn is_vsyncing(&self) -> bool {
+        self.gpu.is_vsyncing()
+    }
 
     #[cfg(test)]
-    pub fn is_fetching(&self) -> bool { self.cpu.state.decode_mode == cpu::DecodeMode::Fetch }
+    pub fn is_fetching(&self) -> bool {
+        self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
+    }
 
     fn print_disassembly(&self) -> Result<()> {
         if self.cpu.t_state.get() == 1
@@ -348,9 +362,15 @@ impl System {
     }
 
     // pub fn memory_mut(&mut self) -> &mut mmu::Memory { &mut self.memory }
-    pub fn memory(&self) -> &mmu::Memory { &self.memory }
-    pub fn cpu_mut(&mut self) -> &mut cpu::Cpu { &mut self.cpu }
-    pub fn gpu_mut(&mut self) -> &mut gpu::Gpu { &mut self.gpu }
+    pub fn memory(&self) -> &mmu::Memory {
+        &self.memory
+    }
+    pub fn cpu_mut(&mut self) -> &mut cpu::Cpu {
+        &mut self.cpu
+    }
+    pub fn gpu_mut(&mut self) -> &mut gpu::Gpu {
+        &mut self.gpu
+    }
 
     pub fn memory_read(&self, raw_address: i32) -> i32 {
         if let Some(address) = io_registers::Addresses::from_i32(raw_address) {

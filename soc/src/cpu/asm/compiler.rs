@@ -350,7 +350,9 @@ fn compile_di(op: &Op) -> MicroCode {
     }
 }
 
-fn compile_nop(op: &Op) -> MicroCode { MicroCode::default() }
+fn compile_nop(op: &Op) -> MicroCode {
+    MicroCode::default()
+}
 
 fn compile_cb(op: &Op) -> MicroCode {
     op.lhs.expect_none();

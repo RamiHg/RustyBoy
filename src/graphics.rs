@@ -192,7 +192,9 @@ impl Window {
         }
     }
 
-    pub fn swap_buffers(&self) { self.context.swap_buffers().unwrap(); }
+    pub fn swap_buffers(&self) {
+        self.context.swap_buffers().unwrap();
+    }
 
     pub fn get_events(&mut self) -> Vec<glutin::WindowEvent> {
         let mut events = Vec::new();

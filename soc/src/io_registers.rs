@@ -60,7 +60,9 @@ pub trait Register: Copy {
         bus.writes_to(self.address()).unwrap_or(self.value())
     }
 
-    fn set_from_bus(&mut self, bus: &MemoryBus) { self.set_bus_or(bus, self.value()); }
+    fn set_from_bus(&mut self, bus: &MemoryBus) {
+        self.set_bus_or(bus, self.value());
+    }
 
     fn address(&self) -> i32;
 
@@ -72,7 +74,9 @@ macro_rules! impl_bitfield_helpful_traits {
     ($Type:ident) => {
         impl Copy for $Type {}
         impl Clone for $Type {
-            fn clone(&self) -> Self { *self }
+            fn clone(&self) -> Self {
+                *self
+            }
         }
 
         impl serde::ser::Serialize for $Type {
@@ -96,7 +100,9 @@ macro_rules! impl_bitfield_helpful_traits {
         }
 
         impl Default for $Type {
-            fn default() -> $Type { $Type(0) }
+            fn default() -> $Type {
+                $Type(0)
+            }
         }
     };
 }
@@ -105,10 +111,16 @@ macro_rules! define_common_register {
     ($Type:ident, $address:expr) => {
         impl $crate::io_registers::Register for $Type {
             const ADDRESS: i32 = $address as i32;
-            fn address(&self) -> i32 { $Type::ADDRESS }
+            fn address(&self) -> i32 {
+                $Type::ADDRESS
+            }
 
-            fn value(&self) -> i32 { self.0 }
-            fn set(&mut self, value: i32) { self.0 = value }
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set(&mut self, value: i32) {
+                self.0 = value
+            }
         }
     };
 }
@@ -153,29 +165,43 @@ macro_rules! define_int_register {
             }
         }
         impl std::cmp::PartialEq<i32> for $Type {
-            fn eq(&self, other: &i32) -> bool { self.0.eq(other) }
+            fn eq(&self, other: &i32) -> bool {
+                self.0.eq(other)
+            }
         }
         impl std::ops::AddAssign<i32> for $Type {
-            fn add_assign(&mut self, rhs: i32) { self.0 += rhs }
+            fn add_assign(&mut self, rhs: i32) {
+                self.0 += rhs
+            }
         }
         impl std::ops::Mul<i32> for $Type {
             type Output = i32;
-            fn mul(self, rhs: i32) -> i32 { self.0 * rhs }
+            fn mul(self, rhs: i32) -> i32 {
+                self.0 * rhs
+            }
         }
         impl std::ops::Add<i32> for $Type {
             type Output = i32;
-            fn add(self, rhs: i32) -> i32 { self.0 + rhs }
+            fn add(self, rhs: i32) -> i32 {
+                self.0 + rhs
+            }
         }
 
         impl AsRef<i32> for $Type {
-            fn as_ref(&self) -> &i32 { &self.0 }
+            fn as_ref(&self) -> &i32 {
+                &self.0
+            }
         }
         impl AsMut<i32> for $Type {
-            fn as_mut(&mut self) -> &mut i32 { &mut self.0 }
+            fn as_mut(&mut self) -> &mut i32 {
+                &mut self.0
+            }
         }
         impl std::ops::Deref for $Type {
             type Target = i32;
-            fn deref(&self) -> &i32 { &self.0 }
+            fn deref(&self) -> &i32 {
+                &self.0
+            }
         }
     };
 }
@@ -185,7 +211,9 @@ macro_rules! from_u8 {
     ($x:ident) => {
         // Implement conversion from u8.
         impl core::convert::From<u8> for $x {
-            fn from(flag: u8) -> $x { num_traits::FromPrimitive::from_u8(flag).unwrap() }
+            fn from(flag: u8) -> $x {
+                num_traits::FromPrimitive::from_u8(flag).unwrap()
+            }
         }
     };
 }

@@ -56,7 +56,9 @@ impl Register {
         }
     }
 
-    pub fn is_single(self) -> bool { !self.is_pair() }
+    pub fn is_single(self) -> bool {
+        !self.is_pair()
+    }
 
     pub fn from_single_table(single_value: i32) -> Register {
         Register::from(SingleTable::from_i32(single_value).unwrap())
@@ -103,7 +105,9 @@ impl Register {
 }
 
 impl Default for Register {
-    fn default() -> Self { Register::INVALID }
+    fn default() -> Self {
+        Register::INVALID
+    }
 }
 
 /// 8-bit register table. Note that this maps to the instruction opcodes.

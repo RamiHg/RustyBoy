@@ -112,7 +112,9 @@ mod none {
     }
 
     impl Cart {
-        pub fn from_mem(mem: Vec<u8>, _: usize) -> Cart { Cart { mem } }
+        pub fn from_mem(mem: Vec<u8>, _: usize) -> Cart {
+            Cart { mem }
+        }
     }
 
     impl mmu::MemoryMapped for Cart {

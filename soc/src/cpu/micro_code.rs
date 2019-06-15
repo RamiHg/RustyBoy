@@ -11,7 +11,9 @@ pub enum IncOp {
 }
 
 impl Default for IncOp {
-    fn default() -> Self { IncOp::Mov }
+    fn default() -> Self {
+        IncOp::Mov
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -32,11 +34,15 @@ pub enum Condition {
 }
 
 impl Default for Condition {
-    fn default() -> Self { Condition::NZ }
+    fn default() -> Self {
+        Condition::NZ
+    }
 }
 
 impl Default for AluOutSelect {
-    fn default() -> Self { AluOutSelect::Result }
+    fn default() -> Self {
+        AluOutSelect::Result
+    }
 }
 
 /// This microcode format is nowhere near size-optimized. There are tons of mutually exclusive bits,

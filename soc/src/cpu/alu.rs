@@ -45,7 +45,9 @@ pub enum Op {
 }
 
 impl Default for Op {
-    fn default() -> Self { Op::Invalid }
+    fn default() -> Self {
+        Op::Invalid
+    }
 }
 
 impl Op {

@@ -15,7 +15,7 @@ fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     Color::from_usize(color).unwrap()
 }
 
-fn composite_window(image_fn: impl ImageFn, wx: usize, wy: usize) -> Box<impl ImageFn> {
+fn composite_window(image_fn: &'static Fn(usize, usize) -> Color, wx: usize, wy: usize) -> ImageFn {
     Box::new(move |i, j| {
         let mut color = image_fn(i, j);
         let left = wx as i32 - 7;
@@ -31,7 +31,7 @@ fn test_simple_wx() {
     for &wx in &[7, 8, 120] {
         ImageBuilder::new()
             .build_default_bg(Box::new(simple_checkerboard))
-            .golden_fn(composite_window(simple_checkerboard, wx, 0))
+            .golden_fn(composite_window(&simple_checkerboard, wx, 0))
             .wx(wx)
             .enable_window()
             .run_and_assert_is_golden_fn(format!("simple_wx_{}", wx), &IDENTITY_TRANSFORM);
@@ -43,7 +43,7 @@ fn test_simple_wy() {
     for &wy in &[7, 8, 120] {
         ImageBuilder::new()
             .build_default_bg(Box::new(simple_checkerboard))
-            .golden_fn(composite_window(simple_checkerboard, 7, wy))
+            .golden_fn(composite_window(&simple_checkerboard, 7, wy))
             .wx(7)
             .wy(wy)
             .enable_window()

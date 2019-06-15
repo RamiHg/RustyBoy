@@ -7,8 +7,6 @@ use crate::test::*;
 use num_traits::FromPrimitive as _;
 use std::path::Path;
 
-trait SpriteFn = Fn(usize, usize, &mut Color, SpriteBuilder);
-
 fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     i /= 8;
     j /= 8;
@@ -36,13 +34,12 @@ fn composite_sprite(img_i: usize, img_j: usize, color: &mut Color, builder: Spri
 }
 
 fn composite_image(
-    image_fn: impl ImageFn,
-    sprite_fn: impl SpriteFn,
+    image_fn: &'static impl Fn(usize, usize) -> Color,
     builder: SpriteBuilder,
-) -> Box<impl ImageFn> {
+) -> ImageFn {
     Box::new(move |i, j| {
-        let mut color = image_fn(i, j);
-        sprite_fn(i, j, &mut color, builder);
+        let mut color = WHITE_BG_IMAGE(i, j);
+        composite_sprite(i, j, &mut color, builder);
         color
     })
 }
@@ -52,7 +49,7 @@ fn test_sprite_topleft() {
     let sprite = SpriteBuilder::with_pos(0, 0);
     ImageBuilder::new()
         .build_default_bg(Box::new(WHITE_BG_IMAGE))
-        .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+        .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
         .add_sprite(sprite)
         .enable_sprites()
         .run_and_assert_is_golden_fn("sprite_topleft", &IDENTITY_TRANSFORM);
@@ -64,7 +61,7 @@ fn test_sprite_horizontal_move() {
         let sprite = SpriteBuilder::with_pos(i, 0);
         ImageBuilder::new()
             .build_default_bg(Box::new(WHITE_BG_IMAGE))
-            .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+            .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
             .add_sprite(sprite)
             .enable_sprites()
             .run_and_assert_is_golden_fn(
@@ -80,7 +77,7 @@ fn test_sprite_vertical_move() {
         let sprite = SpriteBuilder::with_pos(0, j);
         ImageBuilder::new()
             .build_default_bg(Box::new(WHITE_BG_IMAGE))
-            .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+            .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
             .add_sprite(sprite)
             .enable_sprites()
             .run_and_assert_is_golden_fn(
@@ -97,7 +94,7 @@ fn test_sprite_move() {
             let sprite = SpriteBuilder::with_pos(i, j);
             ImageBuilder::new()
                 .build_default_bg(Box::new(WHITE_BG_IMAGE))
-                .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+                .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
                 .add_sprite(sprite)
                 .enable_sprites()
                 .run_and_assert_is_golden_fn(
@@ -114,11 +111,11 @@ fn test_sprite_xscroll() {
         let sprite = SpriteBuilder::with_pos(0, 0);
         ImageBuilder::new()
             .build_default_bg(Box::new(WHITE_BG_IMAGE))
-            .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+            .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
             .add_sprite(sprite)
             .enable_sprites()
             .xscroll(xscroll)
-            .run_and_assert_is_golden_fn(format!("sprite_xscroll{}", xscroll), |i, j| (i, j));
+            .run_and_assert_is_golden_fn(format!("sprite_xscroll{}", xscroll), &|i, j| (i, j));
     }
 }
 
@@ -128,11 +125,11 @@ fn test_sprite_yscroll() {
         let sprite = SpriteBuilder::with_pos(0, 0);
         ImageBuilder::new()
             .build_default_bg(Box::new(WHITE_BG_IMAGE))
-            .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+            .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
             .add_sprite(sprite)
             .enable_sprites()
             .yscroll(yscroll)
-            .run_and_assert_is_golden_fn(format!("sprite_yscroll_{}", yscroll), |i, j| (i, j));
+            .run_and_assert_is_golden_fn(format!("sprite_yscroll_{}", yscroll), &|i, j| (i, j));
     }
 }
 
@@ -145,7 +142,7 @@ fn test_sprite_move_and_scroll() {
                     let sprite = SpriteBuilder::with_pos(i, j);
                     ImageBuilder::new()
                         .build_default_bg(Box::new(WHITE_BG_IMAGE))
-                        .golden_fn(composite_image(&WHITE_BG_IMAGE, composite_sprite, sprite))
+                        .golden_fn(composite_image(&WHITE_BG_IMAGE, sprite))
                         .add_sprite(sprite)
                         .enable_sprites()
                         .xscroll(xscroll)
@@ -155,7 +152,7 @@ fn test_sprite_move_and_scroll() {
                                 "sprite_move_and_scroll_{}_{}_scrollx{}_scrolly{}",
                                 i, j, xscroll, yscroll
                             ),
-                            |i, j| (i, j),
+                            &|i, j| (i, j),
                         );
                 }
             }
@@ -235,4 +232,6 @@ fn test_sprite_overlapping_same_pixel_at(x: i32, y: i32) {
 }
 
 #[test]
-fn test_sprite_overlapping_same_pixel() { test_sprite_overlapping_same_pixel_at(0, 0); }
+fn test_sprite_overlapping_same_pixel() {
+    test_sprite_overlapping_same_pixel_at(0, 0);
+}

@@ -185,9 +185,15 @@ impl TestContext {
         self
     }
 
-    pub fn set_carry(self, is_set: bool) -> TestContext { self.set_flag(Flags::CARRY, is_set) }
-    pub fn set_zero(self, is_set: bool) -> TestContext { self.set_flag(Flags::ZERO, is_set) }
-    pub fn set_sub(self, is_set: bool) -> TestContext { self.set_flag(Flags::SUB, is_set) }
+    pub fn set_carry(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::CARRY, is_set)
+    }
+    pub fn set_zero(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::ZERO, is_set)
+    }
+    pub fn set_sub(self, is_set: bool) -> TestContext {
+        self.set_flag(Flags::SUB, is_set)
+    }
 
     pub fn setup_timer(self, freq: timer::TimerFrequency) -> TestContext {
         let mut ctrl = timer::TimerControl(0);
@@ -239,7 +245,9 @@ impl TestContext {
         self.execute_instructions_for_mcycles(instructions, -1)
     }
 
-    pub fn tick(&mut self) { self.system.execute_machine_cycle().unwrap(); }
+    pub fn tick(&mut self) {
+        self.system.execute_machine_cycle().unwrap();
+    }
 
     pub fn gpu_mode(&self) -> gpu::registers::LcdMode {
         gpu::registers::LcdStatus(

@@ -23,7 +23,9 @@ impl Dma {
         }
     }
 
-    pub fn is_active(&self) -> bool { self.byte_index > 0 && self.byte_index <= 160 }
+    pub fn is_active(&self) -> bool {
+        self.byte_index > 0 && self.byte_index <= 160
+    }
 
     pub fn execute_tcycle(self: Box<Self>, bus: &mmu::MemoryBus) -> (Box<Dma>, Option<DmaRequest>) {
         let mut next_state = Box::new(*self);

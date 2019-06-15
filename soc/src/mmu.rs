@@ -161,7 +161,9 @@ impl MemoryMapped for Memory {
 
 #[cfg(test)]
 impl Memory {
-    pub fn raw_read(&self, addr: i32) -> i32 { self.mem[addr as usize] as i32 }
+    pub fn raw_read(&self, addr: i32) -> i32 {
+        self.mem[addr as usize] as i32
+    }
 }
 
 impl Memory {

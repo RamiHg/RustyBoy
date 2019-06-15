@@ -46,9 +46,13 @@ pub struct Pixel {
 }
 
 impl Pixel {
-    pub fn zero() -> Pixel { Pixel { r: 0, g: 0, b: 0 } }
+    pub fn zero() -> Pixel {
+        Pixel { r: 0, g: 0, b: 0 }
+    }
 
-    pub fn from_values(r: u8, g: u8, b: u8) -> Pixel { Pixel { r, g, b } }
+    pub fn from_values(r: u8, g: u8, b: u8) -> Pixel {
+        Pixel { r, g, b }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -385,25 +389,39 @@ impl Gpu {
         }
     }
 
-    pub fn hack(&self) -> bool { self.state.fire_interrupt_oam_hack }
+    pub fn hack(&self) -> bool {
+        self.state.fire_interrupt_oam_hack
+    }
 
-    pub fn vram(&self, address: i32) -> u8 { self.vram.borrow()[(address - 0x8000) as usize] }
+    pub fn vram(&self, address: i32) -> u8 {
+        self.vram.borrow()[(address - 0x8000) as usize]
+    }
     fn set_vram(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
         self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
     }
-    pub fn oam(&self, address: i32) -> u8 { self.oam.borrow()[(address - 0xFE00) as usize] }
+    pub fn oam(&self, address: i32) -> u8 {
+        self.oam.borrow()[(address - 0xFE00) as usize]
+    }
     fn set_oam(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
         self.oam.borrow_mut()[(address - 0xFE00) as usize] = value as u8;
     }
 
-    pub fn at_vblank(&self) -> bool { self.state.counter == 4 && self.state.current_y == 144 }
+    pub fn at_vblank(&self) -> bool {
+        self.state.counter == 4 && self.state.current_y == 144
+    }
 
-    fn can_access_oam(&self) -> bool { !self.state.oam_lock }
-    fn can_access_vram(&self) -> bool { !self.state.vram_lock }
+    fn can_access_oam(&self) -> bool {
+        !self.state.oam_lock
+    }
+    fn can_access_vram(&self) -> bool {
+        !self.state.vram_lock
+    }
 
-    pub fn is_vsyncing(&self) -> bool { self.lcd_status().mode() == LcdMode::VBlank }
+    pub fn is_vsyncing(&self) -> bool {
+        self.lcd_status().mode() == LcdMode::VBlank
+    }
 
     pub fn execute_tcycle_tick(&mut self, t_state: TState, bus: &mut mmu::MemoryBus) {
         self.state.update_tick(t_state);
@@ -605,10 +623,18 @@ impl Gpu {
         SpriteEntry::from_slice(&self.oam.borrow()[sprite_index as usize * 4..])
     }
 
-    fn current_y(&self) -> i32 { self.state.current_y }
-    fn lcd_control(&self) -> &LcdControl { &self.state.lcd_control }
-    fn lcd_status(&self) -> LcdStatus { self.state.lcd_status }
-    fn pixels_pushed(&self) -> i32 { self.state.pixels_pushed }
+    fn current_y(&self) -> i32 {
+        self.state.current_y
+    }
+    fn lcd_control(&self) -> &LcdControl {
+        &self.state.lcd_control
+    }
+    fn lcd_status(&self) -> LcdStatus {
+        self.state.lcd_status
+    }
+    fn pixels_pushed(&self) -> i32 {
+        self.state.pixels_pushed
+    }
 }
 
 impl mmu::MemoryMapped for Gpu {
@@ -701,11 +727,23 @@ impl mmu::MemoryMapped for Gpu {
 
 #[cfg(test)]
 impl Gpu {
-    pub fn stat(&self) -> i32 { self.state.lcd_status.0 }
-    pub fn ctrl(&self) -> i32 { self.state.lcd_control.0 }
-    pub fn y(&self) -> i32 { self.state.external_y.0 }
-    pub fn lyc(&self) -> i32 { self.state.lyc.0 }
+    pub fn stat(&self) -> i32 {
+        self.state.lcd_status.0
+    }
+    pub fn ctrl(&self) -> i32 {
+        self.state.lcd_control.0
+    }
+    pub fn y(&self) -> i32 {
+        self.state.external_y.0
+    }
+    pub fn lyc(&self) -> i32 {
+        self.state.lyc.0
+    }
 
-    pub fn ctrl_mut(&mut self) -> &mut LcdControl { &mut self.state.lcd_control }
-    pub fn stat_mut(&mut self) -> &mut LcdStatus { &mut self.state.lcd_status }
+    pub fn ctrl_mut(&mut self) -> &mut LcdControl {
+        &mut self.state.lcd_control
+    }
+    pub fn stat_mut(&mut self) -> &mut LcdStatus {
+        &mut self.state.lcd_status
+    }
 }

@@ -1,15 +1,15 @@
 edition = "2018"
-version = "two"
-unstable_features = true
+#version = "two"
+#unstable_features = false
 
 max_width = 100
 tab_spaces = 4
 
-wrap_comments = true
-comment_width = 100
-format_strings = true
+# wrap_comments = true
+# comment_width = 100
+# format_strings = true
 
-report_todo = "Always"
-report_fixme = "Always"
+# report_todo = "Always"
+# report_fixme = "Always"
 
-fn_single_line = true
+# fn_single_line = true

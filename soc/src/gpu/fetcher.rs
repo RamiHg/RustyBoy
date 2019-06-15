@@ -23,7 +23,9 @@ pub enum Mode {
 }
 
 impl Default for Mode {
-    fn default() -> Mode { Mode::Invalid }
+    fn default() -> Mode {
+        Mode::Invalid
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -44,7 +46,9 @@ pub struct PixelFetcher {
 }
 
 impl PixelFetcher {
-    pub fn new() -> PixelFetcher { PixelFetcher::default() }
+    pub fn new() -> PixelFetcher {
+        PixelFetcher::default()
+    }
 
     pub fn start_new_scanline(gpu: &Gpu) -> PixelFetcher {
         PixelFetcher {
@@ -95,7 +99,9 @@ impl PixelFetcher {
         self.window_mode = true;
     }
 
-    pub fn has_data(&self) -> bool { self.mode == Mode::Ready }
+    pub fn has_data(&self) -> bool {
+        self.mode == Mode::Ready
+    }
 
     pub fn execute_tcycle(self, gpu: &Gpu) -> PixelFetcher {
         //    debug_assert_ne!(self.mode, Mode::Invalid);
@@ -213,8 +219,12 @@ impl PixelFetcher {
             PixelFetcher::tileset_1_address(tile_index)
         }
     }
-    fn tileset_0_address(tile_index: u8) -> i32 { 0x9000 + (tile_index as i8) as i32 * 16 }
-    fn tileset_1_address(tile_index: u8) -> i32 { 0x8000 + tile_index as i32 * 16 }
+    fn tileset_0_address(tile_index: u8) -> i32 {
+        0x9000 + (tile_index as i8) as i32 * 16
+    }
+    fn tileset_1_address(tile_index: u8) -> i32 {
+        0x8000 + tile_index as i32 * 16
+    }
 }
 
 fn expand_tile_bits(bits_u8: u8) -> u16 {

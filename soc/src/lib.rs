@@ -7,7 +7,6 @@
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::cast_lossless)]
 #![allow(clippy::new_without_default)]
-#![feature(trait_alias)]
 
 #[macro_use]
 mod io_registers;

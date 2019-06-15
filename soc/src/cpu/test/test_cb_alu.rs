@@ -2,7 +2,11 @@ use super::*;
 use crate::cpu::register::Register::*;
 
 fn cond_carry(cond: bool) -> Flags {
-    if cond { Flags::CARRY } else { Flags::empty() }
+    if cond {
+        Flags::CARRY
+    } else {
+        Flags::empty()
+    }
 }
 
 fn setup_op_with_isbit(

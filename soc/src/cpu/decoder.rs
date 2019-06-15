@@ -117,7 +117,9 @@ impl Decoder {
         }
     }
 
-    pub fn interrupt_handler(&self) -> Vec<MicroCode> { self.interrupt_opcodes.clone() }
+    pub fn interrupt_handler(&self) -> Vec<MicroCode> {
+        self.interrupt_opcodes.clone()
+    }
 }
 
 struct DecoderBuilder {

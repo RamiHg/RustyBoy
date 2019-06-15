@@ -5,7 +5,7 @@ use crate::test::*;
 
 use num_traits::FromPrimitive as _;
 
-fn simple_checkerboard() -> Box<impl ImageFn> {
+fn simple_checkerboard() -> ImageFn {
     Box::new(|mut i, mut j| {
         i /= 8;
         j /= 8;
@@ -26,7 +26,7 @@ fn simple_checkerboard() -> Box<impl ImageFn> {
 fn test_simple_checkerboard() {
     let system = ImageBuilder::new()
         .build_default_bg(simple_checkerboard())
-        .run_and_assert_is_golden_fn("simple_checkerboard", IDENTITY_TRANSFORM);
+        .run_and_assert_is_golden_fn("simple_checkerboard", &IDENTITY_TRANSFORM);
 }
 
 #[test]

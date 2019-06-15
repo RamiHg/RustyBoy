@@ -17,7 +17,9 @@ impl Display for Arg {
 }
 
 impl Display for Command {
-    fn fmt(&self, f: &mut Formatter) -> Result { write!(f, "{}", self.name) }
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{}", self.name)
+    }
 }
 
 impl Display for Op {

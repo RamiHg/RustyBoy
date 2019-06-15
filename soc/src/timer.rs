@@ -129,7 +129,9 @@ impl Timer {
     }
 
     #[cfg(test)]
-    pub fn set_control(&mut self, value: i32) { self.tac.0 = value; }
+    pub fn set_control(&mut self, value: i32) {
+        self.tac.0 = value;
+    }
 }
 
 impl mmu::MemoryMapped for Timer {

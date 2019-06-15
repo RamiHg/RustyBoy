@@ -12,11 +12,15 @@ use crate::system::System;
 use crate::test::image::*;
 use crate::test::*;
 
-pub trait ImageFn = Fn(usize, usize) -> Color;
-pub trait TransformFn = Fn(usize, usize) -> (usize, usize);
+pub type ImageFn = Box<Fn(usize, usize) -> Color>;
 
-pub const IDENTITY_TRANSFORM: &TransformFn = &|i, j| (i, j);
-pub const WHITE_BG_IMAGE: &ImageFn = &|i, j| Color::White;
+pub fn IDENTITY_TRANSFORM(i: usize, j: usize) -> (usize, usize) {
+    (i, j)
+}
+
+pub fn WHITE_BG_IMAGE(_: usize, _: usize) -> Color {
+    Color::White
+}
 
 pub struct ImageBuilder {
     tile_set: Vec<u8>,
@@ -29,7 +33,7 @@ pub struct ImageBuilder {
     sprites_enabled: bool,
     window_enabled: bool,
 
-    golden_fn: Option<Box<dyn ImageFn>>,
+    golden_fn: Option<ImageFn>,
 }
 
 impl ImageBuilder {
@@ -137,7 +141,7 @@ impl ImageBuilder {
 
     /// Image setup controls.
 
-    pub fn build_default_bg(mut self, image_fn: Box<dyn ImageFn>) -> ImageBuilder {
+    pub fn build_default_bg(mut self, image_fn: ImageFn) -> ImageBuilder {
         self = self
             .color_tile_solid(0, 1, Color::LightGray)
             .color_tile_solid(0, 2, Color::DarkGray)
@@ -152,7 +156,7 @@ impl ImageBuilder {
         self
     }
 
-    pub fn golden_fn(mut self, image_fn: Box<dyn ImageFn>) -> ImageBuilder {
+    pub fn golden_fn(mut self, image_fn: ImageFn) -> ImageBuilder {
         self.golden_fn = Some(Box::new(image_fn));
         self
     }
@@ -162,7 +166,7 @@ impl ImageBuilder {
     pub fn run_and_assert_is_golden_fn(
         self,
         title: impl AsRef<str>,
-        transform_fn: impl TransformFn,
+        transform_fn: &impl Fn(usize, usize) -> (usize, usize),
     ) {
         let golden = build_golden(self.golden_fn.as_ref().unwrap(), transform_fn);
         let system = self.as_test().wait_for_vsync().wait_for_vsync().system;
@@ -196,10 +200,11 @@ impl ImageBuilder {
     ) -> ImageBuilder {
         let base = if tile_set == 0 { 0x1000 } else { 0 };
         let (low, high) = color_to_row(color);
-        let row_bitmask = row_mask
-            .iter()
-            .enumerate()
-            .fold(0, |acc, (i, &x)| if x { acc | (0x80 >> i) } else { acc });
+        let row_bitmask =
+            row_mask
+                .iter()
+                .enumerate()
+                .fold(0, |acc, (i, &x)| if x { acc | (0x80 >> i) } else { acc });
         let (low_masked, high_masked) = (low & row_bitmask, high & row_bitmask);
         for i in 0..1 {
             self.tile_set[base + tile_index * 16 + i * 2 + 0] = low_masked;
@@ -225,9 +230,13 @@ impl SpriteBuilder {
         }
     }
 
-    pub fn with_pos(x: i32, y: i32) -> SpriteBuilder { SpriteBuilder::new().pos(x, y) }
+    pub fn with_pos(x: i32, y: i32) -> SpriteBuilder {
+        SpriteBuilder::new().pos(x, y)
+    }
 
-    pub fn get(self) -> SpriteEntry { self.sprite }
+    pub fn get(self) -> SpriteEntry {
+        self.sprite
+    }
 
     pub fn pos(mut self, x: i32, y: i32) -> SpriteBuilder {
         self.sprite.set_pos_x(x as u8 + 8);
@@ -251,7 +260,10 @@ impl SpriteBuilder {
 }
 
 /// Creates a golden image from a base BG fn, and a transformer fn.
-pub fn build_golden(image_fn: impl ImageFn, transform_fn: impl TransformFn) -> Vec<gpu::Pixel> {
+pub fn build_golden(
+    image_fn: &ImageFn,
+    transform_fn: &impl Fn(usize, usize) -> (usize, usize),
+) -> Vec<gpu::Pixel> {
     use gpu::{Pixel, LCD_HEIGHT, LCD_WIDTH};
 
     let mut result = Vec::with_capacity(LCD_WIDTH * LCD_HEIGHT);

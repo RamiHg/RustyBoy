@@ -57,8 +57,12 @@ impl Cart {
         }
     }
 
-    fn mem(&self, addr: i32) -> i32 { self.mem[addr as usize] as i32 }
-    fn ram(&self, addr: i32) -> i32 { self.ram[addr as usize] as i32 }
+    fn mem(&self, addr: i32) -> i32 {
+        self.mem[addr as usize] as i32
+    }
+    fn ram(&self, addr: i32) -> i32 {
+        self.ram[addr as usize] as i32
+    }
 
     fn banks(&self) -> (i32, i32) {
         if self.is_ram_banking_mode {

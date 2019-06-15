@@ -8,3 +8,5 @@ failed_tests/
 succeeded_tests/
 test_golden/
 dumps/
+wilbert_golden/
+serialized.json

@@ -21,7 +21,9 @@ pub enum DecodeMode {
 }
 
 impl Default for DecodeMode {
-    fn default() -> Self { DecodeMode::Fetch }
+    fn default() -> Self {
+        DecodeMode::Fetch
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -41,9 +43,13 @@ pub struct State {
 pub struct TState(i32);
 
 impl TState {
-    pub fn get(&self) -> i32 { self.0 + 1 }
+    pub fn get(&self) -> i32 {
+        self.0 + 1
+    }
 
-    pub fn inc(&mut self) { self.0 = (self.0 + 1) & 0x3; }
+    pub fn inc(&mut self) {
+        self.0 = (self.0 + 1) & 0x3;
+    }
 }
 
 #[derive(Serialize, Deserialize)]

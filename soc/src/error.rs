@@ -7,7 +7,9 @@ pub enum Type {
 pub type Result<T> = core::result::Result<T, Type>;
 
 impl fmt::Debug for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { <Type as fmt::Display>::fmt(self, f) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        <Type as fmt::Display>::fmt(self, f)
+    }
 }
 
 impl fmt::Display for Type {

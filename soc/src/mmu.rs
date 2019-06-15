@@ -37,16 +37,16 @@ impl Address {
         debug_assert!(util::is_16bit(raw));
         use Location::*;
         match raw {
-            0x0000...0x7FFF => Ok(Address(MbcRom, raw)),
-            0x8000...0x9FFF => Ok(Address(VRam, raw)),
-            0xA000...0xBFFF => Ok(Address(MbcRam, raw)),
-            0xC000...0xDFFF => Ok(Address(InternalRam, raw)),
-            0xE000...0xFDFF => Ok(Address(InternalRam, raw - 0x2000)),
-            0xFE00...0xFE9F => Ok(Address(OAM, raw)),
-            0xFEA0...0xFEFF => Ok(Address(UnusedOAM, raw)),
-            (0xFF00...0xFF4B) | 0xFFFF => Ok(Address(Registers, raw)),
-            0xFF4C...0xFF7F => Ok(Address(UnknownRegisters, raw)),
-            0xFF80...0xFFFE => Ok(Address(HighRam, raw)),
+            0x0000..=0x7FFF => Ok(Address(MbcRom, raw)),
+            0x8000..=0x9FFF => Ok(Address(VRam, raw)),
+            0xA000..=0xBFFF => Ok(Address(MbcRam, raw)),
+            0xC000..=0xDFFF => Ok(Address(InternalRam, raw)),
+            0xE000..=0xFDFF => Ok(Address(InternalRam, raw - 0x2000)),
+            0xFE00..=0xFE9F => Ok(Address(OAM, raw)),
+            0xFEA0..=0xFEFF => Ok(Address(UnusedOAM, raw)),
+            (0xFF00..=0xFF4B) | 0xFFFF => Ok(Address(Registers, raw)),
+            0xFF4C..=0xFF7F => Ok(Address(UnknownRegisters, raw)),
+            0xFF80..=0xFFFE => Ok(Address(HighRam, raw)),
             _ => Err(error::Type::InvalidOperation(format!(
                 "Address {:X?} is invalid.",
                 raw

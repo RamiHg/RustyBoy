@@ -31,7 +31,7 @@ impl Op {
                 _ => panic!(),
             },
         };
-        let (lhs, rhs) = if let 0...3 = value {
+        let (lhs, rhs) = if let 0..=3 = value {
             (Some(Arg::from_reg("A")), Some(arg))
         } else {
             (Some(arg), None)

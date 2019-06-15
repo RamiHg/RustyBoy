@@ -95,7 +95,7 @@ impl System {
     pub fn restore_from_deserialize(&mut self) {
         self.screen = vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
     }
-    pub fn set_cart(&mut self, cart: Box<mmu::MemoryMapped>) { self.cart = Some(cart); }
+    pub fn set_cart(&mut self, cart: Box<dyn mmu::MemoryMapped>) { self.cart = Some(cart); }
 
     pub fn gpu(&self) -> &gpu::Gpu { &self.gpu }
     pub fn get_screen(&self) -> &[Pixel] { &self.screen }

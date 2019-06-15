@@ -166,7 +166,7 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
             },
             // z = 4
             4 => match components.y {
-                0...3 => Ok(Op::new_sized("CALL", 3)
+                0..=3 => Ok(Op::new_sized("CALL", 3)
                     .with_lhs(Arg::from_cond(components.y))
                     .with_rhs(imm_16)),
                 _ => invalid_opcode_error,

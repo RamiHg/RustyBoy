@@ -300,19 +300,19 @@ impl InternalState {
         if self.current_y == 0 {
             // This is useless.
             match self.counter {
-                0...3 => 0,
+                0..=3 => 0,
                 _ => self.external_y.0,
             }
         } else if self.current_y == 153 {
             match self.counter {
-                0...3 => 256, // Impossible.
-                4...7 => 153,
-                8...11 => 256, // Impossible.
+                0..=3 => 256, // Impossible.
+                4..=7 => 153,
+                8..=11 => 256, // Impossible.
                 _ => 0,
             }
         } else {
             match self.counter {
-                0...3 => 256, // Impossible.
+                0..=3 => 256, // Impossible.
                 _ => self.current_y,
             }
         }

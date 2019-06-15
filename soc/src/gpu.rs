@@ -9,6 +9,7 @@ mod fifo;
 pub mod options;
 pub mod registers;
 mod sprites;
+mod state_machine;
 
 #[cfg(test)]
 mod test;
@@ -55,7 +56,7 @@ impl Pixel {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 enum DrawingMode {
     /// Regular drawing mode. I.e., just drawing background.
     Bg,
@@ -152,16 +153,7 @@ impl InternalState {
     }
 
     pub fn update_tick(&mut self, t_state: TState) {
-        self.counter += 1;
-
-        if self.counter == self.options.num_tcycles_in_line {
-            self.counter = 0;
-            self.current_y += 1;
-            if self.current_y == 154 {
-                self.current_y = 0;
-                self.is_first_frame = false;
-            }
-        }
+        self.tick();
 
         if !self.lcd_control.enable_display() {
             return;
@@ -176,10 +168,6 @@ impl InternalState {
 
         if self.entered_oam {
             debug_assert_eq!(t_state, TState::T1);
-        }
-
-        if self.counter == 0 {
-            self.hblank_delay_tcycles = self.options.num_hblank_delay_tcycles;
         }
 
         if self.counter == 0 {
@@ -202,34 +190,10 @@ impl InternalState {
         // Update interrupts.
         self.update_interrupts(t_state);
 
-        // if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 {
-        //     self.mode = LcdMode::VBlank;
-        // } else if self.hblank_delay_tcycles < self.options.num_hblank_delay_tcycles {
-        //     self.mode = LcdMode::HBlank;
-        // } else if self.counter == 0 {
-        //     // Initial mcycle is always HBlank.
-        //     self.mode = LcdMode::HBlank;
-        // } else if self.counter == 4 {
-        //     if !self.is_first_frame || self.current_y != 0 {
-        //         self.mode = LcdMode::ReadingOAM;
-        //     }
-        // } else if self.counter == self.options.transfer_mode_start_tcycle {
-        //     self.mode = LcdMode::TransferringToLcd;
-        // }
+        self.update_mode();
+
         if self.counter == 0 {
-            self.mode = LcdMode::HBlank;
-        }
-        if self.counter == 4 && (!self.is_first_frame || self.current_y != 0) {
-            self.mode = LcdMode::ReadingOAM;
-        }
-        if self.counter == 84 {
-            self.mode = LcdMode::TransferringToLcd;
-        }
-        if self.counter > 84 && self.pixels_pushed == 160 {
-            self.mode = LcdMode::HBlank;
-        }
-        if (self.current_y == 144 && self.counter >= 4) || self.current_y >= 145 {
-            self.mode = LcdMode::VBlank;
+            self.hblank_delay_tcycles = self.options.num_hblank_delay_tcycles;
         }
     }
 
@@ -439,14 +403,12 @@ impl Gpu {
         }
 
         self.state.update_tock(t_state, bus);
-        if self.state.counter == 80 {
+
+        if self.state.counter == 82 {
             self.start_new_scanline();
         }
 
-        if self.state.counter >= 82 //self.options.transfer_start_tcycle
-            && self.state.hblank_delay_tcycles > 7
-        //&& self.state.mode == LcdMode::TransferringToLcd
-        {
+        if self.state.counter >= 82 && self.state.pixels_pushed < 160 {
             self.lcd_transfer_cycle(screen);
         }
 
@@ -462,9 +424,10 @@ impl Gpu {
     fn start_new_scanline(&mut self) {
         self.state.pixels_pushed = 0;
 
-        if self.fetcher.window_mode {
-            // debug_assert_gt!(self.current_y(), 0);
-            self.window_ycount += 1;
+        if self.current_y() == 0 {
+            self.window_ycount = 0;
+        } else if self.fetcher.window_mode {
+            self.window_ycount = (self.window_ycount + 1) & 0xFF;
         }
 
         self.fetcher = PixelFetcher::start_new_scanline(&self);
@@ -484,13 +447,20 @@ impl Gpu {
     }
 
     fn lcd_transfer_cycle(&mut self, screen: &mut [Pixel]) {
+        // debug_assert!(
+        //     self.state.mode == LcdMode::TransferringToLcd || self.state.mode == LcdMode::ReadingOAM,
+        //     "State is {:?}. Pushed {} pixels.",
+        //     self.state.mode,
+        //     self.state.pixels_pushed,
+        // );
+
         self.fetcher = self.fetcher.execute_tcycle(&self);
+
+        // Handle window.
+        self.handle_window();
 
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
         self.handle_sprites();
-
-        // // Handle window.
-        self.handle_window();
 
         if self.fifo.has_room() && self.fetcher.has_data() {
             let row = self.fetcher.get_row();
@@ -505,7 +475,6 @@ impl Gpu {
                 let entry = self.fifo.peek();
                 if (entry.is_sprite() || self.lcd_control().enable_bg())
                     && self.current_y() < LCD_HEIGHT as i32
-                //&& !self.state.is_first_frame
                 {
                     debug_assert_ge!(self.state.hblank_delay_tcycles, 7);
                     debug_assert_lt!(self.current_y(), LCD_HEIGHT as i32);
@@ -529,6 +498,7 @@ impl Gpu {
             && self.fifo.is_good_pixel()
             && !self.fetcher.window_mode
         {
+            debug_assert_eq!(self.drawing_mode, DrawingMode::Bg);
             // Triggered window! Switch to window mode until the end of the line.
             self.fifo.clear();
             self.fetcher.start_window_mode();
@@ -576,6 +546,7 @@ impl Gpu {
                 debug_assert!(!self.fetched_sprites[sprite_array_index]);
                 // Check if the fetcher is ready.
                 if self.fetcher.has_data() {
+                    debug_assert!(self.fifo.enough_for_sprite());
                     // If so, composite the sprite pixels ontop of the pixels currently in the fifo.
                     let sprite = self.get_sprite(sprite_index);
                     let row = FifoEntry::from_sprite_row(

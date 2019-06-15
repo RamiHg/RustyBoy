@@ -408,8 +408,11 @@ impl Gpu {
             self.start_new_scanline();
         }
 
-        if self.state.counter >= 82 && self.state.pixels_pushed < 160 {
-            self.lcd_transfer_cycle(screen);
+        if let LcdMode::ReadingOAM | LcdMode::TransferringToLcd = self.state.mode {
+            debug_assert!(self.state.mode == LcdMode::TransferringToLcd || self.state.counter < 84);
+            if self.state.counter >= 82 && self.state.pixels_pushed < 160 {
+                self.lcd_transfer_cycle(screen);
+            }
         }
 
         self.state.update_tock_after_render(bus);
@@ -447,13 +450,6 @@ impl Gpu {
     }
 
     fn lcd_transfer_cycle(&mut self, screen: &mut [Pixel]) {
-        // debug_assert!(
-        //     self.state.mode == LcdMode::TransferringToLcd || self.state.mode == LcdMode::ReadingOAM,
-        //     "State is {:?}. Pushed {} pixels.",
-        //     self.state.mode,
-        //     self.state.pixels_pushed,
-        // );
-
         self.fetcher = self.fetcher.execute_tcycle(&self);
 
         // Handle window.

@@ -41,7 +41,7 @@ impl Cart {
 
     fn translate_ram_addr(&self, raw_address: i32, ram_bank: i32) -> i32 {
         debug_assert_lt!(ram_bank, 4);
-        ram_bank * super::RAM_BANK_SIZE + (raw_address - 0xA0000)
+        ram_bank * super::RAM_BANK_SIZE + (raw_address - 0xA000)
     }
 
     fn translate_read(&self, raw_address: i32) -> Option<i32> {
@@ -93,8 +93,9 @@ impl mmu::MemoryMapped for Cart {
             }
             // RAM Enable.
             0x0000..=0x1FFF => {
-                debug_assert_gt!(self.ram.len(), 0);
-                self.enable_ram = (value & 0x0F) == 0x0A;
+                if !self.ram.is_empty() {
+                    self.enable_ram = (value & 0x0F) == 0x0A;
+                }
                 Some(())
             }
             // ROM Bank (lower bits).

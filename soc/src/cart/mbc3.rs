@@ -9,25 +9,41 @@ pub struct Cart {
     enable_ram: bool,
     rom_bank: i32,
     ram_bank: i32,
+
+    num_ram_banks: i32,
+    num_rom_banks: i32,
 }
 
 impl Cart {
     pub fn from_mem(mem: Vec<u8>, ram_size: usize) -> Cart {
+        debug_assert_gt!(ram_size, 0);
+        let rom_size = mem.len() as i32;
         Cart {
             mem,
             ram: vec![0; ram_size],
             enable_ram: false,
             rom_bank: 1,
             ram_bank: 0,
+
+            num_ram_banks: ram_size as i32 / cart::RAM_BANK_SIZE,
+            num_rom_banks: rom_size / cart::ROM_BANK_SIZE,
         }
     }
 
     fn translate_rom_bank_read(&self, raw_address: i32) -> i32 {
-        self.mem(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000))
+        if self.rom_bank < self.num_rom_banks {
+            self.mem(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000))
+        } else {
+            0xFF
+        }
     }
 
     fn translate_ram_bank_read(&self, raw_address: i32) -> i32 {
-        self.ram(self.ram_bank * cart::RAM_BANK_SIZE + (raw_address - 0xA000))
+        if self.ram_bank < self.num_ram_banks {
+            self.ram(self.ram_bank * cart::RAM_BANK_SIZE + (raw_address - 0xA000))
+        } else {
+            0xFF
+        }
     }
 
     fn translate_read(&self, raw_address: i32) -> Option<i32> {
@@ -65,8 +81,7 @@ impl mmu::MemoryMapped for Cart {
         match raw_address {
             // RAM.
             0xA000..=0xBFFF => {
-                if self.enable_ram {
-                    debug_assert_lt!(self.ram_bank, 8);
+                if self.enable_ram && self.ram_bank < self.num_ram_banks {
                     let addr = self.ram_bank * cart::RAM_BANK_SIZE + (raw_address - 0xA000);
                     self.ram[addr as usize] = value as u8;
                 }

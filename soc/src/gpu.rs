@@ -456,7 +456,9 @@ impl Gpu {
         self.handle_window();
 
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
-        self.handle_sprites();
+        if self.lcd_control().enable_sprites() {
+            self.handle_sprites();
+        }
 
         if self.fifo.has_room() && self.fetcher.has_data() {
             let row = self.fetcher.get_row();

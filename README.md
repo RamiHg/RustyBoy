@@ -39,5 +39,5 @@ Of course, passing unit tests is all fine and dandy. The real fun is being able 
 ROMs (and video games). oh.gb and pocket.gb run almost flawlessly. Here is a montage of my favorite
 parts:
 
-<image src="docs/rustyboy.gif" />
+<image src="docs/rustyboy.gif" class="center" />
 

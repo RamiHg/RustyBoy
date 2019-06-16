@@ -17,8 +17,8 @@ RustyBoy currently only supports MBC1 and MBC3 cartidges.
 ## Implementation
 
 RustyBoy's CPU is based on a microcode specification that is completely written in a Google Sheets
-document(instructions.csv)! The document describes the microcode-level process for each instruction
-at each T-cycle.
+document ([instructions.csv](soc/instructions.csv))! The document describes the microcode-level
+process for each instruction at each T-cycle.
 
 The microcode csv is then read by the [asm compiler](soc/src/cpu/asm), which verifies and compiles
 compiles the instructions into microcode. This microcode is what is actually used **both** by the

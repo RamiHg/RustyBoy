@@ -1,23 +1,32 @@
 # RustyBoy
 
-RustyBoy is a Gameboy emulator written in Rust for the sole purpose of serving as a verification tool in the development of a complete Gameboy system in an FPGA.
+RustyBoy is a cycle-accurate Gameboy emulator. It is designed to be a design guide and verification
+tool in the development of a complete Gameboy system in an FPGA.
 
-As such, you will notice that the emulator is designed in a way that tries to mimick the environment of FPGA development. It also helps me flesh out and verify implementation ideas before designing in FPGA-land.
+The emulator is designed to mimick the environment of FPGA development. It's not written for speed
+or efficiency. It barely runs 2x speed with full optimizations.
 
 ## Implementation
 
-RustyBoy's CPU is based on a microcode specification (instructions.csv) that is completely written in a Google Sheets document! The document describes the microcode-level process for each instruction at each T and M cycle.
+RustyBoy's CPU is based on a microcode specification that is completely written in a Google Sheets
+document(instructions.csv)! The document describes the microcode-level process for each instruction
+at each T-cycle.
 
-The microcode csv is then read by src/cpu/asm, which loads, verifies, and compiles the instructions into microcode. This microcode is what is actually used **both** by the Rust emulator, **and** the FPGA CPU.
+The microcode csv is then read by the [asm compiler](soc/src/cpu/asm), which verifies and compiles
+compiles the instructions into microcode. This microcode is what is actually used **both** by the
+Rust emulator, **and** the FPGA CPU.
 
-This has the interesting side-effect that the CPU control unit (control_unit.rs) is relatively simple - almost 260 lines. Most of the heavy lifting is already done!
+This has the interesting side-effect that the CPU control unit (control_unit.rs) is relatively
+simple - almost 260 lines. Most of the heavy lifting is in the data!
 
 ## Status
 
-The CPU is fully implemented. It passes Blargh's instruction and timing tests.
+At this point, I consider the emulator to be feature-complete. It's (almost) perfectly cycle
+accurate; at least in the areas that I care about.
 
-<img src="docs/instr_pass.png" width="568px" height="451px" />
+It passes all Blargh, all (but one) MooneyeGB, and almost all Wilbert Pol tests. See the [complete
+test status](docs/test_details.md) for a more detailed list of all passing/failing tests.
 
-I am currently working on getting the emulator to pass all of mooneye-gb's acceptance tests.
+Of course, passing unit tests is all fine and dandy. The real fun is being able to run demo-scene
+ROMs (and video games). oh.gb and pocket.gb run almost flawlessly.
 
-The GPU is still in progress (background drawing is complete).

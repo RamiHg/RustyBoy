@@ -118,6 +118,7 @@ struct InternalState {
     fire_interrupt_oam_hack: bool,
     // Misc.
     pub is_first_frame: bool,
+    /// Based on Metroboy's design. Although this doesn't to be an int.
     pub hblank_delay_tcycles: i32,
 
     options: Options,

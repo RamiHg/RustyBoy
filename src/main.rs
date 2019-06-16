@@ -31,6 +31,9 @@ struct Opt {
 
     #[structopt(long)]
     little: bool,
+
+    #[structopt(long)]
+    fixed_window: bool,
 }
 
 // Helpful links:
@@ -77,7 +80,7 @@ fn main() -> error::Result<()> {
     .unwrap();
 
     // Set up the window.
-    let mut window = Window::init();
+    let mut window = Window::init(args.fixed_window);
 
     // Load the gameboy cart.
     let cart = cart::from_file(args.cart_path.to_str().unwrap());

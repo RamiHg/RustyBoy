@@ -113,9 +113,16 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn init() -> Window {
+    pub fn init(fixed_window: bool) -> Window {
         let events_loop = glutin::EventsLoop::new();
-        let window = glutin::WindowBuilder::new();
+        let mut window = glutin::WindowBuilder::new();
+
+        if fixed_window {
+            window = window.with_dimensions(glutin::dpi::LogicalSize::new(
+                gpu::LCD_WIDTH as f64 * 2.0,
+                gpu::LCD_HEIGHT as f64 * 2.0,
+            ));
+        }
 
         let context = glutin::ContextBuilder::new()
             .with_vsync(true)
@@ -125,7 +132,6 @@ impl Window {
             .unwrap();
 
         let context = unsafe { context.make_current().unwrap() };
-
         gl::load_with(|s| context.get_proc_address(s) as *const _);
 
         // Create a dummy VAO.
@@ -199,11 +205,13 @@ impl Window {
     pub fn get_events(&mut self) -> Vec<glutin::WindowEvent> {
         let mut events = Vec::new();
         self.events_loop.poll_events(|event| {
+            use glutin::WindowEvent;
             if let glutin::Event::WindowEvent { event, .. } = event {
-                if let glutin::WindowEvent::CloseRequested
-                | glutin::WindowEvent::KeyboardInput { .. } = event
-                {
-                    events.push(event);
+                match event {
+                    WindowEvent::CloseRequested | WindowEvent::KeyboardInput { .. } => {
+                        events.push(event)
+                    }
+                    _ => (),
                 }
             }
         });

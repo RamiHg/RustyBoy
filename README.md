@@ -6,6 +6,14 @@ tool in the development of a complete Gameboy system in an FPGA.
 The emulator is designed to mimick the environment of FPGA development. It's not written for speed
 or efficiency. It barely runs 2x speed with full optimizations.
 
+## Usage
+
+```bash
+cargo run --release -- path_to_rom.gb
+```
+
+RustyBoy currently only supports MBC1 and MBC3 cartidges.
+
 ## Implementation
 
 RustyBoy's CPU is based on a microcode specification that is completely written in a Google Sheets
@@ -28,5 +36,8 @@ It passes all Blargh, all (but one) MooneyeGB, and almost all Wilbert Pol tests.
 test status](docs/test_details.md) for a more detailed list of all passing/failing tests.
 
 Of course, passing unit tests is all fine and dandy. The real fun is being able to run demo-scene
-ROMs (and video games). oh.gb and pocket.gb run almost flawlessly.
+ROMs (and video games). oh.gb and pocket.gb run almost flawlessly. Here is a montage of my favorite
+parts:
+
+<image src="docs/rustyboy.gif" />
 

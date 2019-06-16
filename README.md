@@ -41,3 +41,8 @@ parts:
 
 <image src="docs/rustyboy.gif" class="center" />
 
+
+## License
+
+RustyBoy is currently released as GPLv3 because I see no reason why anyone would want to use this
+source code. If you'd like a more permissive license, email me!

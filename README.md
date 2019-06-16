@@ -4,7 +4,7 @@ RustyBoy is a cycle-accurate Gameboy emulator. It is designed to be a design gui
 tool in the development of a complete Gameboy system in an FPGA.
 
 The emulator is designed to mimick the environment of FPGA development. It's not written for speed
-or efficiency. It barely runs 2x speed with full optimizations.
+or efficiency; it barely runs at 2x speed even with full optimizations!
 
 ## Usage
 
@@ -24,8 +24,8 @@ The microcode csv is then read by the [asm compiler](soc/src/cpu/asm), which ver
 compiles the instructions into microcode. This microcode is what is actually used **both** by the
 Rust emulator, **and** the FPGA CPU.
 
-This has the interesting side-effect that the CPU control unit (control_unit.rs) is relatively
-simple - almost 260 lines. Most of the heavy lifting is in the data!
+This has the interesting side-effect that the [CPU control unit](soc/src/cpu/control_unit.rs) is
+relatively simple - almost 260 lines. Most of the heavy lifting is in the data!
 
 ## Status
 
@@ -46,5 +46,5 @@ parts:
 
 ## License
 
-RustyBoy is currently released as GPLv3 because I see no reason why anyone would want to use this
-source code. If you'd like a more permissive license, email me!
+RustyBoy is currently released as GPLv3, because I see no reason why anyone would derive from it.
+If you'd like a more permissive license, email me!

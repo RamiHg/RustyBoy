@@ -32,8 +32,7 @@ Most demoscene and video game ROMs that fully utilize the GPU rely on behavior t
 the T (no pun intended). Having a perfectly accurate CPU without an equally accurate GPU is like
 installing a race car engine in the body of a Lada - it's just not going to look very impressive.
 
-Unfortunately, most GPU behavior is undocumented. There are even slight edge-case differences between different revisions of the same model. That's what made it the most challenging (and frustrating) part of
-this project.
+Unfortunately, most GPU behavior is undocumented. There are even slight edge-case differences between different revisions of the same model.
 
 But due to recent [heroic efforts](https://www.youtube.com/watch?v=HyzD8pNlpwI) by researchers, I
 was able to put together [something](soc/src/gpu.rs) that is fairly accurate. Watching that video

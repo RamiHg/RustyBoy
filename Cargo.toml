@@ -6,7 +6,7 @@ members = [
 
 [package]
 name = "rusty_boy"
-version = "1.0"
+version = "1.0.0"
 authors = ["Ramy"]
 edition = "2018"
 

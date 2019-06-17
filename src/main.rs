@@ -2,11 +2,11 @@
 #![deny(clippy::all)]
 
 #[macro_use]
-mod graphics;
+mod window;
 
 use structopt::StructOpt;
 
-use graphics::*;
+use window::*;
 
 use soc::cart;
 use soc::error;
@@ -30,9 +30,6 @@ struct Opt {
     serialize_path: std::path::PathBuf,
 
     #[structopt(long)]
-    little: bool,
-
-    #[structopt(long)]
     fixed_window: bool,
 }
 
@@ -43,8 +40,6 @@ struct Opt {
 // https://www.youtube.com/watch?v=GBYwjch6oEE
 // PPU tests: https://github.com/mattcurrie/mealybug-tearoom-tests
 // PPU additions to mooneye tests: https://github.com/wilbertpol/mooneye-gb/tree/master/tests
-
-/// Helpful macro to run a GL command and make sure no errors are generated.
 
 fn key_map(key: glutin::VirtualKeyCode) -> Option<joypad::Key> {
     use joypad::Key;
@@ -68,7 +63,6 @@ fn key_map(key: glutin::VirtualKeyCode) -> Option<joypad::Key> {
 
 fn main() -> error::Result<()> {
     let args = Opt::from_args();
-    let little = args.little;
 
     log::setup_logging(log::LogSettings {
         interrupts: false,
@@ -89,19 +83,9 @@ fn main() -> error::Result<()> {
 
     loop {
         //let now = std::time::Instant::now();
-        if little {
-            while !system.is_vsyncing() {
-                system.execute_machine_cycle()?;
-            }
-            for _ in 0..37000 {
-                system.execute_machine_cycle()?;
-            }
-        } else {
-            while !system.is_vsyncing() {
-                system.execute_machine_cycle()?;
-            }
+        while !system.is_vsyncing() {
+            system.execute_machine_cycle()?;
         }
-
         //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
         // Update the screen.
         window.update_screen(system.get_screen());
@@ -152,9 +136,6 @@ fn main() -> error::Result<()> {
             system.execute_machine_cycle()?;
         }
         window.swap_buffers();
-        if little {
-            break;
-        }
     }
 
     Ok(())

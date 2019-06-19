@@ -126,7 +126,7 @@ impl MemoryMapped for Memory {
                 None
             }
             InternalRam | Registers | HighRam => Some(self.mem[raw as usize].into()),
-            UnusedOAM => panic!(),
+            UnusedOAM => Some(0),
             UnknownRegisters => Some(0xFF),
             _ => None,
         }
@@ -141,13 +141,6 @@ impl MemoryMapped for Memory {
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }
-            // Registers
-            //     if raw == io_registers::Addresses::LcdControl
-            //         || raw == io_registers::Addresses::LcdStatus
-            //         || raw == io_registers::Addresses::LcdY =>
-            // {
-            //     None
-            // }
             InternalRam | Registers | HighRam => {
                 self.mem[raw as usize] = value as u8;
                 Some(())

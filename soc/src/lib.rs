@@ -12,6 +12,7 @@
 mod io_registers;
 
 // TODO: Fix the public API. Don't expose so many internals.
+pub mod apu;
 pub mod cart;
 pub mod error;
 pub mod gpu;

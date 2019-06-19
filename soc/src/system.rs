@@ -5,7 +5,7 @@ use crate::io_registers;
 use crate::io_registers::Register as _;
 use crate::joypad;
 use crate::mmu;
-use crate::{dma, serial, timer, util};
+use crate::{apu, dma, serial, timer, util};
 
 use error::Result;
 use gpu::Pixel;
@@ -50,10 +50,11 @@ pub struct System {
     gpu: gpu::Gpu,
 
     memory: mmu::Memory,
-    timer: Box<timer::Timer>,
+    timer: timer::Timer,
     serial: serial::Controller,
-    dma: Box<dma::Dma>,
+    dma: dma::Dma,
     joypad: joypad::Joypad,
+    apu: apu::Apu,
 
     #[serde(skip)]
     screen: Vec<Pixel>,
@@ -82,10 +83,11 @@ impl System {
             cpu,
             gpu,
             memory: mmu::Memory::new(),
-            timer: Box::new(timer::Timer::new()),
+            timer: timer::Timer::new(),
             serial: serial::Controller::new(),
-            dma: Box::new(dma::Dma::new()),
+            dma: dma::Dma::new(),
             joypad: joypad::Joypad::new(),
+            apu: apu::Apu::new(),
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
@@ -112,12 +114,13 @@ impl System {
 
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules = [
-            self.timer.as_ref(),
+            &self.timer,
             self.cart.as_ref().unwrap().as_ref(),
             &self.serial,
             &self.gpu,
-            self.dma.as_ref(),
+            &self.dma,
             &self.joypad,
+            &self.apu,
             &self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -134,12 +137,13 @@ impl System {
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
         let mut modules = [
-            self.timer.as_mut(),
+            &mut self.timer,
             self.cart.as_mut().unwrap().as_mut(),
             &mut self.serial,
             &mut self.gpu,
-            self.dma.as_mut(),
+            &mut self.dma,
             &mut self.joypad,
+            &mut self.apu,
             &mut self.memory,
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -211,19 +215,20 @@ impl System {
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
+        let is_dma =
+            self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
         mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
-            read_latch: self.cpu.state.read_latch,
-            write_latch: self.cpu.state.write_latch,
+            read_latch: self.cpu.state.read_latch && !is_dma,
+            write_latch: self.cpu.state.write_latch && !is_dma,
             t_state: self.cpu.t_state.get(),
         }
     }
 
     fn handle_dma(&mut self) -> Result<()> {
         let bus = self.temp_hack_get_bus();
-        let (dma, request) = self.dma.clone().execute_tcycle(&bus);
-        self.dma = dma;
+        let request = self.dma.execute_tcycle(&bus);
         if let Some(request) = request {
             let value = self.read_request(request.source_address)?;
             trace!(target: "dma", "Setting {:X?} from {:X?} with {:X?}", request.destination_address, request.source_address, value);
@@ -242,12 +247,11 @@ impl System {
         }
     }
 
-    fn handle_timer(&mut self) -> Result<Box<timer::Timer>> {
-        use mmu::MemoryMapped2;
+    fn handle_timer(&mut self) -> Result<()> {
         let bus = self.temp_hack_get_bus();
-        let (new_timer, should_interrupt) = self.timer.clone().execute_tcycle(&bus);
+        let (new_timer, should_interrupt) = self.timer.execute_tcycle(&bus);
         self.maybe_fire_interrupt(should_interrupt);
-        Ok(new_timer)
+        Ok(())
     }
 
     fn handle_serial(&mut self) -> serial::Controller {
@@ -277,19 +281,19 @@ impl System {
         self.maybe_fire_interrupt(should_interrupt);
     }
 
-    fn execute_t_cycle(&mut self) -> Result<()> {
+    fn execute_tcycle(&mut self) -> Result<()> {
+        #[cfg(feature = "disas")]
         self.print_disassembly()?;
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         self.handle_gpu();
         self.cpu
             .execute_t_cycle(&mut self.memory, self.gpu.hack())?;
-        let new_timer = self.handle_timer()?;
+        self.handle_timer()?;
         let new_serial = self.handle_serial();
 
         self.handle_joypad();
         // Finally, do all the next state replacement.
-        self.timer = new_timer;
         self.serial = new_serial;
         self.handle_cpu_memory_writes()?;
         // Last step is DMA.
@@ -301,8 +305,9 @@ impl System {
 
     pub fn execute_machine_cycle(&mut self) -> Result<()> {
         for i in 0..4 {
-            self.execute_t_cycle()?;
+            self.execute_tcycle()?;
         }
+        self.apu.execute_mcycle();
         Ok(())
     }
 
@@ -315,6 +320,7 @@ impl System {
         self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
     }
 
+    #[cfg(feature = "disas")]
     fn print_disassembly(&self) -> Result<()> {
         if self.cpu.t_state.get() == 1
             && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch

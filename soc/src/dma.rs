@@ -27,8 +27,7 @@ impl Dma {
         self.byte_index > 0 && self.byte_index <= 160
     }
 
-    pub fn execute_tcycle(self: Box<Self>, bus: &mmu::MemoryBus) -> (Box<Dma>, Option<DmaRequest>) {
-        let mut next_state = Box::new(*self);
+    pub fn execute_tcycle(&mut self, bus: &mmu::MemoryBus) -> Option<DmaRequest> {
         let mut dma_request = None;
         if bus.t_state == 4 && self.byte_index > 0 {
             if self.byte_index <= 160 {
@@ -37,13 +36,13 @@ impl Dma {
                     destination_address: 0xFE00 + 160 - self.byte_index,
                 });
             }
-            next_state.byte_index -= 1;
+            self.byte_index -= 1;
         }
         if bus.writes_to_reg(self.control) {
-            next_state.control.set_from_bus(bus);
-            next_state.byte_index = 161;
+            self.control.set_from_bus(bus);
+            self.byte_index = 161;
         }
-        (next_state, dma_request)
+        dma_request
     }
 
     #[cfg(test)]

@@ -28,6 +28,13 @@ pub enum Addresses {
     SpritePalette1 = 0xFF49, // OBP1
     WindowYPos = 0xFF4A,     // WY
     WindowXPos = 0xFF4B,     // WX
+    // Audio registers.
+    NR21 = 0xFF16,
+    NR22 = 0xFF17,
+    NR23 = 0xFF18,
+    NR24 = 0xFF19,
+    NR51 = 0xFF25,
+    NR52 = 0xFF26,
 }
 
 /// Interrupt Flag register (IF). 0xFF0F
@@ -65,7 +72,6 @@ pub trait Register: Copy {
     }
 
     fn address(&self) -> i32;
-
     fn value(&self) -> i32;
     fn set(&mut self, value: i32);
 }
@@ -84,7 +90,7 @@ macro_rules! impl_bitfield_helpful_traits {
             where
                 S: serde::ser::Serializer,
             {
-                i32::from(self.0).serialize(serializer)
+                (self.0 as i32).serialize(serializer)
             }
         }
 

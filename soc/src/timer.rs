@@ -46,9 +46,9 @@ define_int_register!(TimerDiv, Addresses::TimerDiv);
 define_int_register!(TimerTima, Addresses::TimerCounter);
 define_int_register!(TimerTma, Addresses::TimerModulo);
 
-impl MemoryMapped2 for Timer {
+impl Timer {
     /// TODO: Refactor to be more HW friendly.
-    fn execute_tcycle(self: Box<Self>, bus: &MemoryBus) -> (Box<Timer>, Interrupts) {
+    pub fn execute_tcycle(self, bus: &MemoryBus) -> (Timer, Interrupts) {
         let mut interrupt = Interrupts::empty();
         let do_print = |header, state: &Timer| {
             trace!(
@@ -60,7 +60,7 @@ impl MemoryMapped2 for Timer {
                 state.should_interrupt
             );
         };
-        let mut next_state = Box::new(*self);
+        let mut next_state = self;
         next_state.tac.set_from_bus(bus);
         // Allow the CPU to overwrite DIV and TIMA.
         // [HW] div = (old + 1) or bus & 0
@@ -91,8 +91,8 @@ impl MemoryMapped2 for Timer {
             }
             next_state.tma.set_from_bus(bus);
         }
-        do_print("before", self.as_ref());
-        do_print("after", next_state.as_ref());
+        do_print("before", &self);
+        do_print("after", &next_state);
         (next_state, interrupt)
     }
 }

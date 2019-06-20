@@ -1,7 +1,4 @@
-mod device;
-mod registers;
-mod square;
-
+use num_traits::FromPrimitive as _;
 use std::sync::mpsc;
 
 use crate::io_registers::Addresses;
@@ -9,7 +6,10 @@ use crate::mmu;
 use registers::*;
 use square::*;
 
-use num_traits::FromPrimitive as _;
+mod channels;
+mod device;
+mod registers;
+mod square;
 
 const MCYCLE_FREQ: i32 = 1048576;
 
@@ -30,7 +30,7 @@ pub struct Apu {
     sound_enable: SoundEnable,
 
     #[serde(skip)]
-    square_2: Option<SquareWave>,
+    channel_state: channels::ChannelState,
 }
 
 impl Apu {
@@ -41,71 +41,50 @@ impl Apu {
             device,
             square_2_config: SquareConfig(0xBF00003F_u32),
             sound_enable: SoundEnable(0xF3),
-            square_2: None,
             sample_timer: Timer::new(1, MCYCLES_PER_SAMPLE),
+
+            channel_state: Default::default(),
         }
     }
 
     pub fn execute_mcycle(&mut self) {
-        if self.square_2_config.triggered() {
-            self.square_2 = Some(SquareWave::new(self.square_2_config));
-            self.square_2_config.set_triggered(false);
-        }
-        if self.sample_timer.advance(1) {
-            let sample = self.get_square_sample();
-            self.device.tx.send(sample).unwrap();
-        }
-    }
-
-    fn get_square_sample(&mut self) -> f32 {
-        let mut is_done = false;
-        let mut sample = 0.0;
-        if self.sound_enable.sound2() {
-            if let Some(wave) = &mut self.square_2 {
-                sample = wave.get_sample();
-                is_done = wave.timer.advance(MCYCLES_PER_SAMPLE) && wave.reset_on_done;
-            }
-        }
-        if is_done {
-            self.square_2 = None;
-        }
-        sample
-    }
-
-    fn trigger_square_2(&mut self) {
-        let period = 32 * (2048 - self.square_2_config.freq() as i32);
+        // if self.square_2_config.triggered() {
+        //     self.channel_state
+        //         .handle_event(channels::ChannelEvent::TriggerSquare2(
+        //             self.square_2_config.0,
+        //         ));
+        //     self.square_2_config.set_triggered(false);
+        // }
+        self.channel_state.elapsed_ticks(1);
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Timer {
-    counter: i32,
-    period: i32,
-    initial_counter: i32,
-    clock: i32,
+    tick: i32,
+    initial: i32,
 }
 
 impl Timer {
     pub fn new(counter: i32, period: i32) -> Timer {
         Timer {
-            counter,
-            period,
-            initial_counter: counter,
-            clock: 0,
+            tick: counter * period,
+            initial: counter * period,
         }
     }
 
-    pub fn advance(&mut self, ticks: i32) -> bool {
-        self.clock -= ticks;
-        if self.clock <= 0 {
-            self.clock = self.period;
-            self.counter -= 1;
-            if self.counter <= 0 {
-                self.counter = self.initial_counter;
-                return true;
-            }
-        }
-        false
+    pub fn done(&self) -> bool {
+        self.tick <= 0
+    }
+
+    pub fn restart(&mut self) {
+        debug_assert_le!(self.tick, 0);
+        self.tick += self.initial;
+        debug_assert_gt!(self.tick, 0);
+    }
+
+    pub fn tick(&mut self, ticks: i32) {
+        self.tick -= ticks;
     }
 }
 

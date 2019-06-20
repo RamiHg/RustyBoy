@@ -67,7 +67,6 @@ impl Stream {
                 out_frame[0] = self.sample_buf.pop().unwrap();
             }
         } else {
-            println!("It's {}", self.sample_buf.len());
             for out_frame in buffer {
                 out_frame[0] = 0.0;
             }

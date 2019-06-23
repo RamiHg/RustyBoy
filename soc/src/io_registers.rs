@@ -218,7 +218,13 @@ macro_rules! from_u8 {
         // Implement conversion from u8.
         impl core::convert::From<u8> for $x {
             fn from(flag: u8) -> $x {
-                num_traits::FromPrimitive::from_u8(flag).unwrap()
+                num_traits::FromPrimitive::from_u8(flag).unwrap_or_else(|| {
+                    panic!(
+                        "Tried to create {} from invalid u8: {}",
+                        stringify!($x),
+                        flag
+                    )
+                })
             }
         }
     };

@@ -1,51 +1,46 @@
-use std::sync::mpsc;
-
 use portaudio as pa;
 use sample;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
-use super::FrameType;
+use super::channels::{ChannelEvent, ChannelState, Frame};
 
 const FRAMES_PER_BUFFER: usize = 64;
 
 pub struct Device {
     pa: pa::PortAudio,
-    pa_stream: pa::stream::Stream<pa::stream::NonBlocking, pa::stream::Output<FrameType>>,
-
-    pub tx: mpsc::Sender<FrameType>,
+    pa_stream: pa::stream::Stream<pa::stream::NonBlocking, pa::stream::Output<f32>>,
 }
 
-impl Default for Device {
-    fn default() -> Device {
-        let pa = pa::PortAudio::new()
-            .unwrap_or_else(|e| panic!("Error while attempting to create audio device: {}", e));
-        let settings = pa
-            .default_output_stream_settings::<FrameType>(
-                1,
-                super::SAMPLE_RATE as f64,
-                FRAMES_PER_BUFFER as u32,
-            )
-            .unwrap();
+impl Device {
+    pub fn try_new(event_handler: Arc<AtomicU64>) -> Result<Device, pa::Error> {
+        let pa = pa::PortAudio::new()?;
+        let settings = pa.default_output_stream_settings::<f32>(
+            1,
+            super::SAMPLE_RATE as f64,
+            FRAMES_PER_BUFFER as u32,
+        )?;
         // Create the channel for communicating with the APU.
-        let (tx, rx) = mpsc::channel();
-        let mut stream = Stream::new(rx);
-        let mut pa_stream = pa
-            .open_non_blocking_stream(settings, move |args| stream.stream_callback(args))
-            .unwrap();
-        pa_stream.start().unwrap();
-        Device { pa, pa_stream, tx }
+        let mut thread = AudioThread::new(event_handler);
+        let mut pa_stream =
+            pa.open_non_blocking_stream(settings, move |args| thread.stream_callback(args))?;
+        pa_stream.start()?;
+        Ok(Device { pa, pa_stream })
     }
 }
 
-struct Stream {
-    rx: mpsc::Receiver<FrameType>,
-    sample_buf: sample::ring_buffer::Bounded<Box<[FrameType]>>,
+struct AudioThread {
+    event_handler: Arc<AtomicU64>,
+    channel_state: ChannelState,
+    last_time: f64,
 }
 
-impl Stream {
-    pub fn new(rx: mpsc::Receiver<FrameType>) -> Stream {
-        Stream {
-            rx,
-            sample_buf: sample::ring_buffer::Bounded::boxed_slice(4096 * 100),
+impl AudioThread {
+    pub fn new(event_handler: Arc<AtomicU64>) -> AudioThread {
+        AudioThread {
+            event_handler,
+            channel_state: Default::default(),
+            last_time: -1.0,
         }
     }
 
@@ -54,24 +49,34 @@ impl Stream {
         args: pa::OutputStreamCallbackArgs<f32>,
     ) -> pa::stream::CallbackResult {
         let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
+        let elapsed_secs = time.current - self.last_time;
+        if self.last_time >= 0.0 && elapsed_secs > 0.0 {
+            //self.channel_state.elapsed_secs(elapsed_secs);
+        }
+        self.last_time = time.current;
+        self.handle_events();
         let buffer: &mut [[f32; 1]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
-
-        //while self.sample_buf.len() < FRAMES_PER_BUFFER {
-        for sample in self.rx.try_iter() {
-            //assert!(self.sample_buf.push(sample).is_none());
-            self.sample_buf.push(sample);
+        for out_frame in buffer {
+            *out_frame = self.channel_state.next_sample();
         }
-        //}
-        if self.sample_buf.len() >= FRAMES_PER_BUFFER * 4 {
-            for out_frame in buffer {
-                out_frame[0] = self.sample_buf.pop().unwrap();
-            }
-        } else {
-            for out_frame in buffer {
-                out_frame[0] = 0.0;
-            }
-        }
-
         pa::Continue
+    }
+
+    fn handle_events(&mut self) {
+        use std::sync::atomic::Ordering;
+        // In practice it's impossible for the main thread to write more than one event
+        // every 4 mcycles (a ton of real CPU cycles). But let's handle the worst case
+        // (e.g. audio thread gets suspended).
+        let mut current_value = 0;
+        loop {
+            current_value = self
+                .event_handler
+                .compare_and_swap(current_value, 0, Ordering::AcqRel);
+            if current_value != 0 {
+                self.channel_state.handle_event(ChannelEvent(current_value));
+            } else {
+                break;
+            }
+        }
     }
 }

@@ -2,19 +2,51 @@ use crate::io_registers;
 
 use bitfield::bitfield;
 use bitflags::bitflags;
+use num_derive::FromPrimitive;
+
+#[derive(Debug, FromPrimitive)]
+pub enum EnvelopeMode {
+    Attenuate,
+    Amplify,
+}
+from_u8!(EnvelopeMode);
+
+#[derive(Debug, FromPrimitive)]
+pub enum SweepMode {
+    Increase,
+    Decrease,
+}
+from_u8!(SweepMode);
 
 bitfield! {
-    pub struct SquareConfig(u32);
+    pub struct SquareConfig(u64);
     impl Debug;
-    u16;
-    pub length, _: 5, 0;
-    pub duty, set_duty: 7, 6;
-    pub envelop_sweep, _: 10, 8;
-    pub envelop_up, _: 11, 11;
-    pub volume, _: 15, 12;
-    pub freq, _: 26, 16;
-    pub is_timed, _: 30;
-    pub triggered, set_triggered: 31;
+    u8;
+    pub sweep_shift, _: 2, 0;
+    pub into SweepMode, sweep_mode, _: 3, 3;
+    pub sweep_time, _: 6, 4;
+    pub length, _: 13, 8;
+    pub duty, _: 15, 14;
+    pub envelope_counter, _: 18, 16;
+    pub into EnvelopeMode, envelope_mode, _: 19, 19;
+    pub volume, _: 23, 20;
+    pub u16, freq, _: 34, 24;
+    pub is_timed, _: 38;
+    pub triggered, set_triggered: 39;
+}
+
+impl SquareConfig {
+    pub fn from_low_high(low: u8, high: u32) -> SquareConfig {
+        SquareConfig(low as u64 | (high as u64) << 8)
+    }
+
+    pub fn low_bits(&self) -> u8 {
+        (self.0 & 0xFF) as u8
+    }
+
+    pub fn high_bits(&self) -> u32 {
+        (self.0 >> 8) as u32
+    }
 }
 
 bitfield! {

@@ -1,5 +1,7 @@
 use num_traits::FromPrimitive as _;
-use std::sync::mpsc;
+use num_traits::PrimInt;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::io_registers::Addresses;
 use crate::mmu;
@@ -11,21 +13,25 @@ mod device;
 mod registers;
 mod square;
 
-const MCYCLE_FREQ: i32 = 1048576;
+pub const TCYCLE_FREQ: i32 = 4194304;
+pub const MCYCLE_FREQ: i32 = 1048576;
 
-pub const SAMPLE_RATE: f32 = 44100.0;
-pub const LENGTH_COUNTER_PERIOD: i32 = MCYCLE_FREQ / 256; // 4096.
+pub const SAMPLE_RATE: f32 = 44_100.0;
 
-pub type FrameType = f32;
+const SOUND_DOWNSAMPLE: i32 = 1;
+pub const BASE_FREQ: i32 = TCYCLE_FREQ / SOUND_DOWNSAMPLE;
 
-const MCYCLES_PER_SAMPLE: i32 = 24; // 1mhz to 44.1khz.
+pub const LENGTH_COUNTER_PERIOD: i32 = TCYCLE_FREQ / 256 / SOUND_DOWNSAMPLE;
+pub const ENVELOPE_PERIOD: i32 = TCYCLE_FREQ / 64 / SOUND_DOWNSAMPLE;
+pub const SWEEP_PERIOD: i32 = TCYCLE_FREQ / 128 / SOUND_DOWNSAMPLE;
 
 #[derive(Serialize, Deserialize)]
 pub struct Apu {
     #[serde(skip)]
-    device: device::Device,
-    sample_timer: Timer,
-
+    device: Option<device::Device>,
+    #[serde(skip)]
+    event_handler: Arc<AtomicU64>,
+    square_1_config: SquareConfig,
     square_2_config: SquareConfig,
     sound_enable: SoundEnable,
 
@@ -35,109 +41,145 @@ pub struct Apu {
 
 impl Apu {
     pub fn new() -> Apu {
-        let device = device::Device::default();
-        let tx = device.tx.clone();
+        let event_handler = Arc::new(AtomicU64::new(0));
+        let maybe_device = device::Device::try_new(Arc::clone(&event_handler));
+        if let Err(err) = maybe_device {
+            println!(
+                "Audio device is not available. Audio will be disabled. Error: {}",
+                err
+            );
+        }
         Apu {
-            device,
-            square_2_config: SquareConfig(0xBF00003F_u32),
+            device: maybe_device.ok(),
+            event_handler,
+            square_2_config: SquareConfig(0xBF00003F_00_u64),
+            square_1_config: SquareConfig(0),
             sound_enable: SoundEnable(0xF3),
-            sample_timer: Timer::new(1, MCYCLES_PER_SAMPLE),
 
             channel_state: Default::default(),
         }
     }
 
     pub fn execute_mcycle(&mut self) {
-        // if self.square_2_config.triggered() {
-        //     self.channel_state
-        //         .handle_event(channels::ChannelEvent::TriggerSquare2(
-        //             self.square_2_config.0,
-        //         ));
-        //     self.square_2_config.set_triggered(false);
-        // }
-        self.channel_state.elapsed_ticks(1);
+        if self.square_1_config.triggered() {
+            self.trigger_square(channels::EventType::TriggerSquare1, self.square_1_config);
+            self.square_1_config.set_triggered(false);
+        } else if self.square_2_config.triggered() {
+            self.trigger_square(channels::EventType::TriggerSquare2, self.square_2_config);
+            self.square_2_config.set_triggered(false);
+        }
+        //self.channel_state.elapsed_ticks(1);
+    }
+
+    fn trigger_square(&mut self, event_type: channels::EventType, config: SquareConfig) {
+        let mut event = channels::ChannelEvent(0);
+        event.set_event_type(event_type as u8);
+        event.set_payload_low(config.low_bits());
+        event.set_payload_high(config.high_bits());
+        self.event_handler
+            .store(event.0, std::sync::atomic::Ordering::Release);
+        self.channel_state.handle_event(event);
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Timer {
-    tick: i32,
-    initial: i32,
+pub type Timer = std::iter::Rev<std::ops::Range<i32>>;
+pub fn timer(count: i32) -> Timer {
+    (0..count).rev()
 }
 
-impl Timer {
-    pub fn new(counter: i32, period: i32) -> Timer {
-        Timer {
-            tick: counter * period,
-            initial: counter * period,
+#[derive(Clone, Debug)]
+pub struct CountdownTimer {
+    counter: i32,
+    timer: std::iter::Cycle<Timer>,
+}
+
+impl Iterator for CountdownTimer {
+    type Item = Option<i32>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.counter > 0 {
+            Some(if self.timer.next().unwrap() == 0 {
+                self.counter -= 1;
+                Some(self.counter)
+            } else {
+                None
+            })
+        } else {
+            None
         }
     }
+}
 
-    pub fn done(&self) -> bool {
-        self.tick <= 0
-    }
-
-    pub fn restart(&mut self) {
-        debug_assert_le!(self.tick, 0);
-        self.tick += self.initial;
-        debug_assert_gt!(self.tick, 0);
-    }
-
-    pub fn tick(&mut self, ticks: i32) {
-        self.tick -= ticks;
+impl CountdownTimer {
+    pub fn new(counter: i32, period: i32) -> CountdownTimer {
+        CountdownTimer {
+            counter,
+            timer: timer(period).cycle(),
+        }
     }
 }
 
-fn set_byte(reg: &mut u32, i: usize, value: i32) {
-    let mut bytes = reg.to_le_bytes();
-    bytes[i] = value as u8;
-    *reg = u32::from_le_bytes(bytes);
+fn set_byte<T: PrimInt>(reg: &mut T, i: usize, value: i32) {
+    let mask = T::from(0xFF).unwrap() << (8 * i);
+    *reg = (*reg & !mask) | (T::from(value).unwrap() << (8 * i));
 }
 
-fn get_byte(reg: u32, i: usize) -> i32 {
-    reg.to_le_bytes()[i] as i32
+fn get_byte<T: PrimInt>(reg: T, i: usize) -> i32 {
+    debug_assert_lt!(i, 5);
+    use num_traits::cast::NumCast;
+    <i32 as NumCast>::from((reg >> (8 * i)) & T::from(0xFF).unwrap()).unwrap()
+}
+
+macro_rules! handle_register_list {
+    ($handler:ident, $self:ident, $cur_addr:expr, $value:expr) => {
+        $handler!(
+            $cur_addr,
+            $value,
+            [
+                ($self.square_1_config.0, 0xFF10 => 0xFF10..=0xFF14),
+                ($self.square_2_config.0, 0xFF15 => 0xFF16..=0xFF19)
+            ]
+        )
+    };
+}
+
+macro_rules! define_reg_read {
+    ($cur_addr:expr, $_:expr, [$( ($reg:expr, $base_addr:expr => $range:pat) ),+]  ) => {
+        match $cur_addr {
+            $(
+                $range => Some(get_byte($reg, ($cur_addr - $base_addr) as usize))
+            ),+ ,
+            _ => None,
+        }
+    };
+}
+macro_rules! define_reg_write {
+    ($cur_addr:expr, $value:expr, [$( ($reg:expr, $base_addr:expr => $range:pat) ),+]  ) => {
+        match $cur_addr {
+            $(
+                $range => Some(set_byte(&mut $reg, ($cur_addr - $base_addr) as usize, $value))
+            ),+ ,
+            _ => None,
+        }
+    };
 }
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
         use crate::io_registers::Register as _;
         let mmu::Address(_, raw) = address;
-        match Addresses::from_i32(raw) {
-            Some(Addresses::NR21) => Some(get_byte(self.square_2_config.0, 0)),
-            Some(Addresses::NR22) => Some(get_byte(self.square_2_config.0, 1)),
-            Some(Addresses::NR23) => Some(get_byte(self.square_2_config.0, 2)),
-            Some(Addresses::NR24) => Some(get_byte(self.square_2_config.0, 3)),
-            Some(Addresses::NR51) => Some(self.sound_enable.0),
-            _ => None,
-        }
+        handle_register_list!(define_reg_read, self, raw, 0)
     }
 
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
         let mmu::Address(_, raw) = address;
         match Addresses::from_i32(raw) {
-            // Square 2 config.
-            Some(Addresses::NR21) => {
-                set_byte(&mut self.square_2_config.0, 0, value);
-                Some(())
-            }
-            Some(Addresses::NR22) => {
-                set_byte(&mut self.square_2_config.0, 1, value);
-                Some(())
-            }
-            Some(Addresses::NR23) => {
-                set_byte(&mut self.square_2_config.0, 2, value);
-                Some(())
-            }
-            Some(Addresses::NR24) => {
-                set_byte(&mut self.square_2_config.0, 3, value);
-                Some(())
-            }
             // Sound enable.
             Some(Addresses::NR51) => {
                 self.sound_enable.0 = value;
                 Some(())
             }
             _ => None,
-        }
+        };
+        handle_register_list!(define_reg_write, self, raw, value)
     }
 }

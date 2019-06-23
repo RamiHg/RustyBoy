@@ -36,7 +36,3 @@ extern crate log as logging;
 extern crate more_asserts;
 #[macro_use]
 extern crate serde;
-
-extern crate jemallocator;
-#[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;

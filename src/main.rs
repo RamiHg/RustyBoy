@@ -82,7 +82,7 @@ fn main() -> error::Result<()> {
     system.set_cart(cart);
 
     loop {
-        //let now = std::time::Instant::now();
+        let _now = std::time::Instant::now();
         while !system.is_vsyncing() {
             system.execute_machine_cycle()?;
         }

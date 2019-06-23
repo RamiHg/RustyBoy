@@ -38,6 +38,3 @@ debug-assertions = true
 incremental = true
 # codegen-units = 1
 # lto = "fat"
-
-[profile.dev]
-codegen-units = 16

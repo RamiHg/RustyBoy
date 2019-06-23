@@ -1,5 +1,6 @@
 use portaudio as pa;
 use sample;
+use std::cell::Cell;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -13,7 +14,10 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn try_new(event_handler: Arc<AtomicU64>) -> Result<Device, pa::Error> {
+    pub fn try_new(
+        event_handler: Arc<AtomicU64>,
+        wave_table: Arc<Cell<u128>>,
+    ) -> Result<Device, pa::Error> {
         let pa = pa::PortAudio::new()?;
         let settings = pa.default_output_stream_settings::<f32>(
             1,
@@ -21,7 +25,7 @@ impl Device {
             FRAMES_PER_BUFFER as u32,
         )?;
         // Create the channel for communicating with the APU.
-        let mut thread = AudioThread::new(event_handler);
+        let mut thread = AudioThread::new(event_handler, wave_table);
         let mut pa_stream =
             pa.open_non_blocking_stream(settings, move |args| thread.stream_callback(args))?;
         pa_stream.start()?;
@@ -36,10 +40,10 @@ struct AudioThread {
 }
 
 impl AudioThread {
-    pub fn new(event_handler: Arc<AtomicU64>) -> AudioThread {
+    pub fn new(event_handler: Arc<AtomicU64>, wave_table: Arc<Cell<u128>>) -> AudioThread {
         AudioThread {
             event_handler,
-            channel_state: Default::default(),
+            channel_state: ChannelState::new(wave_table),
             last_time: -1.0,
         }
     }

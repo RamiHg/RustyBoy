@@ -39,13 +39,23 @@ impl SquareConfig {
     pub fn from_low_high(low: u8, high: u32) -> SquareConfig {
         SquareConfig(low as u64 | (high as u64) << 8)
     }
+}
 
-    pub fn low_bits(&self) -> u8 {
-        (self.0 & 0xFF) as u8
-    }
+bitfield! {
+    pub struct WaveConfig(u64);
+    impl Debug;
+    u8;
+    pub enabled, _: 7;
+    pub length, _: 15, 8;
+    pub volume_level, _: 23, 22;
+    pub u16, freq, _: 34, 24;
+    pub is_timed, _: 38;
+    pub triggered, set_triggered: 39;
+}
 
-    pub fn high_bits(&self) -> u32 {
-        (self.0 >> 8) as u32
+impl WaveConfig {
+    pub fn from_low_high(low: u8, high: u32) -> WaveConfig {
+        WaveConfig(low as u64 | (high as u64) << 8)
     }
 }
 
@@ -61,6 +71,7 @@ bitfield! {
 }
 
 impl_bitfield_helpful_traits!(SquareConfig);
+impl_bitfield_helpful_traits!(WaveConfig);
 
 impl_bitfield_helpful_traits!(SoundEnable);
 impl_bitfield_bitrange!(SoundEnable);

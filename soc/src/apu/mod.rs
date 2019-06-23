@@ -1,5 +1,6 @@
 use num_traits::FromPrimitive as _;
 use num_traits::PrimInt;
+use std::cell::Cell;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
@@ -33,7 +34,10 @@ pub struct Apu {
     event_handler: Arc<AtomicU64>,
     square_1_config: SquareConfig,
     square_2_config: SquareConfig,
+    wave_config: WaveConfig,
     sound_enable: SoundEnable,
+
+    wave_table: Arc<Cell<u128>>,
 
     #[serde(skip)]
     channel_state: channels::ChannelState,
@@ -42,7 +46,9 @@ pub struct Apu {
 impl Apu {
     pub fn new() -> Apu {
         let event_handler = Arc::new(AtomicU64::new(0));
-        let maybe_device = device::Device::try_new(Arc::clone(&event_handler));
+        let wave_table = Arc::new(Cell::new(0));
+        let maybe_device =
+            device::Device::try_new(Arc::clone(&event_handler), Arc::clone(&wave_table));
         if let Err(err) = maybe_device {
             println!(
                 "Audio device is not available. Audio will be disabled. Error: {}",
@@ -54,7 +60,9 @@ impl Apu {
             event_handler,
             square_2_config: SquareConfig(0xBF00003F_00_u64),
             square_1_config: SquareConfig(0),
+            wave_config: WaveConfig(0),
             sound_enable: SoundEnable(0xF3),
+            wave_table,
 
             channel_state: Default::default(),
         }
@@ -62,20 +70,23 @@ impl Apu {
 
     pub fn execute_mcycle(&mut self) {
         if self.square_1_config.triggered() {
-            self.trigger_square(channels::EventType::TriggerSquare1, self.square_1_config);
+            self.trigger_event(channels::EventType::TriggerSquare1, self.square_1_config.0);
             self.square_1_config.set_triggered(false);
         } else if self.square_2_config.triggered() {
-            self.trigger_square(channels::EventType::TriggerSquare2, self.square_2_config);
+            self.trigger_event(channels::EventType::TriggerSquare2, self.square_2_config.0);
             self.square_2_config.set_triggered(false);
+        } else if self.wave_config.triggered() {
+            self.trigger_event(channels::EventType::TriggerWave, self.wave_config.0);
+            self.wave_config.set_triggered(false);
         }
         //self.channel_state.elapsed_ticks(1);
     }
 
-    fn trigger_square(&mut self, event_type: channels::EventType, config: SquareConfig) {
+    fn trigger_event(&mut self, event_type: channels::EventType, config: u64) {
         let mut event = channels::ChannelEvent(0);
         event.set_event_type(event_type as u8);
-        event.set_payload_low(config.low_bits());
-        event.set_payload_high(config.high_bits());
+        event.set_payload_low(low_bits(config));
+        event.set_payload_high(high_bits(config));
         self.event_handler
             .store(event.0, std::sync::atomic::Ordering::Release);
         self.channel_state.handle_event(event);
@@ -117,69 +128,52 @@ impl CountdownTimer {
         }
     }
 }
+// TODO: Move to util..
+pub fn low_bits(x: u64) -> u8 {
+    (x & 0xFF) as u8
+}
 
-fn set_byte<T: PrimInt>(reg: &mut T, i: usize, value: i32) {
+pub fn high_bits(x: u64) -> u32 {
+    (x >> 8) as u32
+}
+
+fn set_byte<T: PrimInt>(reg: &mut T, i: i32, value: i32) {
+    let i = i as usize;
     let mask = T::from(0xFF).unwrap() << (8 * i);
     *reg = (*reg & !mask) | (T::from(value).unwrap() << (8 * i));
 }
 
-fn get_byte<T: PrimInt>(reg: T, i: usize) -> i32 {
-    debug_assert_lt!(i, 5);
+fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
     use num_traits::cast::NumCast;
+    let i = i as usize;
     <i32 as NumCast>::from((reg >> (8 * i)) & T::from(0xFF).unwrap()).unwrap()
-}
-
-macro_rules! handle_register_list {
-    ($handler:ident, $self:ident, $cur_addr:expr, $value:expr) => {
-        $handler!(
-            $cur_addr,
-            $value,
-            [
-                ($self.square_1_config.0, 0xFF10 => 0xFF10..=0xFF14),
-                ($self.square_2_config.0, 0xFF15 => 0xFF16..=0xFF19)
-            ]
-        )
-    };
-}
-
-macro_rules! define_reg_read {
-    ($cur_addr:expr, $_:expr, [$( ($reg:expr, $base_addr:expr => $range:pat) ),+]  ) => {
-        match $cur_addr {
-            $(
-                $range => Some(get_byte($reg, ($cur_addr - $base_addr) as usize))
-            ),+ ,
-            _ => None,
-        }
-    };
-}
-macro_rules! define_reg_write {
-    ($cur_addr:expr, $value:expr, [$( ($reg:expr, $base_addr:expr => $range:pat) ),+]  ) => {
-        match $cur_addr {
-            $(
-                $range => Some(set_byte(&mut $reg, ($cur_addr - $base_addr) as usize, $value))
-            ),+ ,
-            _ => None,
-        }
-    };
 }
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
         use crate::io_registers::Register as _;
         let mmu::Address(_, raw) = address;
-        handle_register_list!(define_reg_read, self, raw, 0)
+        match raw {
+            0xFF10..=0xFF14 => Some(get_byte(self.square_1_config.0, raw - 0xFF10)),
+            0xFF16..=0xFF19 => Some(get_byte(self.square_2_config.0, raw - 0xFF15)),
+            0xFF30..=0xFF3F => Some(get_byte(self.wave_table.get(), raw - 0xFF30)),
+            _ => None,
+        }
     }
 
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
         let mmu::Address(_, raw) = address;
-        match Addresses::from_i32(raw) {
-            // Sound enable.
-            Some(Addresses::NR51) => {
-                self.sound_enable.0 = value;
+        match raw {
+            0xFF10..=0xFF14 => Some(set_byte(&mut self.square_1_config.0, raw - 0xFF10, value)),
+            0xFF16..=0xFF19 => Some(set_byte(&mut self.square_2_config.0, raw - 0xFF15, value)),
+            0xFF30..=0xFF3F => {
+                let mut wave_table = self.wave_table.get();
+                set_byte(&mut wave_table, raw - 0xFF30, value);
+                self.wave_table.set(wave_table);
                 Some(())
             }
+            0xFF25 => Some(self.sound_enable.0 = value),
             _ => None,
-        };
-        handle_register_list!(define_reg_write, self, raw, value)
+        }
     }
 }

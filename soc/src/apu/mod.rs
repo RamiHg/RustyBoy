@@ -9,10 +9,10 @@ use registers::*;
 mod channels;
 mod device;
 mod registers;
-mod square;
+mod sound;
 
-pub const TCYCLE_FREQ: i32 = 4194304;
-pub const MCYCLE_FREQ: i32 = 1048576;
+pub const TCYCLE_FREQ: i32 = 4_194_304;
+pub const MCYCLE_FREQ: i32 = 1_048_576;
 
 pub const SAMPLE_RATE: f32 = 44_100.0;
 
@@ -28,23 +28,15 @@ pub type SharedWaveTable = Arc<RwLock<u128>>;
 pub struct Apu {
     #[allow(dead_code)]
     device: Option<device::Device>,
-    event_handler: Arc<AtomicU64>,
-    square_1_config: SquareConfig,
-    square_2_config: SquareConfig,
-    wave_config: WaveConfig,
     sound_enable: SoundEnable,
-
-    wave_table: SharedWaveTable,
 
     channel_state: channels::ChannelState,
 }
 
 impl Default for Apu {
     fn default() -> Self {
-        let event_handler = Arc::new(AtomicU64::new(0));
-        let wave_table = Arc::new(RwLock::new(0));
-        let maybe_device =
-            device::Device::try_new(Arc::clone(&event_handler), Arc::clone(&wave_table));
+        let channel_state = channels::ChannelState::default();
+        let maybe_device = device::Device::try_new(channel_state.clone());
         if let Err(err) = maybe_device {
             println!(
                 "Audio device is not available. Audio will be disabled. Error: {}",
@@ -53,43 +45,14 @@ impl Default for Apu {
         }
         Apu {
             device: maybe_device.ok(),
-            event_handler,
-            square_2_config: SquareConfig(0xBF00003F_00_u64),
-            square_1_config: SquareConfig(0),
-            wave_config: WaveConfig(0),
             sound_enable: SoundEnable(0xF3),
-            wave_table,
-
-            channel_state: Default::default(),
+            channel_state,
         }
     }
 }
 
 impl Apu {
-    pub fn execute_mcycle(&mut self) {
-        if self.square_1_config.triggered() {
-            self.trigger_event(channels::EventType::TriggerSquare1, self.square_1_config.0);
-            self.square_1_config.set_triggered(false);
-        } else if self.square_2_config.triggered() {
-            dbg!(&self.square_2_config);
-            self.trigger_event(channels::EventType::TriggerSquare2, self.square_2_config.0);
-            self.square_2_config.set_triggered(false);
-        } else if self.wave_config.triggered() {
-            self.trigger_event(channels::EventType::TriggerWave, self.wave_config.0);
-            self.wave_config.set_triggered(false);
-        }
-        //self.channel_state.elapsed_ticks(1);
-    }
-
-    fn trigger_event(&mut self, event_type: channels::EventType, config: u64) {
-        let mut event = channels::ChannelEvent(0);
-        event.set_event_type(event_type as u8);
-        event.set_payload_low(low_bits(config));
-        event.set_payload_high(high_bits(config));
-        self.event_handler
-            .store(event.0, std::sync::atomic::Ordering::Release);
-        self.channel_state.handle_event(event);
-    }
+    pub fn execute_mcycle(&mut self) {}
 }
 
 pub type Timer = std::iter::Rev<std::ops::Range<i32>>;
@@ -137,12 +100,30 @@ pub fn high_bits(x: u64) -> u32 {
 }
 
 fn set_byte<T: PrimInt>(reg: &mut T, i: i32, value: i32) {
+    debug_assert_lt!(i as usize, std::mem::size_of::<T>());
     let i = i as usize;
     let mask = T::from(0xFF).unwrap() << (8 * i);
     *reg = (*reg & !mask) | (T::from(value).unwrap() << (8 * i));
 }
 
+fn atomic_set_byte(reg: &AtomicU64, i: i32, value: i32) {
+    use std::sync::atomic::Ordering;
+    let mut current = reg.load(Ordering::Acquire);
+    loop {
+        let mut new_reg = current;
+        set_byte(&mut new_reg, i, value);
+        match reg.compare_exchange_weak(current, new_reg, Ordering::Release, Ordering::Relaxed) {
+            Ok(_) => break,
+            Err(x) => {
+                current = x;
+                eprintln!("There is actual contention with audio thread.")
+            }
+        }
+    }
+}
+
 fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
+    debug_assert_lt!(i as usize, std::mem::size_of::<T>());
     use num_traits::cast::NumCast;
     let i = i as usize;
     <i32 as NumCast>::from((reg >> (8 * i)) & T::from(0xFF).unwrap()).unwrap()
@@ -150,25 +131,51 @@ fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
+        use std::sync::atomic::Ordering::Acquire;
         let mmu::Address(_, raw) = address;
         match raw {
-            0xFF10..=0xFF14 => Some(get_byte(self.square_1_config.0, raw - 0xFF10)),
-            0xFF16..=0xFF19 => Some(get_byte(self.square_2_config.0, raw - 0xFF15)),
-            0xFF1A..=0xFF1E => Some(get_byte(self.wave_config.0, raw - 0xFF1A)),
-            0xFF30..=0xFF3F => Some(get_byte(*self.wave_table.read(), raw - 0xFF30)),
+            0xFF10..=0xFF14 => Some(get_byte(
+                self.channel_state.square_1_config.load(Acquire),
+                raw - 0xFF10,
+            )),
+            0xFF16..=0xFF19 => Some(get_byte(
+                self.channel_state.square_2_config.load(Acquire),
+                raw - 0xFF15,
+            )),
+            0xFF1A..=0xFF1E => Some(get_byte(
+                self.channel_state.wave_config.load(Acquire),
+                raw - 0xFF1A,
+            )),
+            0xFF30..=0xFF3F => Some(get_byte(
+                *self.channel_state.wave_table.read(),
+                raw - 0xFF30,
+            )),
             _ => None,
         }
     }
 
+    #[allow(clippy::unit_arg)]
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
         let mmu::Address(_, raw) = address;
         match raw {
-            0xFF10..=0xFF14 => Some(set_byte(&mut self.square_1_config.0, raw - 0xFF10, value)),
-            0xFF16..=0xFF19 => Some(set_byte(&mut self.square_2_config.0, raw - 0xFF15, value)),
-            0xFF1A..=0xFF1E => Some(set_byte(&mut self.wave_config.0, raw - 0xFF1A, value)),
+            0xFF10..=0xFF14 => Some(atomic_set_byte(
+                &self.channel_state.square_1_config,
+                raw - 0xFF10,
+                value,
+            )),
+            0xFF16..=0xFF19 => Some(atomic_set_byte(
+                &self.channel_state.square_2_config,
+                raw - 0xFF15,
+                value,
+            )),
+            0xFF1A..=0xFF1E => Some(atomic_set_byte(
+                &self.channel_state.wave_config,
+                raw - 0xFF1A,
+                value,
+            )),
             0xFF30..=0xFF3F => {
                 // Lock for an EXTREMELY brief period of time so as to never block the audio thread.
-                let mut wave_table = self.wave_table.write();
+                let mut wave_table = self.channel_state.wave_table.write();
                 set_byte(&mut *wave_table, raw - 0xFF30, value);
                 Some(())
             }

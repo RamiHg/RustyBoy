@@ -26,7 +26,7 @@ impl Cart {
         // First, compute the rom bank number (TODO: Can cache between bank selects).
         debug_assert_eq!(self.rom_bank_lower_bits & 0xE0, 0);
         debug_assert_eq!(rom_upper_bits & 0xFC, 0);
-        let rom_bank = i32::from(self.rom_bank_lower_bits | (rom_upper_bits << 5));
+        let rom_bank = self.rom_bank_lower_bits | (rom_upper_bits << 5);
         let read_address = rom_bank * super::ROM_BANK_SIZE + (raw_address - 0x4000);
         self.mem(read_address)
     }

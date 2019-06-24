@@ -30,7 +30,7 @@ pub enum TState {
 }
 
 impl cpu::TState {
-    pub fn get_as_tstate(&self) -> TState {
+    pub fn get_as_tstate(self) -> TState {
         match self.get() {
             1 => TState::T1,
             2 => TState::T2,
@@ -127,10 +127,10 @@ impl System {
                 return Ok(result);
             }
         }
-        return Err(error::Type::InvalidOperation(format!(
+        Err(error::Type::InvalidOperation(format!(
             "Could not find any memory module accepting {:X?}",
             raw_address
-        )));
+        )))
     }
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
@@ -150,10 +150,10 @@ impl System {
                 return Ok(());
             }
         }
-        return Err(error::Type::InvalidOperation(format!(
+        Err(error::Type::InvalidOperation(format!(
             "Could not find any memory module accepting {:X?}",
             raw_address
-        )));
+        )))
     }
 
     fn is_invalid_source_address(address: i32) -> bool {
@@ -231,15 +231,12 @@ impl System {
             let value = self.read_request(request.source_address)?;
             trace!(target: "dma", "Setting {:X?} from {:X?} with {:X?}", request.destination_address, request.source_address, value);
             // Since we know the destination has to be OAM, skip the mmu routing.
-            let res = mmu::MemoryMapped::write(
+            mmu::MemoryMapped::write(
                 &mut self.gpu,
                 mmu::Address::from_raw(request.destination_address)?,
                 value,
             )
-            .ok_or(error::Type::InvalidOperation(
-                "DMA destination was not OAM".into(),
-            ));
-            res
+            .ok_or_else(|| error::Type::InvalidOperation("DMA destination was not OAM".into()))
         } else {
             Ok(())
         }

@@ -85,7 +85,7 @@ pub fn get_visible_sprite(
             return Some(i);
         }
     }
-    return None;
+    None
 }
 
 pub fn pixels_behind(x: i32, sprite: &SpriteEntry) -> usize {

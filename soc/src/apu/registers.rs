@@ -32,12 +32,6 @@ bitfield! {
     pub triggered, set_triggered: 39;
 }
 
-impl SquareConfig {
-    pub fn from_low_high(low: u8, high: u32) -> SquareConfig {
-        SquareConfig(low as u64 | (high as u64) << 8)
-    }
-}
-
 bitfield! {
     pub struct WaveConfig(u64);
     impl Debug;
@@ -50,10 +44,11 @@ bitfield! {
     pub triggered, set_triggered: 39;
 }
 
-impl WaveConfig {
-    pub fn from_low_high(low: u8, high: u32) -> WaveConfig {
-        WaveConfig(low as u64 | (high as u64) << 8)
-    }
+bitfield! {
+    pub struct CommonSoundConfig(u64);
+    impl Debug;
+    u8;
+    pub triggered, set_triggered: 39;
 }
 
 bitfield! {
@@ -69,6 +64,7 @@ bitfield! {
 
 impl_bitfield_helpful_traits!(SquareConfig);
 impl_bitfield_helpful_traits!(WaveConfig);
+impl_bitfield_helpful_traits!(CommonSoundConfig);
 
 impl_bitfield_helpful_traits!(SoundEnable);
 impl_bitfield_bitrange!(SoundEnable);

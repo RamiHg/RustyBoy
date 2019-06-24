@@ -1,12 +1,10 @@
 use portaudio as pa;
 use sample;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use super::channels::{ChannelEvent, ChannelState};
-use super::SharedWaveTable;
+use super::channels::{ChannelMixer, ChannelState};
 
-const FRAMES_PER_BUFFER: usize = 64;
+const FRAMES_PER_BUFFER: usize = 32;
 
 #[allow(dead_code)]
 pub struct Device {
@@ -15,10 +13,7 @@ pub struct Device {
 }
 
 impl Device {
-    pub fn try_new(
-        event_handler: Arc<AtomicU64>,
-        wave_table: SharedWaveTable,
-    ) -> Result<Device, pa::Error> {
+    pub fn try_new(channel_state: ChannelState) -> Result<Device, pa::Error> {
         let pa = pa::PortAudio::new()?;
         let settings = pa.default_output_stream_settings::<f32>(
             1,
@@ -26,7 +21,7 @@ impl Device {
             FRAMES_PER_BUFFER as u32,
         )?;
         // Create the channel for communicating with the APU.
-        let mut thread = AudioThread::new(event_handler, wave_table);
+        let mut thread = AudioThread::new(channel_state);
         let mut pa_stream =
             pa.open_non_blocking_stream(settings, move |args| thread.stream_callback(args))?;
         pa_stream.start()?;
@@ -35,16 +30,17 @@ impl Device {
 }
 
 struct AudioThread {
-    event_handler: Arc<AtomicU64>,
     channel_state: ChannelState,
+    mixer: ChannelMixer,
     last_time: f64,
 }
 
 impl AudioThread {
-    pub fn new(event_handler: Arc<AtomicU64>, wave_table: SharedWaveTable) -> AudioThread {
+    pub fn new(channel_state: ChannelState) -> AudioThread {
+        let mixer = ChannelMixer::new(Arc::clone(&channel_state.wave_table));
         AudioThread {
-            event_handler,
-            channel_state: ChannelState::new(wave_table),
+            channel_state,
+            mixer,
             last_time: -1.0,
         }
     }
@@ -62,26 +58,15 @@ impl AudioThread {
         self.handle_events();
         let buffer: &mut [[f32; 1]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer {
-            *out_frame = self.channel_state.next_sample();
+            *out_frame = self.mixer.next_sample();
         }
         pa::Continue
     }
 
     fn handle_events(&mut self) {
-        use std::sync::atomic::Ordering;
-        // In practice it's impossible for the main thread to write more than one event
-        // every 4 mcycles (a ton of real CPU cycles). But let's handle the worst case
-        // (e.g. audio thread gets suspended).
-        let mut current_value = 0;
-        loop {
-            current_value = self
-                .event_handler
-                .compare_and_swap(current_value, 0, Ordering::AcqRel);
-            if current_value != 0 {
-                self.channel_state.handle_event(ChannelEvent(current_value));
-            } else {
-                break;
-            }
-        }
+        self.channel_state
+            .poll_events()
+            .into_iter()
+            .for_each(|x| self.mixer.handle_event(x));
     }
 }

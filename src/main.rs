@@ -109,7 +109,7 @@ fn main() -> error::Result<()> {
                             );
                             deserialize(&mut system, &args)
                         }
-                        Some(virtual_key @ _) => {
+                        Some(virtual_key) => {
                             if let Some(key) = key_map(virtual_key) {
                                 system.get_joypad_mut().release(key);
                             }

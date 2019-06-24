@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use super::registers::*;
 use super::square::*;
+use super::SharedWaveTable;
 use super::MCYCLE_FREQ;
 
 pub type Frame = sample::frame::Mono<f32>;
@@ -30,13 +31,14 @@ bitfield! {
 
 #[derive(Default)]
 pub struct ChannelState {
-    wave_table: Arc<Cell<u128>>,
+    wave_table: SharedWaveTable,
     square_1: Option<SoundSamplerSignal>,
     square_2: Option<SoundSamplerSignal>,
+    wave: Option<SoundSamplerSignal>,
 }
 
 impl ChannelState {
-    pub fn new(wave_table: Arc<Cell<u128>>) -> ChannelState {
+    pub fn new(wave_table: SharedWaveTable) -> ChannelState {
         ChannelState {
             wave_table,
             ..Default::default()
@@ -55,7 +57,8 @@ impl ChannelState {
             }
             EventType::TriggerWave => {
                 let config = WaveConfig::from_low_high(event.payload_low(), event.payload_high());
-                //self.wave = Some(SomeSampler::from_wave_config(config),to_signal());
+                let wave_table: u128 = *self.wave_table.read();
+                self.wave = Some(SoundSampler::from_wave_config(config, wave_table).to_signal());
             }
         }
     }
@@ -66,6 +69,9 @@ impl ChannelState {
             frame[0] += wave.next()[0] / 10.0;
         }
         if let Some(wave) = &mut self.square_1 {
+            frame[0] += wave.next()[0] / 10.0;
+        }
+        if let Some(wave) = &mut self.wave {
             frame[0] += wave.next()[0] / 10.0;
         }
         frame

@@ -1,10 +1,8 @@
-use num_traits::FromPrimitive as _;
 use num_traits::PrimInt;
-use std::cell::Cell;
+use spin::RwLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use crate::io_registers::Addresses;
 use crate::mmu;
 use registers::*;
 use square::*;
@@ -26,27 +24,26 @@ pub const LENGTH_COUNTER_PERIOD: i32 = TCYCLE_FREQ / 256 / SOUND_DOWNSAMPLE;
 pub const ENVELOPE_PERIOD: i32 = TCYCLE_FREQ / 64 / SOUND_DOWNSAMPLE;
 pub const SWEEP_PERIOD: i32 = TCYCLE_FREQ / 128 / SOUND_DOWNSAMPLE;
 
-#[derive(Serialize, Deserialize)]
+pub type SharedWaveTable = Arc<RwLock<u128>>;
+
 pub struct Apu {
-    #[serde(skip)]
+    #[allow(dead_code)]
     device: Option<device::Device>,
-    #[serde(skip)]
     event_handler: Arc<AtomicU64>,
     square_1_config: SquareConfig,
     square_2_config: SquareConfig,
     wave_config: WaveConfig,
     sound_enable: SoundEnable,
 
-    wave_table: Arc<Cell<u128>>,
+    wave_table: SharedWaveTable,
 
-    #[serde(skip)]
     channel_state: channels::ChannelState,
 }
 
-impl Apu {
-    pub fn new() -> Apu {
+impl Default for Apu {
+    fn default() -> Self {
         let event_handler = Arc::new(AtomicU64::new(0));
-        let wave_table = Arc::new(Cell::new(0));
+        let wave_table = Arc::new(RwLock::new(0));
         let maybe_device =
             device::Device::try_new(Arc::clone(&event_handler), Arc::clone(&wave_table));
         if let Err(err) = maybe_device {
@@ -67,7 +64,9 @@ impl Apu {
             channel_state: Default::default(),
         }
     }
+}
 
+impl Apu {
     pub fn execute_mcycle(&mut self) {
         if self.square_1_config.triggered() {
             self.trigger_event(channels::EventType::TriggerSquare1, self.square_1_config.0);
@@ -156,7 +155,8 @@ impl mmu::MemoryMapped for Apu {
         match raw {
             0xFF10..=0xFF14 => Some(get_byte(self.square_1_config.0, raw - 0xFF10)),
             0xFF16..=0xFF19 => Some(get_byte(self.square_2_config.0, raw - 0xFF15)),
-            0xFF30..=0xFF3F => Some(get_byte(self.wave_table.get(), raw - 0xFF30)),
+            0xFF1A..=0xFF1E => Some(get_byte(self.wave_config.0, raw - 0xFF1A)),
+            0xFF30..=0xFF3F => Some(get_byte(*self.wave_table.read(), raw - 0xFF30)),
             _ => None,
         }
     }
@@ -166,10 +166,11 @@ impl mmu::MemoryMapped for Apu {
         match raw {
             0xFF10..=0xFF14 => Some(set_byte(&mut self.square_1_config.0, raw - 0xFF10, value)),
             0xFF16..=0xFF19 => Some(set_byte(&mut self.square_2_config.0, raw - 0xFF15, value)),
+            0xFF1A..=0xFF1E => Some(set_byte(&mut self.wave_config.0, raw - 0xFF1A, value)),
             0xFF30..=0xFF3F => {
-                let mut wave_table = self.wave_table.get();
-                set_byte(&mut wave_table, raw - 0xFF30, value);
-                self.wave_table.set(wave_table);
+                // Lock for an EXTREMELY brief period of time so as to never block the audio thread.
+                let mut wave_table = self.wave_table.write();
+                set_byte(&mut *wave_table, raw - 0xFF30, value);
                 Some(())
             }
             0xFF25 => Some(self.sound_enable.0 = value),

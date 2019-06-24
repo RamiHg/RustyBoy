@@ -5,9 +5,11 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use super::channels::{ChannelEvent, ChannelState, Frame};
+use super::SharedWaveTable;
 
 const FRAMES_PER_BUFFER: usize = 64;
 
+#[allow(dead_code)]
 pub struct Device {
     pa: pa::PortAudio,
     pa_stream: pa::stream::Stream<pa::stream::NonBlocking, pa::stream::Output<f32>>,
@@ -16,7 +18,7 @@ pub struct Device {
 impl Device {
     pub fn try_new(
         event_handler: Arc<AtomicU64>,
-        wave_table: Arc<Cell<u128>>,
+        wave_table: SharedWaveTable,
     ) -> Result<Device, pa::Error> {
         let pa = pa::PortAudio::new()?;
         let settings = pa.default_output_stream_settings::<f32>(
@@ -40,7 +42,7 @@ struct AudioThread {
 }
 
 impl AudioThread {
-    pub fn new(event_handler: Arc<AtomicU64>, wave_table: Arc<Cell<u128>>) -> AudioThread {
+    pub fn new(event_handler: Arc<AtomicU64>, wave_table: SharedWaveTable) -> AudioThread {
         AudioThread {
             event_handler,
             channel_state: ChannelState::new(wave_table),

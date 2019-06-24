@@ -19,6 +19,7 @@ portaudio = "0.7.0"
 regex = "1.1.7"
 sample = "0.10.0"
 serde = {version = "1.0.92", features = ["derive", "rc"]}
+spin = "0.5.0"
 
 gb_disas = { path = "../gb_disas" }
 

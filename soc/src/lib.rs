@@ -1,6 +1,5 @@
-#![allow(unused_imports)]
+//#![allow(unused_imports)]
 #![allow(unused_doc_comments)]
-#![allow(dead_code)]
 #![allow(unused_variables)]
 #![warn(clippy::all)]
 // #![deny(warnings)]

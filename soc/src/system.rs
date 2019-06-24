@@ -54,6 +54,7 @@ pub struct System {
     serial: serial::Controller,
     dma: dma::Dma,
     joypad: joypad::Joypad,
+    #[serde(skip)]
     apu: apu::Apu,
 
     #[serde(skip)]
@@ -87,7 +88,7 @@ impl System {
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
             joypad: joypad::Joypad::new(),
-            apu: apu::Apu::new(),
+            apu: Default::default(),
 
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,

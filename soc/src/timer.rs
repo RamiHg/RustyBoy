@@ -6,7 +6,7 @@ use crate::util::is_bit_set;
 
 use bitfield::*;
 use io_registers::{Addresses, Register};
-use mmu::{MemoryBus, MemoryMapped2};
+use mmu::MemoryBus;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 

@@ -1,10 +1,9 @@
 use portaudio as pa;
 use sample;
-use std::cell::Cell;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use super::channels::{ChannelEvent, ChannelState, Frame};
+use super::channels::{ChannelEvent, ChannelState};
 use super::SharedWaveTable;
 
 const FRAMES_PER_BUFFER: usize = 64;

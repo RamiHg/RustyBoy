@@ -1,6 +1,5 @@
 use super::registers::*;
 use super::InternalState;
-use crate::system::TState;
 
 const NUM_LINE_TCYCLES: i32 = 456;
 

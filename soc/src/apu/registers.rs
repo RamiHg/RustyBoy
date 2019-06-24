@@ -1,7 +1,4 @@
-use crate::io_registers;
-
 use bitfield::bitfield;
-use bitflags::bitflags;
 use num_derive::FromPrimitive;
 
 #[derive(Debug, FromPrimitive)]

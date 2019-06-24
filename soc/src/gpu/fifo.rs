@@ -20,7 +20,6 @@ impl_bitfield_helpful_traits!(FifoEntry);
 impl FifoEntry {
     pub fn from_sprite_row(
         row: u16,
-        is_sprite: bool,
         priority: u8,
         palette: u8,
         flip_x: bool,

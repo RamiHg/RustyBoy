@@ -62,7 +62,7 @@ impl mmu::MemoryMapped for Dma {
         }
     }
 
-    fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
+    fn write(&mut self, address: mmu::Address, _: i32) -> Option<()> {
         let mmu::Address(_, raw) = address;
         if raw == io_registers::Addresses::Dma as i32 {
             Some(())

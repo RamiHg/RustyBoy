@@ -81,7 +81,7 @@ impl mmu::MemoryMapped for Cart {
 
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
         let mmu::Address(_, raw_address) = address;
-        let (rom_upper_bits, ram_bank) = self.banks();
+        let (_, ram_bank) = self.banks();
         match raw_address {
             // RAM.
             0xA000..=0xBFFF => {

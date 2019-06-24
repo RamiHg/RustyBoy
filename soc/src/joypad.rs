@@ -1,10 +1,10 @@
 use bitfield::bitfield;
 use num_traits::FromPrimitive;
 
-use crate::io_registers::{Addresses, Register};
+use crate::io_registers::Addresses;
 use crate::mmu;
 use crate::system::Interrupts;
-use crate::util::is_bit_set;
+//use crate::util::is_bit_set;
 
 pub enum Key {
     Right,

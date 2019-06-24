@@ -2,7 +2,6 @@ use crate::cpu;
 use crate::error;
 use crate::gpu;
 use crate::io_registers;
-use crate::io_registers::Register as _;
 use crate::joypad;
 use crate::mmu;
 use crate::{apu, dma, serial, timer, util};
@@ -11,8 +10,6 @@ use error::Result;
 use gpu::Pixel;
 
 use bitflags::bitflags;
-use num_traits::FromPrimitive as _;
-use std::rc::Rc;
 
 bitflags! {
     pub struct Interrupts: i32 {

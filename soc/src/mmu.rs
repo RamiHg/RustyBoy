@@ -2,7 +2,6 @@ use crate::util;
 
 use crate::error::{self, Result};
 use crate::io_registers;
-use crate::system::Interrupts;
 
 // Useful tidbits:
 // https://retrocomputing.stackexchange.com/questions/1178/what-is-this-unused-memory-range-in-the-game-boys-memory-map
@@ -94,10 +93,6 @@ impl MemoryBus {
             self.data_latch = reg.value();
         }
     }
-}
-
-pub trait MemoryMapped2 {
-    fn execute_tcycle(self: Box<Self>, memory_bus: &MemoryBus) -> (Box<Self>, Interrupts);
 }
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their

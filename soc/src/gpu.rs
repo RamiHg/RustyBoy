@@ -550,7 +550,6 @@ impl Gpu {
                     let sprite = self.get_sprite(sprite_index);
                     let row = FifoEntry::from_sprite_row(
                         self.fetcher.get_row(),
-                        true,
                         sprite.priority(),
                         sprite.palette(),
                         sprite.flip_x(),

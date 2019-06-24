@@ -1,15 +1,11 @@
 use bitfield::bitfield;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive as _;
 use sample::Frame as _;
 use sample::Signal as _;
-use std::cell::Cell;
-use std::sync::Arc;
 
 use super::registers::*;
 use super::square::*;
 use super::SharedWaveTable;
-use super::MCYCLE_FREQ;
 
 pub type Frame = sample::frame::Mono<f32>;
 
@@ -49,7 +45,7 @@ impl ChannelState {
         match event.event_type() {
             EventType::TriggerSquare1 => {
                 let config = SquareConfig::from_low_high(event.payload_low(), event.payload_high());
-                self.square_1 = Some(SoundSampler::from_square_config(config).to_signal());
+                // self.square_1 = Some(SoundSampler::from_square_config(config).to_signal());
             }
             EventType::TriggerSquare2 => {
                 let config = SquareConfig::from_low_high(event.payload_low(), event.payload_high());
@@ -58,21 +54,21 @@ impl ChannelState {
             EventType::TriggerWave => {
                 let config = WaveConfig::from_low_high(event.payload_low(), event.payload_high());
                 let wave_table: u128 = *self.wave_table.read();
-                self.wave = Some(SoundSampler::from_wave_config(config, wave_table).to_signal());
+                //  self.wave = Some(SoundSampler::from_wave_config(config, wave_table).to_signal());
             }
         }
     }
 
     pub fn next_sample(&mut self) -> Frame {
         let mut frame = Frame::equilibrium();
-        if let Some(wave) = &mut self.square_2 {
-            frame[0] += wave.next()[0] / 10.0;
-        }
         if let Some(wave) = &mut self.square_1 {
-            frame[0] += wave.next()[0] / 10.0;
+            // frame[0] += wave.next()[0] / 6.0;
+        }
+        if let Some(wave) = &mut self.square_2 {
+            frame[0] += wave.next()[0] / 6.0;
         }
         if let Some(wave) = &mut self.wave {
-            frame[0] += wave.next()[0] / 10.0;
+            //frame[0] += wave.next()[0] / 6.0;
         }
         frame
     }

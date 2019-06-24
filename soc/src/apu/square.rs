@@ -24,17 +24,20 @@ fn packed_wave_to_array(packed: u128) -> [u8; 16] {
     array
 }
 
+#[derive(Debug)]
 struct Envelope {
     pub mode: EnvelopeMode,
     pub timer: CountdownTimer,
 }
 
+#[derive(Debug)]
 struct Sweep {
     pub mode: SweepMode,
     pub shift: i32,
     pub timer: Cycle<Timer>,
 }
 
+#[derive(Debug)]
 pub struct SoundSampler {
     waveform: ArrayVec<[u8; 16]>,
     waveform_index: i32,
@@ -56,6 +59,7 @@ pub type SoundSamplerSignal = sample::interpolate::Converter<
 
 impl SoundSampler {
     pub fn from_square_config(config: SquareConfig) -> SoundSampler {
+        dbg!(&config);
         let sweep_setting = if config.sweep_time() > 0 {
             Some((
                 config.sweep_mode(),
@@ -150,38 +154,38 @@ impl Iterator for SoundSampler {
         if self.is_done {
             return None;
         }
-
+        // dbg!(&self);
         let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume / 15.0;
+
         // Update the waveform.
         if self.freq_timer.next().unwrap().is_some() {
             self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
         }
-        // Update the envelope (volume). Disabled on wave.
-        if let Some(Envelope { mode, timer }) = &mut self.envelope {
-            if let Some(Some(_)) = timer.next() {
-                self.volume = match mode {
-                    EnvelopeMode::Attenuate => (self.volume - 1.0).max(0.),
-                    EnvelopeMode::Amplify => (self.volume + 1.).min(15.),
-                }
-            }
-        }
-        // Update the sweep (frequency). Disabled on wave.
-        if let Some(Sweep { mode, shift, timer }) = &mut self.sweep {
-            if let Some(0) = timer.next() {
-                let change = self.frequency >> (*shift + 1);
-                self.frequency += match mode {
-                    SweepMode::Increase => change,
-                    SweepMode::Decrease => -change,
-                };
-                if self.frequency < 0 || self.frequency > 2047 {
-                    self.is_done = true;
-                } else {
-                    // Hard-coding multiplier to 4 since it is disabled on wave.
-                    self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
-                }
-            }
-        }
-        debug_assert!(!self.stop_on_done);
+        // // Update the envelope (volume). Disabled on wave.
+        // if let Some(Envelope { mode, timer }) = &mut self.envelope {
+        //     if let Some(Some(_)) = timer.next() {
+        //         self.volume = match mode {
+        //             EnvelopeMode::Attenuate => (self.volume - 1.0).max(0.),
+        //             EnvelopeMode::Amplify => (self.volume + 1.).min(15.),
+        //         }
+        //     }
+        // }
+        // // Update the sweep (frequency). Disabled on wave.
+        // if let Some(Sweep { mode, shift, timer }) = &mut self.sweep {
+        //     if let Some(0) = timer.next() {
+        //         let change = self.frequency >> (*shift + 1);
+        //         self.frequency += match mode {
+        //             SweepMode::Increase => change,
+        //             SweepMode::Decrease => -change,
+        //         };
+        //         if self.frequency < 0 || self.frequency > 2047 {
+        //             self.is_done = true;
+        //         } else {
+        //             // Hard-coding multiplier to 4 since it is disabled on wave.
+        //             self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
+        //         }
+        //     }
+        // }
         // Update the duration.
         if self.length_timer.next().unwrap() == 0 && self.stop_on_done {
             self.is_done = true;

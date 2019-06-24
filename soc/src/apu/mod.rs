@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use crate::mmu;
 use registers::*;
-use square::*;
 
 mod channels;
 mod device;
@@ -72,6 +71,7 @@ impl Apu {
             self.trigger_event(channels::EventType::TriggerSquare1, self.square_1_config.0);
             self.square_1_config.set_triggered(false);
         } else if self.square_2_config.triggered() {
+            dbg!(&self.square_2_config);
             self.trigger_event(channels::EventType::TriggerSquare2, self.square_2_config.0);
             self.square_2_config.set_triggered(false);
         } else if self.wave_config.triggered() {
@@ -150,7 +150,6 @@ fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
-        use crate::io_registers::Register as _;
         let mmu::Address(_, raw) = address;
         match raw {
             0xFF10..=0xFF14 => Some(get_byte(self.square_1_config.0, raw - 0xFF10)),

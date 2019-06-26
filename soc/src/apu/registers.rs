@@ -52,19 +52,24 @@ bitfield! {
 }
 
 bitfield! {
-    pub struct SoundEnable(i32);
-    no default BitRange;
-    u8;
-    pub sound1_on, _: 0;
-    pub sound2, _: 1;
-    pub sound3_on, _: 2;
-    pub sound4_on, _: 3;
-    pub sound_on, _: 7;
+    pub struct VolumeControl(u8);
+    impl Debug;
+    pub right, _: 2, 0;
+    pub left, _: 6, 4;
 }
+
+bitfield! {
+    pub struct SoundStatus(u8);
+    pub square_1, _: 0;
+    pub square_2, _: 1;
+    pub wave, _: 2;
+    pub sound4_on, _: 3;
+    pub global_enable, _: 7;
+}
+
 
 impl_bitfield_helpful_traits!(SquareConfig);
 impl_bitfield_helpful_traits!(WaveConfig);
 impl_bitfield_helpful_traits!(CommonSoundConfig);
-
-impl_bitfield_helpful_traits!(SoundEnable);
-impl_bitfield_bitrange!(SoundEnable);
+impl_bitfield_helpful_traits!(SoundStatus);
+impl_bitfield_helpful_traits!(VolumeControl);

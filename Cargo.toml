@@ -24,12 +24,14 @@ soc = { path = "soc" }
 overflow-checks = true
 debug-assertions = true
 incremental = true
+debug = true
 
 # Uncomment for fully optimized release settings.
 # Make sure to build with RUSTFLAGS="-Ctarget-cpu=native" for slightly better performance.
 # [profile.release]
 # codegen-units = 1
 # lto = "fat"
+# debug = true
 
 # I use cargo test --release quite a bit.
 [profile.bench]

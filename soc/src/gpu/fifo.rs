@@ -16,6 +16,7 @@ bitfield! {
 }
 
 impl_bitfield_helpful_traits!(FifoEntry);
+impl_serde_bitfield_traits!(FifoEntry);
 
 impl FifoEntry {
     pub fn from_sprite_row(

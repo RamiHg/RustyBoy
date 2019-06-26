@@ -86,7 +86,7 @@ fn main() -> error::Result<()> {
         while !system.is_vsyncing() {
             system.execute_machine_cycle()?;
         }
-        //println!("{} ms", now.elapsed().as_micros() as f32 / 1000.0);
+        //println!("{} ms", _now.elapsed().as_micros() as f32 / 1000.0);
         // Update the screen.
         window.update_screen(system.get_screen());
 

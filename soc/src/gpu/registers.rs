@@ -142,6 +142,7 @@ bitfield! {
 }
 
 impl_bitfield_helpful_traits!(LcdStatus);
+impl_serde_bitfield_traits!(LcdStatus);
 define_typed_register!(LcdControl, io_registers::Addresses::LcdControl);
 
 define_int_register!(CurrentY, io_registers::Addresses::LcdY);

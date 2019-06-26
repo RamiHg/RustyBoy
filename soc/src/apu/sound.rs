@@ -3,8 +3,8 @@ use sample::Signal as _;
 use std::iter::Cycle;
 use std::iter::FromIterator as _;
 
-use super::{timer, CountdownTimer, Timer};
 use crate::apu::registers::{EnvelopeMode, SquareConfig, SweepMode, WaveConfig};
+use crate::util::{timer, CountdownTimer, Timer};
 
 const WAVE_DUTIES: [[u8; 8]; 4] = [
     [0, 0, 0, 0, 0, 0, 0, 1],
@@ -49,10 +49,9 @@ pub struct SoundSampler {
     is_done: bool,
 }
 
-pub type SoundSamplerSignal = sample::interpolate::Converter<
-    sample::signal::FromIterator<SoundSampler>,
-    sample::interpolate::Floor<sample::frame::Mono<f32>>,
->;
+type Interpolator = sample::interpolate::Floor<sample::frame::Mono<f32>>;
+pub type SoundSamplerSignal =
+    sample::interpolate::Converter<sample::signal::FromIterator<SoundSampler>, Interpolator>;
 
 impl SoundSampler {
     pub fn from_square_config(config: SquareConfig) -> SoundSampler {
@@ -65,6 +64,7 @@ impl SoundSampler {
         } else {
             None
         };
+        //dbg!(config);
         SoundSampler::from_settings(
             &WAVE_DUTIES[config.duty() as usize],
             config.volume().into(),
@@ -136,7 +136,7 @@ impl SoundSampler {
 
     pub fn into_signal(self) -> SoundSamplerSignal {
         let mut source = sample::signal::from_iter(self);
-        let interp = sample::interpolate::Floor::from_source(&mut source);
+        let interp = Interpolator::from_source(&mut source);
         source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::SAMPLE_RATE.into())
     }
 
@@ -151,8 +151,7 @@ impl Iterator for SoundSampler {
         if self.is_done {
             return None;
         }
-        let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume / 15.0;
-        // Update the waveform.
+        let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume;
         if self.freq_timer.next().unwrap().is_some() {
             self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
         }
@@ -185,6 +184,6 @@ impl Iterator for SoundSampler {
         if self.length_timer.next().unwrap() == 0 && self.stop_on_done {
             self.is_done = true;
         }
-        Some([sample])
+        Some([sample / 15.0])
     }
 }

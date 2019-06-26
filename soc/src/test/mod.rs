@@ -4,6 +4,7 @@ pub mod image;
 // mod automated_solver;
 mod integration;
 mod mooneye_suite;
+mod util;
 
 pub use context::*;
 

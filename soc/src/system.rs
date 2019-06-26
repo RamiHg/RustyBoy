@@ -374,6 +374,7 @@ impl System {
     }
 
     pub fn memory_read(&self, raw_address: i32) -> i32 {
+        use num_traits::FromPrimitive;
         if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
             use io_registers::Addresses::*;
             match address {
@@ -388,6 +389,9 @@ impl System {
     }
 
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {
+        use crate::io_registers::Register as _;
+        use num_traits::FromPrimitive;
+
         debug_assert!(util::is_8bit(value));
         if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
             use io_registers::Addresses::*;

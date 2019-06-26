@@ -4,7 +4,6 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use crate::mmu;
-use registers::*;
 
 mod channels;
 mod device;
@@ -28,15 +27,14 @@ pub type SharedWaveTable = Arc<RwLock<u128>>;
 pub struct Apu {
     #[allow(dead_code)]
     device: Option<device::Device>,
-    sound_enable: SoundEnable,
 
-    channel_state: channels::ChannelState,
+    audio_regs: channels::SharedAudioRegs,
 }
 
 impl Default for Apu {
     fn default() -> Self {
-        let channel_state = channels::ChannelState::default();
-        let maybe_device = device::Device::try_new(channel_state.clone());
+        let audio_regs = channels::SharedAudioRegs::default();
+        let maybe_device = device::Device::try_new(audio_regs.clone());
         if let Err(err) = maybe_device {
             println!(
                 "Audio device is not available. Audio will be disabled. Error: {}",
@@ -45,8 +43,7 @@ impl Default for Apu {
         }
         Apu {
             device: maybe_device.ok(),
-            sound_enable: SoundEnable(0xF3),
-            channel_state,
+            audio_regs,
         }
     }
 }
@@ -55,41 +52,7 @@ impl Apu {
     pub fn execute_mcycle(&mut self) {}
 }
 
-pub type Timer = std::iter::Rev<std::ops::Range<i32>>;
-pub fn timer(count: i32) -> Timer {
-    (0..count).rev()
-}
 
-#[derive(Clone, Debug)]
-pub struct CountdownTimer {
-    counter: i32,
-    timer: std::iter::Cycle<Timer>,
-}
-
-impl Iterator for CountdownTimer {
-    type Item = Option<i32>;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.counter > 0 {
-            Some(if self.timer.next().unwrap() == 0 {
-                self.counter -= 1;
-                Some(self.counter)
-            } else {
-                None
-            })
-        } else {
-            None
-        }
-    }
-}
-
-impl CountdownTimer {
-    pub fn new(counter: i32, period: i32) -> CountdownTimer {
-        CountdownTimer {
-            counter,
-            timer: timer(period).cycle(),
-        }
-    }
-}
 // TODO: Move to util..
 pub fn low_bits(x: u64) -> u8 {
     (x & 0xFF) as u8
@@ -131,55 +94,84 @@ fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
-        use std::sync::atomic::Ordering::Acquire;
+        use std::sync::atomic::Ordering::{Acquire, Relaxed};
         let mmu::Address(_, raw) = address;
         match raw {
+            // Volume control (NR50)
+            0xFF24 => Some(i32::from(self.audio_regs.volume_control.load(Acquire))),
+            // Channel R/L mix (NR51)
+            0xFF25 => Some(i32::from(self.audio_regs.sound_mix.load(Acquire))),
+            // Sound status (NR52).
+            0xFF26 => Some(i32::from(self.audio_regs.sound_status.load(Acquire) | 0x70)),
+            // Square 1
             0xFF10..=0xFF14 => Some(get_byte(
-                self.channel_state.square_1_config.load(Acquire),
+                self.audio_regs.square_1_config.load(Acquire),
                 raw - 0xFF10,
             )),
+            // Square 2
             0xFF16..=0xFF19 => Some(get_byte(
-                self.channel_state.square_2_config.load(Acquire),
+                self.audio_regs.square_2_config.load(Acquire),
                 raw - 0xFF15,
             )),
+            // Wave
             0xFF1A..=0xFF1E => Some(get_byte(
-                self.channel_state.wave_config.load(Acquire),
+                self.audio_regs.wave_config.load(Acquire),
                 raw - 0xFF1A,
             )),
-            0xFF30..=0xFF3F => Some(get_byte(
-                *self.channel_state.wave_table.read(),
-                raw - 0xFF30,
-            )),
+            // Wave table
+            0xFF30..=0xFF3F => Some(get_byte(*self.audio_regs.wave_table.read(), raw - 0xFF30)),
             _ => None,
         }
     }
 
     #[allow(clippy::unit_arg)]
     fn write(&mut self, address: mmu::Address, value: i32) -> Option<()> {
+        use crate::util::AtomicInt;
+        use std::sync::atomic::Ordering;
         let mmu::Address(_, raw) = address;
         match raw {
+            // Volume control
+            0xFF24 => Some(
+                self.audio_regs
+                    .volume_control
+                    .store(value as u8, Ordering::Release),
+            ),
+            // Channel R/ L mix
+            0xFF25 => Some(
+                self.audio_regs
+                    .sound_mix
+                    .store(value as u8, Ordering::Release),
+            ),
+            // Sound status (NR52)
+            0xFF26 => Some({
+                self.audio_regs
+                    .sound_status
+                    .weak_update_with(Ordering::Release, |x: u8| {
+                        (x & !0x80) | (value as u8 & 0x80)
+                    });
+            }),
+            // Square 1
             0xFF10..=0xFF14 => Some(atomic_set_byte(
-                &self.channel_state.square_1_config,
+                &self.audio_regs.square_1_config,
                 raw - 0xFF10,
                 value,
             )),
-            0xFF16..=0xFF19 => Some(atomic_set_byte(
-                &self.channel_state.square_2_config,
-                raw - 0xFF15,
-                value,
-            )),
-            0xFF1A..=0xFF1E => Some(atomic_set_byte(
-                &self.channel_state.wave_config,
-                raw - 0xFF1A,
-                value,
-            )),
+            // Square 2
+            0xFF16..=0xFF19 => Some({
+                atomic_set_byte(&self.audio_regs.square_2_config, raw - 0xFF15, value);
+            }),
+            // Wave
+            0xFF1A..=0xFF1E => Some({
+                atomic_set_byte(&self.audio_regs.wave_config, raw - 0xFF1A, value);
+            }),
+            // Wave table
             0xFF30..=0xFF3F => {
                 // Lock for an EXTREMELY brief period of time so as to never block the audio thread.
-                let mut wave_table = self.channel_state.wave_table.write();
+                let mut wave_table = self.audio_regs.wave_table.write();
                 set_byte(&mut *wave_table, raw - 0xFF30, value);
                 Some(())
             }
-            0xFF25 => Some(self.sound_enable.0 = value),
+
             _ => None,
         }
     }

@@ -85,6 +85,16 @@ macro_rules! impl_bitfield_helpful_traits {
             }
         }
 
+        impl Default for $Type {
+            fn default() -> $Type {
+                $Type(0)
+            }
+        }
+    };
+}
+
+macro_rules! impl_serde_bitfield_traits {
+    ($Type:ident) => {
         impl serde::ser::Serialize for $Type {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
@@ -102,12 +112,6 @@ macro_rules! impl_bitfield_helpful_traits {
                 use std::convert::TryInto as _;
                 let inner = i32::deserialize(deserializer)?;
                 Ok($Type(inner.try_into().unwrap()))
-            }
-        }
-
-        impl Default for $Type {
-            fn default() -> $Type {
-                $Type(0)
             }
         }
     };
@@ -151,6 +155,7 @@ macro_rules! define_typed_register {
         define_common_register!($Type, $address);
         impl_bitfield_bitrange!($Type);
         impl_bitfield_helpful_traits!($Type);
+        impl_serde_bitfield_traits!($Type);
     };
 }
 

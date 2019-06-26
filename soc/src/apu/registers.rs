@@ -45,6 +45,21 @@ bitfield! {
 }
 
 bitfield! {
+    pub struct NoiseConfig(u64);
+    impl Debug;
+    u8;
+    pub length, _: 13, 8;
+    pub envelope_counter, _: 18, 16;
+    pub into EnvelopeMode, envelope_mode, _: 19, 19;
+    pub volume, _: 23, 20;
+    pub divisor_code, _: 26, 24;
+    pub width_mode, _: 27, 27;
+    pub shift, _: 31, 28;
+    pub is_timed, _: 38;
+    pub triggered, set_triggered: 39;
+}
+
+bitfield! {
     pub struct CommonSoundConfig(u64);
     impl Debug;
     u8;
@@ -70,6 +85,7 @@ bitfield! {
 
 impl_bitfield_helpful_traits!(SquareConfig);
 impl_bitfield_helpful_traits!(WaveConfig);
+impl_bitfield_helpful_traits!(NoiseConfig);
 impl_bitfield_helpful_traits!(CommonSoundConfig);
 impl_bitfield_helpful_traits!(SoundStatus);
 impl_bitfield_helpful_traits!(VolumeControl);

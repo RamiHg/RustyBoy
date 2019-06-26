@@ -9,7 +9,6 @@ use structopt::StructOpt;
 use window::*;
 
 use soc::cart;
-use soc::error;
 use soc::gpu;
 use soc::joypad;
 use soc::log;
@@ -61,7 +60,7 @@ fn key_map(key: glutin::VirtualKeyCode) -> Option<joypad::Key> {
     }
 }
 
-fn main() -> error::Result<()> {
+fn main() {
     let args = Opt::from_args();
 
     log::setup_logging(log::LogSettings {
@@ -84,7 +83,7 @@ fn main() -> error::Result<()> {
     loop {
         let _now = std::time::Instant::now();
         while !system.is_vsyncing() {
-            system.execute_machine_cycle()?;
+            system.execute_machine_cycle().unwrap();
         }
         //println!("{} ms", _now.elapsed().as_micros() as f32 / 1000.0);
         // Update the screen.
@@ -133,12 +132,10 @@ fn main() -> error::Result<()> {
             break;
         }
         while system.is_vsyncing() {
-            system.execute_machine_cycle()?;
+            system.execute_machine_cycle().unwrap();
         }
         window.swap_buffers();
     }
-
-    Ok(())
 }
 
 fn serialize(system: &system::System, args: &Opt) {

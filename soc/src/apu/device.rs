@@ -6,7 +6,7 @@ use super::channels::{ChannelMixer, SharedAudioRegs};
 const FRAMES_PER_BUFFER: usize = 64;
 const NUM_CHANNELS: i32 = 2;
 
-type PaOutType = i16;
+type PaOutType = f32;
 
 #[allow(dead_code)]
 pub struct Device {
@@ -91,11 +91,7 @@ impl AudioThread {
                 }
 
             }
-            *out_frame = [
-                ((sample[0] * std::i16::MAX as f32) / 15.0) as PaOutType,
-                //    sample[1] as PaOutType,
-                0,
-            ];
+            *out_frame = sample;
         }
         if _now.elapsed().as_micros() as f32 / 1000.0 > 0.1 {
             // println!("Took {} ms", _now.elapsed().as_micros() as f32 / 1000.0);

@@ -50,17 +50,25 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                 // TODO: Clean up
                 if cpu.is_halted {
                     debug_assert!(cpu.micro_code_stack.is_empty());
-                    cpu.micro_code_stack = vec![true_nop(), nop_end()];
+                    cpu.micro_code_stack.clear();
+                    cpu.micro_code_stack.push_back(true_nop()).unwrap();
+                    cpu.micro_code_stack.push_back(nop_end()).unwrap();
                 } else if !cpu.is_handling_interrupt {
                     debug_assert!(cpu.micro_code_stack.is_empty());
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
-                (cpu.micro_code_stack.remove(0), DecodeMode::Execute)
+                (
+                    cpu.micro_code_stack.pop_front().unwrap(),
+                    DecodeMode::Execute,
+                )
             }
             _ => panic!("Invalid decode t-state"),
         },
-        DecodeMode::Execute => (cpu.micro_code_stack.remove(0), DecodeMode::Execute),
+        DecodeMode::Execute => (
+            cpu.micro_code_stack.pop_front().unwrap(),
+            DecodeMode::Execute,
+        ),
     };
     // Execute the micro-code.
     let mut next_state = execute(&micro_code, cpu);

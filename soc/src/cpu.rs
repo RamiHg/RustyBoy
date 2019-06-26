@@ -1,3 +1,5 @@
+use arraydeque::ArrayDeque;
+
 use crate::error::{self, Result};
 use crate::io_registers;
 use crate::mmu::Memory;
@@ -43,7 +45,7 @@ pub struct State {
 pub struct TState(i32);
 
 impl TState {
-    pub fn get(&self) -> i32 {
+    pub fn get(self) -> i32 {
         self.0 + 1
     }
 
@@ -58,8 +60,11 @@ impl TState {
 pub struct Cpu {
     pub state: State,
     pub registers: register::File,
+    #[serde(skip)]
     pub decoder: decoder::Decoder,
-    pub micro_code_stack: Vec<MicroCode>,
+    // TODO: THIS BREAKS SERIALIZATION.
+    #[serde(skip)]
+    pub micro_code_stack: ArrayDeque<[MicroCode; 24]>,
 
     pub t_state: TState,
 
@@ -75,8 +80,8 @@ impl Cpu {
         let mut cpu = Cpu {
             state: State::default(),
             registers: register::File::new(),
-            decoder: decoder::Decoder::new(),
-            micro_code_stack: Vec::new(),
+            decoder: Default::default(),
+            micro_code_stack: ArrayDeque::new(),
             t_state: TState::default(),
             interrupts_enabled: false,
             is_handling_interrupt: false,

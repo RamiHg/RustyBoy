@@ -20,6 +20,7 @@ pub enum ChannelEvent {
     TriggerSquare1(SquareConfig),
     TriggerSquare2(SquareConfig),
     TriggerWave(WaveConfig),
+    TriggerNoise(NoiseConfig),
 }
 
 /// A local snapshot of ChannelState taken at the beginning of the audio callback. We take a
@@ -35,6 +36,7 @@ pub struct CachedAudioRegs {
     pub square_1_config: SquareConfig,
     pub square_2_config: SquareConfig,
     pub wave_config: WaveConfig,
+    pub noise_config: NoiseConfig,
 }
 
 impl CachedAudioRegs {
@@ -63,6 +65,7 @@ pub struct SharedAudioRegs {
     pub square_1_config: Arc<AtomicU64>,
     pub square_2_config: Arc<AtomicU64>,
     pub wave_config: Arc<AtomicU64>,
+    pub noise_config: Arc<AtomicU64>,
     pub wave_table: SharedWaveTable,
 }
 
@@ -77,6 +80,9 @@ impl SharedAudioRegs {
         }
         if let Some(config) = SharedAudioRegs::poll_event(&mut self.wave_config) {
             events.push(ChannelEvent::TriggerWave(WaveConfig(config)));
+        }
+        if let Some(config) = SharedAudioRegs::poll_event(&mut self.noise_config) {
+            events.push(ChannelEvent::TriggerNoise(NoiseConfig(config)));
         }
         events
     }
@@ -120,6 +126,7 @@ pub struct ChannelMixer {
     square_1: Option<SoundSamplerSignal>,
     square_2: Option<SoundSamplerSignal>,
     wave: Option<SoundSamplerSignal>,
+    noise: Option<SoundSamplerSignal>,
 }
 
 impl ChannelMixer {
@@ -131,6 +138,7 @@ impl ChannelMixer {
             square_1: None,
             square_2: None,
             wave: None,
+            noise: None,
         }
     }
 
@@ -156,6 +164,7 @@ impl ChannelMixer {
                 let wave_table: u128 = *self.global_regs.wave_table.try_read().unwrap();
                 self.wave = Some(SoundSampler::from_wave_config(config, wave_table).into_signal());
             }
+            TriggerNoise(config) => {}
         }
     }
 
@@ -198,7 +207,7 @@ impl ChannelMixer {
         debug_assert_ge!(frame[0], 0.0);
         debug_assert_le!(frame[1], 15.0);
         debug_assert_ge!(frame[1], 0.0);
-        //frame = frame.scale_amp(1.0 / 15.0 * 2.0).offset_amp(-1.0);
+        frame = frame.scale_amp(1.0 / 15.0);
         // // And finally, clamp.
         // frame[0] = frame[0].min(1.0).max(-1.0);
         // frame[1] = frame[1].min(1.0).max(-1.0);

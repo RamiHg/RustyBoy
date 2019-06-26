@@ -1,3 +1,4 @@
+use arraydeque::ArrayDeque;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -83,33 +84,37 @@ impl Into<Register> for AFPairTable {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+const MAX_NUM_CODES: usize = 24;
+pub type MicroCodeList = ArrayDeque<[MicroCode; MAX_NUM_CODES]>;
+
 pub struct Decoder {
-    op_codes: Vec<Vec<MicroCode>>,
-    cb_op_codes: Vec<Vec<MicroCode>>,
-    interrupt_opcodes: Vec<MicroCode>,
+    op_codes: Vec<MicroCodeList>,
+    cb_op_codes: Vec<MicroCodeList>,
+    interrupt_opcodes: MicroCodeList,
 }
 
-impl Decoder {
-    pub fn new() -> Decoder {
+impl Default for Decoder {
+    fn default() -> Decoder {
         let builder = DecoderBuilder::new();
-        let mut op_codes = Vec::<Vec<MicroCode>>::new();
+        let mut op_codes = Vec::<MicroCodeList>::new();
         for i in 0..256 {
-            op_codes.push(builder.decode(i, false));
+            op_codes.push(builder.decode(i, false).into_iter().collect());
         }
-        let mut cb_op_codes = Vec::<Vec<MicroCode>>::new();
+        let mut cb_op_codes = Vec::<MicroCodeList>::new();
         for i in 0..256 {
-            cb_op_codes.push(builder.decode(i, true));
+            cb_op_codes.push(builder.decode(i, true).into_iter().collect());
         }
-        let interrupt_opcodes = builder.interrupt_handler();
+        let interrupt_opcodes = builder.interrupt_handler().into_iter().collect();
         Decoder {
             op_codes,
             cb_op_codes,
             interrupt_opcodes,
         }
     }
+}
 
-    pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
+impl Decoder {
+    pub fn decode(&self, op: i32, in_cb_mode: bool) -> MicroCodeList {
         if in_cb_mode {
             self.cb_op_codes[op as usize].clone()
         } else {
@@ -117,7 +122,7 @@ impl Decoder {
         }
     }
 
-    pub fn interrupt_handler(&self) -> Vec<MicroCode> {
+    pub fn interrupt_handler(&self) -> MicroCodeList {
         self.interrupt_opcodes.clone()
     }
 }
@@ -144,6 +149,7 @@ impl DecoderBuilder {
     pub fn interrupt_handler(&self) -> Vec<MicroCode> {
         let handler = self.pla["INTERRUPT"].clone().compile();
         debug_assert_eq!(handler.len(), 2 + 4 * 4);
+        debug_assert_lt!(handler.len(), MAX_NUM_CODES);
         handler
     }
 
@@ -349,6 +355,7 @@ impl DecoderBuilder {
 
         // Compile the MCyle assembly.
         let micro_codes = mcycle_list.compile();
+        debug_assert_lt!(micro_codes.len(), MAX_NUM_CODES);
         micro_codes
     }
 
@@ -379,7 +386,7 @@ impl DecoderBuilder {
             "alur(CB)"
         };
 
-        match op_x {
+        let micro_codes = match op_x {
             0 => self.pla[alu_key]
                 .remap_alu_placeholder(alu_op)
                 .remap_lhs_reg(Register::from_single_table(op_z))
@@ -389,6 +396,8 @@ impl DecoderBuilder {
                 .remap_lhs_reg(Register::from_single_table(op_z))
                 .remap_i32_placeholder(op_y),
         }
-        .compile()
+        .compile();
+        debug_assert_lt!(micro_codes.len(), MAX_NUM_CODES);
+        micro_codes
     }
 }

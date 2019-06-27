@@ -54,6 +54,7 @@ impl CachedAudioRegs {
         self.square_1_config = SquareConfig(state.square_1_config.load(Ordering::Acquire));
         self.square_2_config = SquareConfig(state.square_2_config.load(Ordering::Acquire));
         self.wave_config = WaveConfig(state.wave_config.load(Ordering::Acquire));
+        self.noise_config = NoiseConfig(state.noise_config.load(Ordering::Acquire));
     }
 }
 
@@ -70,7 +71,7 @@ pub struct SharedAudioRegs {
 }
 
 impl SharedAudioRegs {
-    pub fn poll_events(&mut self) -> ArrayVec<[ChannelEvent; 3]> {
+    pub fn poll_events(&mut self) -> ArrayVec<[ChannelEvent; 4]> {
         let mut events = ArrayVec::new();
         if let Some(config) = SharedAudioRegs::poll_event(&mut self.square_1_config) {
             events.push(ChannelEvent::TriggerSquare1(SquareConfig(config)));
@@ -164,7 +165,9 @@ impl ChannelMixer {
                 let wave_table: u128 = *self.global_regs.wave_table.try_read().unwrap();
                 self.wave = Some(SoundSampler::from_wave_config(config, wave_table).into_signal());
             }
-            TriggerNoise(config) => {}
+            TriggerNoise(config) => {
+                self.noise = Some(SoundSampler::from_noise_config(config).into_signal());
+            }
         }
     }
 
@@ -175,7 +178,7 @@ impl ChannelMixer {
             self.square_1.iter_mut(),
             self.square_2.iter_mut(),
             self.wave.iter_mut(),
-            None.iter_mut(),
+            self.noise.iter_mut(),
         ]
         .iter_mut()
         .flatten()

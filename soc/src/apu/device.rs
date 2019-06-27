@@ -35,9 +35,6 @@ impl Device {
 struct AudioThread {
     mixer: ChannelMixer,
     last_time: f64,
-
-    writer: Option<hound::WavWriter<std::io::BufWriter<std::fs::File>>>,
-    num: i32,
 }
 
 impl AudioThread {
@@ -46,19 +43,6 @@ impl AudioThread {
         AudioThread {
             mixer,
             last_time: -1.0,
-            writer: Some(
-                hound::WavWriter::create(
-                    "sound.wav",
-                    hound::WavSpec {
-                        channels: 2,
-                        sample_rate: super::SAMPLE_RATE as u32,
-                        bits_per_sample: 16,
-                        sample_format: hound::SampleFormat::Int,
-                    },
-                )
-                .unwrap(),
-            ),
-            num: 0,
         }
     }
 
@@ -66,8 +50,6 @@ impl AudioThread {
         &mut self,
         args: pa::OutputStreamCallbackArgs<PaOutType>,
     ) -> pa::stream::CallbackResult {
-        self.writer = None;
-
         let _now = std::time::Instant::now();
         let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
         let elapsed_secs = time.current - self.last_time;
@@ -79,18 +61,6 @@ impl AudioThread {
         let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer {
             let sample = self.mixer.next_sample();
-            if let Some(writer) = &mut self.writer {
-                let conv = |x| (x * std::i16::MAX as f32) as i16;
-                writer.write_sample(conv(sample[0])).unwrap();
-                writer.write_sample(conv(sample[1])).unwrap();
-                self.num += 1;
-                if self.num > 44100 * 10 {
-                    println!("Finished");
-                    writer.flush().unwrap();
-                    self.writer = None;
-                }
-
-            }
             *out_frame = sample;
         }
         if _now.elapsed().as_micros() as f32 / 1000.0 > 0.1 {

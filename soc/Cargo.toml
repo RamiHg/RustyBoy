@@ -20,7 +20,6 @@ regex = "1.1.7"
 sample = "0.10.0"
 serde = {version = "1.0.93", features = ["derive", "rc"]}
 spin = "0.5.0"
-hound = "3.4.0"
 
 gb_disas = { path = "../gb_disas" }
 

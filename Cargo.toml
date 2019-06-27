@@ -20,16 +20,15 @@ soc = { path = "soc" }
 
 
 # Uncomment for incremental release settings.
-# [profile.release]
-# overflow-checks = true
-# debug-assertions = true
-# incremental = true
-# debug = true
+[profile.release]
+overflow-checks = true
+debug-assertions = true
+incremental = true
 
 # Uncomment for fully optimized release settings.
-[profile.release]
-codegen-units = 1
-lto = "fat"
+# [profile.release]
+# codegen-units = 1
+# lto = "fat"
 # debug = true
 
 # I use cargo test --release quite a bit.

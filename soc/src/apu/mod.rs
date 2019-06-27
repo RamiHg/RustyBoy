@@ -21,6 +21,7 @@ pub const BASE_FREQ: i32 = TCYCLE_FREQ / SOUND_DOWNSAMPLE;
 pub const LENGTH_COUNTER_PERIOD: i32 = TCYCLE_FREQ / 256 / SOUND_DOWNSAMPLE;
 pub const ENVELOPE_PERIOD: i32 = TCYCLE_FREQ / 64 / SOUND_DOWNSAMPLE;
 pub const SWEEP_PERIOD: i32 = TCYCLE_FREQ / 128 / SOUND_DOWNSAMPLE;
+pub const NOISE_PERIOD: i32 = 8 / SOUND_DOWNSAMPLE;
 
 pub type SharedWaveTable = Arc<RwLock<u128>>;
 
@@ -118,6 +119,11 @@ impl mmu::MemoryMapped for Apu {
                 self.audio_regs.wave_config.load(Acquire),
                 raw - 0xFF1A,
             )),
+            // Noise
+            0xFF20..=0xFF23 => Some(get_byte(
+                self.audio_regs.noise_config.load(Acquire),
+                raw - 0xFF1F,
+            )),
             // Wave table
             0xFF30..=0xFF3F => Some(get_byte(*self.audio_regs.wave_table.read(), raw - 0xFF30)),
             _ => None,
@@ -163,6 +169,10 @@ impl mmu::MemoryMapped for Apu {
             // Wave
             0xFF1A..=0xFF1E => Some({
                 atomic_set_byte(&self.audio_regs.wave_config, raw - 0xFF1A, value);
+            }),
+            // Noise
+            0xFF20..=0xFF23 => Some({
+                atomic_set_byte(&self.audio_regs.noise_config, raw - 0xFF1F, value);
             }),
             // Wave table
             0xFF30..=0xFF3F => {

@@ -3,7 +3,7 @@ use sample::Signal as _;
 use std::iter::Cycle;
 use std::iter::FromIterator as _;
 
-use crate::apu::registers::{EnvelopeMode, SquareConfig, SweepMode, WaveConfig};
+use crate::apu::registers::{EnvelopeMode, NoiseConfig, SquareConfig, SweepMode, WaveConfig};
 use crate::util::{timer, CountdownTimer, Timer};
 
 const WAVE_DUTIES: [[u8; 8]; 4] = [
@@ -35,6 +35,12 @@ struct Sweep {
     pub timer: Cycle<Timer>,
 }
 
+struct Noise {
+    pub buzz: bool,
+    pub lfsr: u16,
+    pub timer: Cycle<Timer>,
+}
+
 pub struct SoundSampler {
     waveform: ArrayVec<[u8; 32]>,
     waveform_index: i32,
@@ -42,6 +48,7 @@ pub struct SoundSampler {
     frequency: i32,
     envelope: Option<Envelope>,
     sweep: Option<Sweep>,
+    noise: Option<Noise>,
     stop_on_done: bool,
     // Timers
     freq_timer: Cycle<CountdownTimer>,
@@ -100,6 +107,27 @@ impl SoundSampler {
         )
     }
 
+    pub fn from_noise_config(config: NoiseConfig) -> SoundSampler {
+        let mut sampler = SoundSampler::from_settings(
+            &[],
+            config.volume().into(),
+            0,
+            1,
+            Some((config.envelope_mode(), config.envelope_counter().into())),
+            None,
+            64 - config.length() as i32,
+            config.is_timed(),
+        );
+        let mantissa = 2 * (config.divisor_code() as i32 + 1);
+        debug_assert_lt!(config.shift(), 0xE);
+        sampler.noise = Some(Noise {
+            buzz: config.width_mode(),
+            lfsr: 0x7FFF,
+            timer: timer((mantissa << i32::from(config.shift())) * super::NOISE_PERIOD).cycle(),
+        });
+        sampler
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn from_settings(
         waveform: &[u8],
@@ -127,6 +155,7 @@ impl SoundSampler {
             frequency,
             envelope,
             sweep,
+            noise: None,
             stop_on_done,
             freq_timer: SoundSampler::make_freq_timer(frequency, freq_multiplier),
             length_timer: timer(length * super::LENGTH_COUNTER_PERIOD).cycle(),
@@ -145,19 +174,51 @@ impl SoundSampler {
     }
 }
 
+impl Noise {
+    pub fn sample(&self) -> u8 {
+        (!self.lfsr & 1) as u8
+    }
+
+    pub fn clock(&mut self) {
+        if let Some(0) = self.timer.next() {
+            let mut lfsr = self.lfsr;
+            // XOR the low two bits.
+            let new_bit = (lfsr & 1) ^ ((lfsr >> 1) & 1);
+            // Shift right and stick the result in the new high bit.
+            lfsr = (lfsr >> 1) | (new_bit << 14);
+            debug_assert_ge!(lfsr.leading_zeros(), 1);
+            if self.buzz {
+                // Also stick in 7th bit.
+                lfsr = (lfsr & !(1 << 6)) | (new_bit << 6);
+            }
+            self.lfsr = lfsr;
+        }
+    }
+}
+
 impl Iterator for SoundSampler {
     type Item = sample::frame::Mono<f32>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_done {
-            return None;
+            return None; //Some([0.0]);
         }
-        let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume;
-        if self.freq_timer.next().unwrap().is_some() {
-            self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
-        }
+        // TODO: Refactor so that we don't have this ugly logic.
+        let sample = if let Some(noise) = &mut self.noise {
+            let sample = noise.sample();
+            debug_assert_le!(sample, 1);
+            noise.clock();
+            sample
+        } else {
+            let sample = self.waveform[self.waveform_index as usize];
+            if self.freq_timer.next().unwrap().is_some() {
+                self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
+            }
+            sample
+        } as f32
+            * self.volume;
         // Update the envelope (volume). Disabled on wave.
         if let Some(Envelope { mode, timer }) = &mut self.envelope {
-            if let Some(Some(_)) = timer.next() {
+            if let Some(Some(0)) = timer.next() {
                 self.volume = match mode {
                     EnvelopeMode::Attenuate => (self.volume - 1.0).max(0.),
                     EnvelopeMode::Amplify => (self.volume + 1.).min(15.),
@@ -181,8 +242,10 @@ impl Iterator for SoundSampler {
             }
         }
         // Update the duration.
-        if self.length_timer.next().unwrap() == 0 && self.stop_on_done {
-            self.is_done = true;
+        if let Some(0) = self.length_timer.next() {
+            if self.stop_on_done {
+                self.is_done = true;
+            }
         }
         Some([sample / 15.0])
     }

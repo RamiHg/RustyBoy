@@ -53,7 +53,7 @@ bitfield! {
     pub into EnvelopeMode, envelope_mode, _: 19, 19;
     pub volume, _: 23, 20;
     pub divisor_code, _: 26, 24;
-    pub width_mode, _: 27, 27;
+    pub width_mode, _: 27;
     pub shift, _: 31, 28;
     pub is_timed, _: 38;
     pub triggered, set_triggered: 39;

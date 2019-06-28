@@ -56,9 +56,11 @@ pub struct SoundSampler {
     is_done: bool,
 }
 
-type Interpolator = sample::interpolate::Floor<sample::frame::Mono<f32>>;
-pub type SoundSamplerSignal =
-    sample::interpolate::Converter<sample::signal::FromIterator<SoundSampler>, Interpolator>;
+// type Interpolator = sample::interpolate::Floor<sample::frame::Mono<f32>>;
+// pub type SoundSamplerSignal =
+//     sample::interpolate::Converter<sample::signal::FromIterator<SoundSampler>, Interpolator>;
+
+pub type SoundSamplerSignal = sample::signal::FromIterator<SoundSampler>;
 
 impl SoundSampler {
     pub fn from_square_config(config: SquareConfig) -> SoundSampler {
@@ -165,8 +167,10 @@ impl SoundSampler {
 
     pub fn into_signal(self) -> SoundSamplerSignal {
         let mut source = sample::signal::from_iter(self);
-        let interp = Interpolator::from_source(&mut source);
-        source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::SAMPLE_RATE.into())
+        //let interp = Interpolator::from_source(&mut source);
+        //source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::SAMPLE_RATE.into())
+        source
+        //source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::BASE_FREQ as f64)
     }
 
     fn make_freq_timer(freq: i32, multiplier: i32) -> std::iter::Cycle<CountdownTimer> {

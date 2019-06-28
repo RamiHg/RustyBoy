@@ -13,7 +13,7 @@ mod sound;
 pub const TCYCLE_FREQ: i32 = 4_194_304;
 pub const MCYCLE_FREQ: i32 = 1_048_576;
 
-pub const SAMPLE_RATE: f32 = 44_100.0;
+pub const SAMPLE_RATE: f32 = 48_000.0;
 
 const SOUND_DOWNSAMPLE: i32 = 1;
 pub const BASE_FREQ: i32 = TCYCLE_FREQ / SOUND_DOWNSAMPLE;
@@ -143,11 +143,11 @@ impl mmu::MemoryMapped for Apu {
                     .store(value as u8, Ordering::Release),
             ),
             // Channel R/ L mix
-            0xFF25 => Some(
+            0xFF25 => Some({
                 self.audio_regs
                     .sound_mix
-                    .store(value as u8, Ordering::Release),
-            ),
+                    .store(value as u8, Ordering::Release);
+            }),
             // Sound status (NR52)
             0xFF26 => Some({
                 self.audio_regs

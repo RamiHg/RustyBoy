@@ -18,6 +18,7 @@ num-derive = "0.2.5"
 portaudio = "0.7.0"
 regex = "1.1.7"
 sample = "0.10.0"
+sdr = "0.7.0"
 serde = {version = "1.0.93", features = ["derive", "rc"]}
 spin = "0.5.0"
 

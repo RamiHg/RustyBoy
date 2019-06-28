@@ -31,7 +31,7 @@ pub enum ChannelEvent {
 #[derive(Default, Clone)]
 pub struct CachedAudioRegs {
     pub global_sound_status: Arc<AtomicU8>,
-    pub sound_mix: u8,
+    pub sound_mix: ChannelMixConfig,
     pub volume_control: VolumeControl,
     pub square_1_config: SquareConfig,
     pub square_2_config: SquareConfig,
@@ -49,7 +49,7 @@ impl CachedAudioRegs {
 
     pub fn update_state(&mut self, state: &mut SharedAudioRegs) {
         use std::sync::atomic::Ordering;
-        self.sound_mix = state.sound_mix.load(Ordering::Acquire);
+        self.sound_mix = ChannelMixConfig(state.sound_mix.load(Ordering::Acquire));
         self.volume_control = VolumeControl(state.volume_control.load(Ordering::Acquire));
         self.square_1_config = SquareConfig(state.square_1_config.load(Ordering::Acquire));
         self.square_2_config = SquareConfig(state.square_2_config.load(Ordering::Acquire));
@@ -128,6 +128,7 @@ pub struct ChannelMixer {
     square_2: Option<SoundSamplerSignal>,
     wave: Option<SoundSamplerSignal>,
     noise: Option<SoundSamplerSignal>,
+    i: i32,
 }
 
 impl ChannelMixer {
@@ -140,6 +141,7 @@ impl ChannelMixer {
             square_2: None,
             wave: None,
             noise: None,
+            i: 0,
         }
     }
 
@@ -185,6 +187,52 @@ impl ChannelMixer {
         .map(|wave| wave.next())
         .collect::<ArrayVec<[MonoFrame; 4]>>();
 
+        let sound_mix = self.cached_regs.borrow_mut().sound_mix;
+
+        let r = |x| if x { "R" } else { " " };
+        let l = |x| if x { "L" } else { " " };
+
+        self.i += 1;
+        if (self.i % 100) == 0 {
+            print!(
+                "Square 1 ({}{}): {: <2} ",
+                l(sound_mix.l_square_1()),
+                r(sound_mix.r_square_1()),
+                self.square_1
+                    .as_ref()
+                    .map(|_| self.cached_regs.borrow().square_1_config.volume())
+                    .unwrap_or(0)
+            );
+            print!(
+                "Square 2 ({}{}): {: <2} ",
+                l(sound_mix.l_square_2()),
+                r(sound_mix.r_square_2()),
+                self.square_2
+                    .as_ref()
+                    .map(|_| self.cached_regs.borrow().square_2_config.volume())
+                    .unwrap_or(0)
+            );
+            print!(
+                "Wave ({}{}): {: <2}",
+                l(sound_mix.l_wave()),
+                r(sound_mix.r_wave()),
+                self.wave
+                    .as_ref()
+                    .map(|_| self.cached_regs.borrow().wave_config.volume())
+                    .unwrap_or(0)
+            );
+            print!(
+                "Noise ({}{}): {: <2}",
+                l(sound_mix.l_noise()),
+                r(sound_mix.r_noise()),
+                self.noise
+                    .as_ref()
+                    .map(|_| self.cached_regs.borrow().noise_config.volume())
+                    .unwrap_or(0)
+            );
+            println!();
+        }
+
         let mut frame = StereoFrame::equilibrium();
         let mut add_to_frame = |idx, bits| {
             for (mono, _) in mono_frames
@@ -195,12 +243,11 @@ impl ChannelMixer {
                 frame[idx] += mono[0] / 4.0;
             }
         };
-        let sound_mix = self.cached_regs.borrow_mut().sound_mix;
         let volume_control = self.cached_regs.borrow_mut().volume_control;
         // Mix in the right channel.
-        add_to_frame(1, sound_mix);
+        add_to_frame(1, sound_mix.0);
         // And the left channel.
-        add_to_frame(0, sound_mix >> 4);
+        add_to_frame(0, sound_mix.0 >> 4);
         // Scale left/right volumes.
         frame = frame.mul_amp([
             volume_control.left() as f32 + 1.0,
@@ -212,8 +259,8 @@ impl ChannelMixer {
         debug_assert_ge!(frame[1], 0.0);
         frame = frame.scale_amp(1.0 / 15.0);
         // // And finally, clamp.
-        // frame[0] = frame[0].min(1.0).max(-1.0);
-        // frame[1] = frame[1].min(1.0).max(-1.0);
+        frame[0] = frame[0].min(1.0).max(-1.0);
+        frame[1] = frame[1].min(1.0).max(-1.0);
         //dbg!(frame);
         frame
     }

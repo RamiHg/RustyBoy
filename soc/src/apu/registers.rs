@@ -74,6 +74,19 @@ bitfield! {
 }
 
 bitfield! {
+    pub struct ChannelMixConfig(u8);
+    impl Debug;
+    pub r_square_1, _: 0;
+    pub r_square_2, _: 1;
+    pub r_wave, _: 2;
+    pub r_noise, _: 3;
+    pub l_square_1, _: 4;
+    pub l_square_2, _: 5;
+    pub l_wave, _: 6;
+    pub l_noise, _: 7;
+}
+
+bitfield! {
     pub struct SoundStatus(u8);
     pub square_1, _: 0;
     pub square_2, _: 1;
@@ -89,3 +102,4 @@ impl_bitfield_helpful_traits!(NoiseConfig);
 impl_bitfield_helpful_traits!(CommonSoundConfig);
 impl_bitfield_helpful_traits!(SoundStatus);
 impl_bitfield_helpful_traits!(VolumeControl);
+impl_bitfield_helpful_traits!(ChannelMixConfig);

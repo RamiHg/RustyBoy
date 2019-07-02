@@ -1,5 +1,4 @@
 /// Hodgepodge of util classes. Mostly integer stuff. Timers used by audio. Atomic trait.
-
 use num_traits::PrimInt;
 use std::sync::atomic::Ordering;
 
@@ -80,7 +79,6 @@ pub fn iterate_bits<T: PrimInt>(mut value: T) -> impl Iterator<Item = bool> {
         }
     })
 }
-
 
 /// Helpful trait to allow using atomics with any data type convertable from/to primitive integers.
 /// Used mainly with the audio driver.

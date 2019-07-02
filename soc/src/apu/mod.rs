@@ -10,10 +10,14 @@ mod device;
 mod registers;
 mod sound;
 
+/// YUUUUUGE HACK.
+pub static FILTER_SETTING: AtomicU64 = AtomicU64::new(0);
+pub fn use_lowpass() -> bool {
+    FILTER_SETTING.load(std::sync::atomic::Ordering::Relaxed) == 0
+}
+
 pub const TCYCLE_FREQ: i32 = 4_194_304;
 pub const MCYCLE_FREQ: i32 = 1_048_576;
-
-pub const SAMPLE_RATE: f32 = 48_000.0;
 
 const SOUND_DOWNSAMPLE: i32 = 1;
 pub const BASE_FREQ: i32 = TCYCLE_FREQ / SOUND_DOWNSAMPLE;
@@ -52,7 +56,6 @@ impl Default for Apu {
 impl Apu {
     pub fn execute_mcycle(&mut self) {}
 }
-
 
 // TODO: Move to util..
 pub fn low_bits(x: u64) -> u8 {

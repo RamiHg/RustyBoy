@@ -26,7 +26,7 @@ fn packed_wave_to_array(packed: u128) -> [u8; 32] {
 
 struct Envelope {
     pub mode: EnvelopeMode,
-    pub timer: CountdownTimer,
+    pub timer: Cycle<Timer>,
 }
 
 struct Sweep {
@@ -56,11 +56,11 @@ pub struct SoundSampler {
     is_done: bool,
 }
 
-// type Interpolator = sample::interpolate::Floor<sample::frame::Mono<f32>>;
-// pub type SoundSamplerSignal =
-//     sample::interpolate::Converter<sample::signal::FromIterator<SoundSampler>, Interpolator>;
+type Interpolator = sample::interpolate::Floor<sample::frame::Mono<f32>>;
+pub type SoundSamplerSignal =
+    sample::interpolate::Converter<sample::signal::FromIterator<SoundSampler>, Interpolator>;
 
-pub type SoundSamplerSignal = sample::signal::FromIterator<SoundSampler>;
+//pub type SoundSamplerSignal = sample::signal::FromIterator<SoundSampler>;
 
 impl SoundSampler {
     pub fn from_square_config(config: SquareConfig) -> SoundSampler {
@@ -141,10 +141,7 @@ impl SoundSampler {
         length: i32,
         stop_on_done: bool,
     ) -> SoundSampler {
-        let envelope = envelope_setting.map(|(mode, time)| Envelope {
-            mode,
-            timer: CountdownTimer::new(time, super::ENVELOPE_PERIOD),
-        });
+        let envelope = envelope_setting.map(|(mode, time)| Envelope::new(mode, time));
         let sweep = sweep_setting.map(|(mode, shift, time)| Sweep {
             mode,
             shift,
@@ -167,14 +164,37 @@ impl SoundSampler {
 
     pub fn into_signal(self) -> SoundSamplerSignal {
         let mut source = sample::signal::from_iter(self);
-        //let interp = Interpolator::from_source(&mut source);
-        //source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::SAMPLE_RATE.into())
-        source
-        //source.from_hz_to_hz(interp, super::BASE_FREQ as f64, super::BASE_FREQ as f64)
+        let interp = Interpolator::from_source(&mut source);
+        let dest = if super::use_lowpass() {
+            super::BASE_FREQ as f64
+        } else {
+            super::device::DEVICE_RATE as f64
+        };
+        source.from_hz_to_hz(interp, super::BASE_FREQ as f64, dest)
     }
 
     fn make_freq_timer(freq: i32, multiplier: i32) -> std::iter::Cycle<CountdownTimer> {
         CountdownTimer::new(8, (2048 - freq) * multiplier).cycle()
+    }
+}
+
+impl Envelope {
+    pub fn new(mode: EnvelopeMode, time: i32) -> Envelope {
+        Envelope {
+            mode,
+            timer: timer(time * super::ENVELOPE_PERIOD).cycle(),
+        }
+    }
+
+    pub fn clock(&mut self, volume: f32) -> f32 {
+        if let Some(0) = self.timer.next() {
+            match self.mode {
+                EnvelopeMode::Attenuate => (volume - 1.0).max(0.),
+                EnvelopeMode::Amplify => (volume + 1.).min(15.),
+            }
+        } else {
+            volume
+        }
     }
 }
 
@@ -221,13 +241,8 @@ impl Iterator for SoundSampler {
         } as f32
             * self.volume;
         // Update the envelope (volume). Disabled on wave.
-        if let Some(Envelope { mode, timer }) = &mut self.envelope {
-            if let Some(Some(0)) = timer.next() {
-                self.volume = match mode {
-                    EnvelopeMode::Attenuate => (self.volume - 1.0).max(0.),
-                    EnvelopeMode::Amplify => (self.volume + 1.).min(15.),
-                }
-            }
+        if let Some(envelope) = &mut self.envelope {
+            self.volume = envelope.clock(self.volume);
         }
         // Update the sweep (frequency). Disabled on wave.
         if let Some(Sweep { mode, shift, timer }) = &mut self.sweep {

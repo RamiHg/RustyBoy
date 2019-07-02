@@ -192,46 +192,46 @@ impl ChannelMixer {
         let r = |x| if x { "R" } else { " " };
         let l = |x| if x { "L" } else { " " };
 
-        self.i += 1;
-        if (self.i % 100) == 0 {
-            print!(
-                "Square 1 ({}{}): {: <2} ",
-                l(sound_mix.l_square_1()),
-                r(sound_mix.r_square_1()),
-                self.square_1
-                    .as_ref()
-                    .map(|_| self.cached_regs.borrow().square_1_config.volume())
-                    .unwrap_or(0)
-            );
-            print!(
-                "Square 2 ({}{}): {: <2} ",
-                l(sound_mix.l_square_2()),
-                r(sound_mix.r_square_2()),
-                self.square_2
-                    .as_ref()
-                    .map(|_| self.cached_regs.borrow().square_2_config.volume())
-                    .unwrap_or(0)
-            );
-            print!(
-                "Wave ({}{}): {: <2}",
-                l(sound_mix.l_wave()),
-                r(sound_mix.r_wave()),
-                self.wave
-                    .as_ref()
-                    .map(|_| self.cached_regs.borrow().wave_config.volume())
-                    .unwrap_or(0)
-            );
-            print!(
-                "Noise ({}{}): {: <2}",
-                l(sound_mix.l_noise()),
-                r(sound_mix.r_noise()),
-                self.noise
-                    .as_ref()
-                    .map(|_| self.cached_regs.borrow().noise_config.volume())
-                    .unwrap_or(0)
-            );
-            println!();
-        }
+        // self.i += 1;
+        // if (self.i % 100) == 0 {
+        //     print!(
+        //         "Square 1 ({}{}): {: <2} ",
+        //         l(sound_mix.l_square_1()),
+        //         r(sound_mix.r_square_1()),
+        //         self.square_1
+        //             .as_ref()
+        //             .map(|_| self.cached_regs.borrow().square_1_config.volume())
+        //             .unwrap_or(0)
+        //     );
+        //     print!(
+        //         "Square 2 ({}{}): {: <2} ",
+        //         l(sound_mix.l_square_2()),
+        //         r(sound_mix.r_square_2()),
+        //         self.square_2
+        //             .as_ref()
+        //             .map(|_| self.cached_regs.borrow().square_2_config.volume())
+        //             .unwrap_or(0)
+        //     );
+        //     print!(
+        //         "Wave ({}{}): {: <2}",
+        //         l(sound_mix.l_wave()),
+        //         r(sound_mix.r_wave()),
+        //         self.wave
+        //             .as_ref()
+        //             .map(|_| self.cached_regs.borrow().wave_config.volume())
+        //             .unwrap_or(0)
+        //     );
+        //     print!(
+        //         "Noise ({}{}): {: <2}",
+        //         l(sound_mix.l_noise()),
+        //         r(sound_mix.r_noise()),
+        //         self.noise
+        //             .as_ref()
+        //             .map(|_| self.cached_regs.borrow().noise_config.volume())
+        //             .unwrap_or(0)
+        //     );
+        //     println!();
+        // }
 
         let mut frame = StereoFrame::equilibrium();
         let mut add_to_frame = |idx, bits| {

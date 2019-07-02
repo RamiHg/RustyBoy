@@ -108,6 +108,14 @@ fn main() {
                             );
                             deserialize(&mut system, &args)
                         }
+                        Some(glutin::VirtualKeyCode::F) => {
+                            println!("Turning filter on");
+                            soc::apu::FILTER_SETTING.store(0, std::sync::atomic::Ordering::Relaxed);
+                        }
+                        Some(glutin::VirtualKeyCode::G) => {
+                            println!("Turning filter off");
+                            soc::apu::FILTER_SETTING.store(1, std::sync::atomic::Ordering::Relaxed);
+                        }
                         Some(virtual_key) => {
                             if let Some(key) = key_map(virtual_key) {
                                 system.get_joypad_mut().release(key);

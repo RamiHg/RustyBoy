@@ -95,7 +95,6 @@ bitfield! {
     pub global_enable, _: 7;
 }
 
-
 impl_bitfield_helpful_traits!(SquareConfig);
 impl_bitfield_helpful_traits!(WaveConfig);
 impl_bitfield_helpful_traits!(NoiseConfig);

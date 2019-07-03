@@ -10,11 +10,11 @@ use crate::util::iterate_bits;
 pub type MonoFrame = sample::frame::Mono<f32>;
 pub type StereoFrame = sample::frame::Stereo<f32>;
 
-pub enum SoundType {
-    Square1,
-    Square2,
-    Wave,
-}
+// pub enum SoundType {
+//     Square1,
+//     Square2,
+//     Wave,
+// }
 
 pub enum ChannelEvent {
     TriggerSquare1(SquareConfig),
@@ -128,7 +128,6 @@ pub struct ChannelMixer {
     square_2: Option<SoundSamplerSignal>,
     wave: Option<SoundSamplerSignal>,
     noise: Option<SoundSamplerSignal>,
-    i: i32,
 }
 
 impl ChannelMixer {
@@ -141,7 +140,6 @@ impl ChannelMixer {
             square_2: None,
             wave: None,
             noise: None,
-            i: 0,
         }
     }
 
@@ -189,50 +187,6 @@ impl ChannelMixer {
 
         let sound_mix = self.cached_regs.borrow_mut().sound_mix;
 
-        let r = |x| if x { "R" } else { " " };
-        let l = |x| if x { "L" } else { " " };
-
-        // self.i += 1;
-        // if (self.i % 100) == 0 {
-        //     print!(
-        //         "Square 1 ({}{}): {: <2} ",
-        //         l(sound_mix.l_square_1()),
-        //         r(sound_mix.r_square_1()),
-        //         self.square_1
-        //             .as_ref()
-        //             .map(|_| self.cached_regs.borrow().square_1_config.volume())
-        //             .unwrap_or(0)
-        //     );
-        //     print!(
-        //         "Square 2 ({}{}): {: <2} ",
-        //         l(sound_mix.l_square_2()),
-        //         r(sound_mix.r_square_2()),
-        //         self.square_2
-        //             .as_ref()
-        //             .map(|_| self.cached_regs.borrow().square_2_config.volume())
-        //             .unwrap_or(0)
-        //     );
-        //     print!(
-        //         "Wave ({}{}): {: <2}",
-        //         l(sound_mix.l_wave()),
-        //         r(sound_mix.r_wave()),
-        //         self.wave
-        //             .as_ref()
-        //             .map(|_| self.cached_regs.borrow().wave_config.volume())
-        //             .unwrap_or(0)
-        //     );
-        //     print!(
-        //         "Noise ({}{}): {: <2}",
-        //         l(sound_mix.l_noise()),
-        //         r(sound_mix.r_noise()),
-        //         self.noise
-        //             .as_ref()
-        //             .map(|_| self.cached_regs.borrow().noise_config.volume())
-        //             .unwrap_or(0)
-        //     );
-        //     println!();
-        // }
-
         let mut frame = StereoFrame::equilibrium();
         let mut add_to_frame = |idx, bits| {
             for (mono, _) in mono_frames
@@ -258,10 +212,6 @@ impl ChannelMixer {
         debug_assert_le!(frame[1], 15.0);
         debug_assert_ge!(frame[1], 0.0);
         frame = frame.scale_amp(1.0 / 15.0);
-        // // And finally, clamp.
-        frame[0] = frame[0].min(1.0).max(-1.0);
-        frame[1] = frame[1].min(1.0).max(-1.0);
-        //dbg!(frame);
         frame
     }
 }

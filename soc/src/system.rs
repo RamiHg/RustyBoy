@@ -1,15 +1,15 @@
+use bitflags::bitflags;
+
 use crate::cpu;
 use crate::error;
 use crate::gpu;
 use crate::io_registers;
 use crate::joypad;
 use crate::mmu;
-use crate::{apu, dma, serial, timer, util};
+use crate::{dma, serial, timer, util};
 
 use error::Result;
 use gpu::Pixel;
-
-use bitflags::bitflags;
 
 bitflags! {
     pub struct Interrupts: i32 {
@@ -51,8 +51,10 @@ pub struct System {
     serial: serial::Controller,
     dma: dma::Dma,
     joypad: joypad::Joypad,
+
     #[serde(skip)]
-    apu: apu::Apu,
+    #[cfg(feature = "audio")]
+    apu: Option<apu::Apu>,
 
     #[serde(skip)]
     screen: Vec<Pixel>,
@@ -60,8 +62,8 @@ pub struct System {
     pub cart: Option<Box<dyn mmu::MemoryMapped>>,
 }
 
-impl System {
-    pub fn new() -> System {
+impl Default for System {
+    fn default() -> System {
         use cpu::register::Register;
         let mut cpu = cpu::Cpu::new();
         // Set the initial register values.
@@ -85,11 +87,24 @@ impl System {
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
             joypad: joypad::Joypad::new(),
-            apu: Default::default(),
-
             screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
+            #[cfg(feature = "audio")]
+            apu: None,
         }
+    }
+}
+
+impl System {
+    pub fn new_complete() -> System {
+        #[allow(unused_mut)]
+        let mut system = System::default();
+        #[cfg(feature = "audio")]
+        // Initialize audio.
+        {
+            system.apu = Some(Default::default());
+        }
+        system
     }
 
     pub fn restore_from_deserialize(&mut self) {
@@ -111,18 +126,19 @@ impl System {
     }
 
     fn read_request(&self, raw_address: i32) -> Result<i32> {
-        let modules = [
-            &self.timer,
-            self.cart.as_ref().unwrap().as_ref(),
-            &self.serial,
-            &self.gpu,
-            &self.dma,
-            &self.joypad,
-            &self.apu,
-            &self.memory,
+        let modules: &[Option<&dyn mmu::MemoryMapped>] = &[
+            Some(&self.timer),
+            Some(self.cart.as_ref().unwrap().as_ref()),
+            Some(&self.serial),
+            Some(&self.gpu),
+            Some(&self.dma),
+            Some(&self.joypad),
+            #[cfg(feature = "audio")]
+            self.apu.as_ref().map(|x| -> &dyn mmu::MemoryMapped { x }),
+            Some(&self.memory),
         ];
         let address = mmu::Address::from_raw(raw_address)?;
-        for module in &modules {
+        for module in modules.iter().flatten() {
             if let Some(result) = module.read(address) {
                 return Ok(result);
             }
@@ -134,18 +150,21 @@ impl System {
     }
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
-        let mut modules = [
-            &mut self.timer,
-            self.cart.as_mut().unwrap().as_mut(),
-            &mut self.serial,
-            &mut self.gpu,
-            &mut self.dma,
-            &mut self.joypad,
-            &mut self.apu,
-            &mut self.memory,
+        let modules: &mut [Option<&mut dyn mmu::MemoryMapped>] = &mut [
+            Some(&mut self.timer),
+            Some(self.cart.as_mut().unwrap().as_mut()),
+            Some(&mut self.serial),
+            Some(&mut self.gpu),
+            Some(&mut self.dma),
+            Some(&mut self.joypad),
+            #[cfg(feature = "audio")]
+            self.apu
+                .as_mut()
+                .map(|x| -> &mut dyn mmu::MemoryMapped { x }),
+            Some(&mut self.memory),
         ];
         let address = mmu::Address::from_raw(raw_address)?;
-        for module in &mut modules {
+        for module in modules.iter_mut().flatten() {
             if let Some(()) = module.write(address, value) {
                 return Ok(());
             }
@@ -302,7 +321,6 @@ impl System {
         for i in 0..4 {
             self.execute_tcycle()?;
         }
-        self.apu.execute_mcycle();
         Ok(())
     }
 
@@ -349,7 +367,7 @@ impl System {
 #[cfg(test)]
 impl System {
     pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
-        let mut system = System::new();
+        let mut system = System::default();
         system.set_cart(cart);
         // Clear all registers.
         system.cpu.registers = cpu::register::File::new();

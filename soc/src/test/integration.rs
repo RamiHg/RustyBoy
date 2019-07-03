@@ -8,8 +8,6 @@ use crate::system;
 use super::*;
 
 
-
-
 pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu::Options) -> bool {
     static INIT: std::sync::Once = std::sync::ONCE_INIT;
     let name = "ignoreme".to_string();
@@ -24,7 +22,7 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
         .unwrap();
     });
 
-    let mut system = system::System::new();
+    let mut system = system::System::default();
     system.set_cart(cart);
     system.gpu_mut().options = options;
 
@@ -50,7 +48,7 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
 }
 
 pub fn run_target(target: &str) -> bool {
-    
+
     let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
     assert!(path.exists(), "{:?} does not exist.", path);

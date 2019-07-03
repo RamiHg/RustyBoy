@@ -57,6 +57,7 @@ impl Iterator for CountdownTimer {
 }
 
 impl CountdownTimer {
+    #[allow(dead_code)]
     pub fn new(counter: i32, period: i32) -> CountdownTimer {
         CountdownTimer {
             counter,
@@ -66,6 +67,7 @@ impl CountdownTimer {
 }
 
 /// Iterator that iterates over bits of an integer.
+#[allow(dead_code)]
 pub fn iterate_bits<T: PrimInt>(mut value: T) -> impl Iterator<Item = bool> {
     let mut bit = 0;
     std::iter::from_fn(move || {

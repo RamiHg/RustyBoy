@@ -10,22 +10,12 @@ mod device;
 mod registers;
 mod sound;
 
-/// YUUUUUGE HACK.
-pub static FILTER_SETTING: AtomicU64 = AtomicU64::new(0);
-pub fn use_lowpass() -> bool {
-    FILTER_SETTING.load(std::sync::atomic::Ordering::Relaxed) == 0
-}
-
 pub const TCYCLE_FREQ: i32 = 4_194_304;
-pub const MCYCLE_FREQ: i32 = 1_048_576;
 
-const SOUND_DOWNSAMPLE: i32 = 1;
-pub const BASE_FREQ: i32 = TCYCLE_FREQ / SOUND_DOWNSAMPLE;
-
-pub const LENGTH_COUNTER_PERIOD: i32 = TCYCLE_FREQ / 256 / SOUND_DOWNSAMPLE;
-pub const ENVELOPE_PERIOD: i32 = TCYCLE_FREQ / 64 / SOUND_DOWNSAMPLE;
-pub const SWEEP_PERIOD: i32 = TCYCLE_FREQ / 128 / SOUND_DOWNSAMPLE;
-pub const NOISE_PERIOD: i32 = 8 / SOUND_DOWNSAMPLE;
+pub const LENGTH_COUNTER_PERIOD: i32 = TCYCLE_FREQ / 256;
+pub const ENVELOPE_PERIOD: i32 = TCYCLE_FREQ / 64;
+pub const SWEEP_PERIOD: i32 = TCYCLE_FREQ / 128;
+pub const NOISE_PERIOD: i32 = 8;
 
 pub type SharedWaveTable = Arc<RwLock<u128>>;
 
@@ -51,19 +41,6 @@ impl Default for Apu {
             audio_regs,
         }
     }
-}
-
-impl Apu {
-    pub fn execute_mcycle(&mut self) {}
-}
-
-// TODO: Move to util..
-pub fn low_bits(x: u64) -> u8 {
-    (x & 0xFF) as u8
-}
-
-pub fn high_bits(x: u64) -> u32 {
-    (x >> 8) as u32
 }
 
 fn set_byte<T: PrimInt>(reg: &mut T, i: i32, value: i32) {
@@ -98,7 +75,7 @@ fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
-        use std::sync::atomic::Ordering::{Acquire};
+        use std::sync::atomic::Ordering::Acquire;
         let mmu::Address(_, raw) = address;
         match raw {
             // Volume control (NR50)

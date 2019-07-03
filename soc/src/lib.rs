@@ -4,19 +4,20 @@
 // #![deny(warnings)]
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::cast_lossless)]
-//#![allow(clippy::new_without_default)]
 
 #[macro_use]
 mod io_registers;
 
 // TODO: Fix the public API. Don't expose so many internals.
-pub mod apu;
 pub mod cart;
 pub mod error;
 pub mod gpu;
 pub mod joypad;
 pub mod log;
 pub mod system;
+
+#[cfg(feature = "audio")]
+mod apu;
 
 mod cpu;
 mod dma;

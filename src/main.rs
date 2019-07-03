@@ -77,7 +77,7 @@ fn main() {
 
     // Load the gameboy cart.
     let cart = cart::from_file(args.cart_path.to_str().unwrap());
-    let mut system = system::System::new();
+    let mut system = system::System::new_complete();
     system.set_cart(cart);
 
     loop {
@@ -107,14 +107,6 @@ fn main() {
                                 args.serialize_path.to_str().unwrap()
                             );
                             deserialize(&mut system, &args)
-                        }
-                        Some(glutin::VirtualKeyCode::F) => {
-                            println!("Turning filter on");
-                            soc::apu::FILTER_SETTING.store(0, std::sync::atomic::Ordering::Relaxed);
-                        }
-                        Some(glutin::VirtualKeyCode::G) => {
-                            println!("Turning filter off");
-                            soc::apu::FILTER_SETTING.store(1, std::sync::atomic::Ordering::Relaxed);
                         }
                         Some(virtual_key) => {
                             if let Some(key) = key_map(virtual_key) {

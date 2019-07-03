@@ -1,12 +1,11 @@
 use portaudio as pa;
 use rust_liquid_dsp::filter::MultiStageResampler;
-use sample;
 use std::collections::VecDeque;
 
-use super::channels::{ChannelMixer, SharedAudioRegs};
+use super::channels::{ChannelMixer, SharedAudioRegs, StereoFrame};
 
 const FRAMES_PER_BUFFER: usize = 32;
-const NUM_CHANNELS: i32 = 2;
+const NUM_CHANNELS: usize = 2;
 
 /// The Nyquist rate of the audio system. I.e., twice the maximum theoretical frequency, which is
 /// 1MiHz.
@@ -26,7 +25,7 @@ impl Device {
     pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, pa::Error> {
         let pa = pa::PortAudio::new()?;
         let mut settings = pa.default_output_stream_settings::<PaOutType>(
-            NUM_CHANNELS,
+            NUM_CHANNELS as i32,
             DEVICE_RATE.into(),
             FRAMES_PER_BUFFER as u32,
         )?;
@@ -42,15 +41,11 @@ impl Device {
 
 struct AudioThread {
     mixer: ChannelMixer,
-    last_time: f64,
-    elapsed_time: f64,
-    resampler: MultiStageResampler<f32>,
+    resampler: [MultiStageResampler<f32>; 2],
 
-    sample_buffer: VecDeque<f32>,
-    resample_src_scratch: Vec<f32>,
-    resample_dst_scratch: Vec<f32>,
-
-    f_writer: Option<std::io::BufWriter<std::fs::File>>,
+    sample_buffer: VecDeque<StereoFrame>,
+    resample_src_scratch: [Vec<f32>; NUM_CHANNELS],
+    resample_dst_scratch: [Vec<f32>; NUM_CHANNELS],
 }
 
 impl AudioThread {
@@ -59,26 +54,10 @@ impl AudioThread {
         let resampler = MultiStageResampler::new(DEVICE_RATE / MIN_SAMPLE_RATE, 80.0);
         AudioThread {
             mixer,
-            last_time: -1.0,
-            elapsed_time: 0.0,
-            resampler,
+            resampler: [resampler.clone(), resampler],
             sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER + 1),
-            resample_src_scratch: vec![0.0; 2048],
-            resample_dst_scratch: vec![0.0; 128],
-            // f_writer: Some(std::io::BufWriter::with_capacity(
-            //     1024 * 1024,
-            //     std::fs::File::create("samples.bin").unwrap(),
-            // )),
-            f_writer: None,
-        }
-    }
-
-    fn debug_write_sample(&mut self, sample: f32) {
-        use std::io::Write;
-        if let Some(writer) = &mut self.f_writer {
-            debug_assert_le!(sample, 1.0);
-            let byte = (sample * 255.0).round() as u8;
-            writer.write_all(&[byte]).unwrap();
+            resample_src_scratch: [vec![0.0; 2048], vec![0.0; 2048]],
+            resample_dst_scratch: [vec![0.0; 128], vec![0.0; 128]],
         }
     }
 
@@ -88,54 +67,42 @@ impl AudioThread {
     ) -> pa::stream::CallbackResult {
         let _now = std::time::Instant::now();
         let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
-        let elapsed_secs = if self.last_time >= 0.0 {
-            time.current - self.last_time
-        } else {
-            0.0
-        };
-        self.elapsed_time += elapsed_secs;
-        self.last_time = time.current;
         self.mixer.handle_events();
-
-        let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
-
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
-        self.resample_src_scratch.clear();
+        self.resample_src_scratch[0].clear();
+        self.resample_src_scratch[1].clear();
         const MCYCLES_TO_SAMPLE: i32 =
             (MIN_SAMPLE_RATE / DEVICE_RATE * FRAMES_PER_BUFFER as f32 + 1.0) as i32;
         for _ in 0..MCYCLES_TO_SAMPLE {
             // Skip every other sample (to downsample to 2MiHz).
             self.mixer.next_sample();
-            let sample = self.mixer.next_sample()[0];
-            self.debug_write_sample(sample);
-            self.resample_src_scratch.push(sample);
+            let sample = self.mixer.next_sample();
+            self.resample_src_scratch[0].push(sample[0]);
+            self.resample_src_scratch[1].push(sample[1]);
         }
         // Resample the samples down to the device sample rate.
-        let written_samples = self
-            .resampler
-            .filter(
-                self.resample_src_scratch.as_mut_slice(),
-                self.resample_dst_scratch.as_mut_slice(),
-            )
-            .unwrap() as usize;
-        // Copy over the samples to our ring buffer.
-        debug_assert_le!(written_samples, self.sample_buffer.capacity());
-        self.sample_buffer
-            .extend(&self.resample_dst_scratch[..written_samples]);
-
-        if self.elapsed_time > 15.0 && self.f_writer.is_some() {
-            self.f_writer = None;
-            println!("Done!");
+        let _resample_time = std::time::Instant::now();
+        let mut written_samples = 0;
+        for channel in 0..NUM_CHANNELS {
+            written_samples = self.resampler[channel]
+                .filter(
+                    self.resample_src_scratch[channel].as_mut_slice(),
+                    self.resample_dst_scratch[channel].as_mut_slice(),
+                )
+                .unwrap() as usize;
+            debug_assert_le!(written_samples, self.sample_buffer.capacity());
         }
-
+        let frames = self.resample_dst_scratch[0][0..written_samples]
+            .iter()
+            .zip(&self.resample_dst_scratch[1][0..written_samples]);
+        self.sample_buffer.extend(frames.map(|(x, y)| [*x, *y]));
+        // Finally, write out the samples to the buffer.
+        let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer.iter_mut() {
             let sample = self.sample_buffer.pop_front().unwrap();
             //print!("{} ", sample);
-            *out_frame = [sample, sample];
-        }
-        if _now.elapsed().as_micros() as f32 / 1000.0 > 0.1 {
-            //println!("Took {} ms", _now.elapsed().as_micros() as f32 / 1000.0);
+            *out_frame = sample;
         }
         pa::Continue
     }

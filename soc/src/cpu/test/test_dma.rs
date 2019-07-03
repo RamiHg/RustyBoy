@@ -1,7 +1,7 @@
 use super::*;
 use crate::io_registers::Addresses;
 
-use crate::cpu::register::Register::*;
+
 
 #[test]
 fn test_simple() {

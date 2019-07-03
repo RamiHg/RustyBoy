@@ -1,11 +1,11 @@
 use crate::gpu::Color;
-use crate::system::System;
+
 
 use super::*;
-use crate::test::*;
+
 
 use num_traits::FromPrimitive as _;
-use std::path::Path;
+
 
 fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     i /= 8;

@@ -1,4 +1,4 @@
-use crate::cpu::{alu::Flags, register::Register, *};
+use crate::cpu::{alu::Flags, register::Register};
 
 use crate::cart;
 use crate::gpu;
@@ -7,7 +7,7 @@ use crate::mmu;
 use crate::system;
 use crate::timer;
 
-use lazy_static::lazy_static;
+
 
 #[allow(dead_code)]
 pub mod instructions {

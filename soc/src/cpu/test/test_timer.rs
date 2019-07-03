@@ -4,8 +4,8 @@ use super::*;
 use crate::cpu::register::Register;
 use Register::*;
 
-use crate::io_registers::Register as IORegister;
-use crate::timer::{TimerControl, TimerFrequency};
+
+use crate::timer::{TimerFrequency};
 
 #[rustfmt::skip]
 const INTERRUPT_HANDLER: [u8; 3] = [

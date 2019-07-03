@@ -2,7 +2,7 @@
 use super::*;
 
 use crate::cpu::register::Register::*;
-use crate::io_registers::Addresses;
+
 use crate::system::Interrupts;
 use crate::timer;
 

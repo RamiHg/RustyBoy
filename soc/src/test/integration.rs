@@ -1,14 +1,14 @@
 use crate::cart;
 use crate::cpu;
-use crate::cpu::register::Register;
+
 use crate::gpu;
 use crate::system;
 
-use super::image::*;
+
 use super::*;
 
-use std::path::Path;
-use std::rc::Rc;
+
+
 
 pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu::Options) -> bool {
     static INIT: std::sync::Once = std::sync::ONCE_INIT;
@@ -50,7 +50,7 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
 }
 
 pub fn run_target(target: &str) -> bool {
-    use std::path::PathBuf;
+    
     let mut path = base_path_to("test_roms");
     path.push(format!("{}.gb", target));
     assert!(path.exists(), "{:?} does not exist.", path);

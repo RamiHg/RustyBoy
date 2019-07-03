@@ -98,7 +98,7 @@ fn get_byte<T: PrimInt>(reg: T, i: i32) -> i32 {
 
 impl mmu::MemoryMapped for Apu {
     fn read(&self, address: mmu::Address) -> Option<i32> {
-        use std::sync::atomic::Ordering::{Acquire, Relaxed};
+        use std::sync::atomic::Ordering::{Acquire};
         let mmu::Address(_, raw) = address;
         match raw {
             // Volume control (NR50)

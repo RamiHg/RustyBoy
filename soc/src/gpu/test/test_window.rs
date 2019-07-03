@@ -1,5 +1,5 @@
 use super::*;
-use crate::test::*;
+
 
 fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     i /= 8;

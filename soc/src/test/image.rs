@@ -33,7 +33,7 @@ pub fn golden_image_path(test_name: &str) -> PathBuf {
 }
 
 pub fn load_golden_image(path: impl AsRef<Path>) -> Vec<gpu::Pixel> {
-    use bmp::{Image, Pixel};
+    
 
     let img = bmp::open(path).unwrap();
     assert_eq!(img.get_width(), LCD_WIDTH as u32);
@@ -53,7 +53,7 @@ pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
 }
 
 pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
-    use bmp::{Image, Pixel};
+    use bmp::{Image};
     let test_name_path = Path::new(test_name);
     let mut path = base_path_to(sub_dir);
     std::fs::create_dir_all(path.join(test_name_path.parent().unwrap_or(Path::new(".")))).unwrap();

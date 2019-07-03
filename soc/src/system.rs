@@ -54,7 +54,7 @@ pub struct System {
 
     #[serde(skip)]
     #[cfg(feature = "audio")]
-    apu: Option<apu::Apu>,
+    apu: Option<crate::apu::Apu>,
 
     #[serde(skip)]
     screen: Vec<Pixel>,

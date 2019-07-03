@@ -22,7 +22,7 @@ serde = {version = "1.0.94", features = ["derive", "rc"]}
 spin = "0.5.0"
 
 gb_disas = { path = "../gb_disas" }
-rust-liquid-dsp = { path = "../../rust-liquid-dsp" }
+rust-liquid-dsp = { git = "https://github.com/RamiHg/rust-liquid-dsp" }
 
 [dev-dependencies]
 backtrace = "0.3.32"

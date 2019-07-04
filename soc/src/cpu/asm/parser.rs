@@ -1,24 +1,15 @@
-use lazy_static::lazy_static;
-use regex::Regex;
-
 use super::{Arg, Command, MaybeArg, Op};
 use crate::cpu::alu;
 use crate::cpu::register::Register;
 
-const OP_PATTERN: &str =
-    r"([A-Z_0-9]+)[[:space:]]*([[[:alnum:]]_]*),?[[:space:]]*([[[:alnum:]]_]*)";
-
 pub fn parse_op(op: &str) -> Op {
-    lazy_static! {
-        static ref OP_REGEX: Regex = Regex::new(OP_PATTERN).unwrap();
-    }
-    let groups = OP_REGEX
-        .captures(op)
-        .unwrap_or_else(|| panic!("Command: \"{}\" not a valid op format.", op));
-    let cmd_str = groups
-        .get(1)
-        .unwrap_or_else(|| panic!("Command \"{}\" did not contain a valid op.", op))
-        .as_str();
+    let mut parts = op.splitn(2, char::is_whitespace);
+    let cmd_str = parts
+        .next()
+        .unwrap_or_else(|| panic!("Command {} did not contain a valid op.", op));
+    let mut args = parts.next().unwrap_or("").split(',').map(str::trim);
+    let lhs = args.next().and_then(|x| parse_arg(x));
+    let rhs = args.next().and_then(|x| parse_arg(x));
     use Command::*;
     let cmd = match cmd_str {
         "ADDR" => ADDR,
@@ -47,8 +38,6 @@ pub fn parse_op(op: &str) -> Op {
         "HALT" => HALT,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
-    let lhs = groups.get(2).and_then(|x| parse_arg(x.as_str()));
-    let rhs = groups.get(3).and_then(|x| parse_arg(x.as_str()));
     Op {
         cmd,
         lhs: MaybeArg::new(lhs),

@@ -212,7 +212,7 @@ impl Iterator for SoundSampler {
     type Item = sample::frame::Mono<f32>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_done {
-            return None; //Some([0.0]);
+            return None;
         }
         // TODO: Refactor so that we don't have this ugly logic.
         let sample = if let Some(noise) = &mut self.noise {

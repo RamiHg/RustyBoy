@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
-audio = ["portaudio", "sample", "rust-liquid-dsp"]
+audio = ["portaudio", "sample", "libsamplerate-sys"]
 
 [dependencies]
 arraydeque = "0.4.5"
@@ -28,7 +28,7 @@ gb_disas = { path = "../gb_disas" }
 # Audio dependencies.
 portaudio = { version = "0.7.0", optional = true }
 sample = { version = "0.10.0", optional = true }
-rust-liquid-dsp = { git = "https://github.com/RamiHg/rust-liquid-dsp", optional = true }
+libsamplerate-sys = { version = "0.1.5", optional = true }
 
 [dev-dependencies]
 backtrace = "0.3.32"

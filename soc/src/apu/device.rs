@@ -1,5 +1,7 @@
+use libsamplerate_sys::{
+    src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST,
+};
 use portaudio as pa;
-use rust_liquid_dsp::filter::MultiStageResampler;
 use std::collections::VecDeque;
 
 use super::channels::{ChannelMixer, SharedAudioRegs, StereoFrame};
@@ -39,25 +41,31 @@ impl Device {
     }
 }
 
+
 struct AudioThread {
     mixer: ChannelMixer,
-    resampler: [MultiStageResampler<f32>; 2],
-
+    resampler: *mut SRC_STATE_tag,
+    resample_src_scratch: Vec<StereoFrame>,
+    resample_dst_scratch: Vec<StereoFrame>,
     sample_buffer: VecDeque<StereoFrame>,
-    resample_src_scratch: [Vec<f32>; NUM_CHANNELS],
-    resample_dst_scratch: [Vec<f32>; NUM_CHANNELS],
 }
 
 impl AudioThread {
     pub fn new(audio_regs: SharedAudioRegs) -> AudioThread {
+        use sample::Frame as _;
+
         let mixer = ChannelMixer::new(audio_regs);
-        let resampler = MultiStageResampler::new(DEVICE_RATE / MIN_SAMPLE_RATE, 80.0);
+
+        let mut error: i32 = 0;
+        let resampler = unsafe { src_new(SRC_SINC_FASTEST as i32, 2, &mut error) };
+        assert_eq!(error, 0);
+
         AudioThread {
             mixer,
-            resampler: [resampler.clone(), resampler],
+            resampler,
+            resample_src_scratch: vec![StereoFrame::equilibrium(); 44 * FRAMES_PER_BUFFER],
+            resample_dst_scratch: vec![StereoFrame::equilibrium(); FRAMES_PER_BUFFER + 16],
             sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER + 1),
-            resample_src_scratch: [vec![0.0; 2048], vec![0.0; 2048]],
-            resample_dst_scratch: [vec![0.0; 128], vec![0.0; 128]],
         }
     }
 
@@ -70,40 +78,55 @@ impl AudioThread {
         self.mixer.handle_events();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
-        self.resample_src_scratch[0].clear();
-        self.resample_src_scratch[1].clear();
+        self.resample_src_scratch.clear();
         const MCYCLES_TO_SAMPLE: i32 =
             (MIN_SAMPLE_RATE / DEVICE_RATE * FRAMES_PER_BUFFER as f32 + 1.0) as i32;
         for _ in 0..MCYCLES_TO_SAMPLE {
             // Skip every other sample (to downsample to 2MiHz).
             self.mixer.next_sample();
             let sample = self.mixer.next_sample();
-            self.resample_src_scratch[0].push(sample[0]);
-            self.resample_src_scratch[1].push(sample[1]);
+            self.resample_src_scratch.push(sample);
         }
         // Resample the samples down to the device sample rate.
         let _resample_time = std::time::Instant::now();
-        let mut written_samples = 0;
-        for channel in 0..NUM_CHANNELS {
-            written_samples = self.resampler[channel]
-                .filter(
-                    self.resample_src_scratch[channel].as_mut_slice(),
-                    self.resample_dst_scratch[channel].as_mut_slice(),
-                )
-                .unwrap() as usize;
-            debug_assert_le!(written_samples, self.sample_buffer.capacity());
-        }
-        let frames = self.resample_dst_scratch[0][0..written_samples]
-            .iter()
-            .zip(&self.resample_dst_scratch[1][0..written_samples]);
-        self.sample_buffer.extend(frames.map(|(x, y)| [*x, *y]));
+        let mut data = SRC_DATA {
+            data_in: self.resample_src_scratch.as_ptr() as *const _,
+            data_out: self.resample_dst_scratch.as_mut_ptr() as *mut _,
+            input_frames: self.resample_src_scratch.len() as i64,
+            output_frames: self.resample_dst_scratch.len() as i64,
+            input_frames_used: 0,
+            output_frames_gen: 0,
+            end_of_input: 0,
+            src_ratio: (DEVICE_RATE / MIN_SAMPLE_RATE) as f64,
+        };
+        let result = unsafe { src_process(self.resampler, &mut data) };
+        debug_assert_eq!(result, 0);
+        let frames: &[StereoFrame] = sample::slice::to_frame_slice(
+            &self.resample_dst_scratch[..data.output_frames_gen as usize],
+        )
+        .expect("Couldn't convert to stereo.");
+        // TODO: Can probably remove this copy. Not that it matters.
+        debug_assert_ge!(self.sample_buffer.capacity(), frames.len());
+        self.sample_buffer.extend(frames.iter());
+        // println!(
+        //     "Took {} ms",
+        //     _resample_time.elapsed().as_micros() as f32 / 1000.0
+        // );
         // Finally, write out the samples to the buffer.
         let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer.iter_mut() {
-            let sample = self.sample_buffer.pop_front().unwrap();
-            //print!("{} ", sample);
+            let sample = self.sample_buffer.pop_front();
+            let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
         pa::Continue
+    }
+}
+
+impl Drop for AudioThread {
+    fn drop(&mut self) {
+        unsafe {
+            src_delete(self.resampler);
+        }
     }
 }

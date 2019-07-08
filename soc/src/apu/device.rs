@@ -1,6 +1,4 @@
-use libsamplerate_sys::{
-    src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST,
-};
+use libsamplerate::{src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST};
 use portaudio as pa;
 use std::collections::VecDeque;
 
@@ -40,7 +38,6 @@ impl Device {
         Ok(Device { pa, pa_stream })
     }
 }
-
 
 struct AudioThread {
     mixer: ChannelMixer,

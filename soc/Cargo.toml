@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
-audio = ["portaudio", "sample", "libsamplerate-sys"]
+audio = ["portaudio", "sample", "libsamplerate"]
 
 [dependencies]
 arraydeque = "0.4.5"
@@ -28,7 +28,7 @@ gb_disas = { path = "../gb_disas" }
 # Audio dependencies.
 portaudio = { version = "0.7.0", optional = true }
 sample = { version = "0.10.0", optional = true }
-libsamplerate-sys = { version = "0.1.5", optional = true }
+libsamplerate = {path = "../../libsamplerate", optional = true }
 
 [dev-dependencies]
 backtrace = "0.3.32"

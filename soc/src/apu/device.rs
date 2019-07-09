@@ -1,6 +1,7 @@
 use libsamplerate::{src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST};
 use portaudio as pa;
 use std::collections::VecDeque;
+use std::os::raw::c_long;
 
 use super::channels::{ChannelMixer, SharedAudioRegs, StereoFrame};
 
@@ -89,8 +90,8 @@ impl AudioThread {
         let mut data = SRC_DATA {
             data_in: self.resample_src_scratch.as_ptr() as *const _,
             data_out: self.resample_dst_scratch.as_mut_ptr() as *mut _,
-            input_frames: self.resample_src_scratch.len() as i64,
-            output_frames: self.resample_dst_scratch.len() as i64,
+            input_frames: self.resample_src_scratch.len() as c_long,
+            output_frames: self.resample_dst_scratch.len() as c_long,
             input_frames_used: 0,
             output_frames_gen: 0,
             end_of_input: 0,

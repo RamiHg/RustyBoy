@@ -12,7 +12,7 @@ macro_rules! GL {
 }
 
 const FULLSCREEN_VERT_SHADER: &str = "
-#version 410 core
+#version 150 core
 out vec2 uv;
 void main() {
     gl_Position.xy = -1 + vec2(
@@ -27,7 +27,7 @@ void main() {
 ";
 
 const FRAG_BLIT_SHADER: &str = "
-#version 410 core
+#version 150 core
 in vec2 uv;
 out vec3 color;
 uniform sampler2D gpu_tex;
@@ -96,8 +96,11 @@ fn load_all_shaders() -> GLuint {
                 core::ptr::null_mut(),
                 log.as_mut_str() as *mut _ as *mut _
             ));
-            panic!("Could not link program: \n{}", log);
+            println!("{}", log);
         }
+        let mut link_status = 0;
+        GL!(gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut link_status));
+        assert_eq!(link_status, gl::TRUE as i32, "Linking failed. See log above.");
         GL!(gl::DetachShader(program_id, vert_shader));
         GL!(gl::DetachShader(program_id, frag_shader));
         GL!(gl::DeleteShader(vert_shader));
@@ -126,7 +129,7 @@ impl Window {
 
         let context = glutin::ContextBuilder::new()
             .with_vsync(true)
-            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 1)))
+            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
             .with_gl_profile(glutin::GlProfile::Core)
             .build_windowed(window, &events_loop)
             .unwrap();
@@ -150,13 +153,18 @@ impl Window {
         unsafe {
             GL!(gl::GenTextures(1, &mut target_image));
             assert!(target_image != gl::INVALID_VALUE);
+            GL!(gl::ActiveTexture(gl::TEXTURE0));
             GL!(gl::BindTexture(gl::TEXTURE_2D, target_image));
-            GL!(gl::TexStorage2D(
+            GL!(gl::TexImage2D(
                 gl::TEXTURE_2D,
-                1,
-                gl::RGB8,
+                0,
+                gl::RGBA8 as i32,
                 gpu::LCD_WIDTH as i32,
-                gpu::LCD_HEIGHT as i32
+                gpu::LCD_HEIGHT as i32,
+                0,
+                gl::BGRA,
+                gl::UNSIGNED_INT_8_8_8_8_REV,
+                core::ptr::null(),
             ));
             GL!(gl::TexParameteri(
                 gl::TEXTURE_2D,
@@ -177,7 +185,10 @@ impl Window {
         }
     }
 
-    pub fn update_screen(&self, screen: &[gpu::Pixel]) {
+    pub fn update_screen(&self, screen: &[gpu::Color]) {
+        // Create pixels!
+        let pixels = screen.iter().map(|x| gpu::Pixel::from(*x)).collect::<Vec<gpu::Pixel>>();
+
         unsafe {
             GL!(gl::TexSubImage2D(
                 gl::TEXTURE_2D,
@@ -186,9 +197,9 @@ impl Window {
                 0,
                 gpu::LCD_WIDTH as i32,
                 gpu::LCD_HEIGHT as i32,
-                gl::RGB,
-                gl::UNSIGNED_BYTE,
-                screen.as_ptr() as *const core::ffi::c_void
+                gl::BGRA,
+                gl::UNSIGNED_INT_8_8_8_8_REV,
+                pixels.as_ptr() as *const core::ffi::c_void
             ));
 
             // Copy GPU image to framebuffer.

@@ -9,7 +9,7 @@ use crate::mmu;
 use crate::{dma, serial, timer, util};
 
 use error::Result;
-use gpu::Pixel;
+use gpu::Color;
 
 bitflags! {
     pub struct Interrupts: i32 {
@@ -57,7 +57,7 @@ pub struct System {
     apu: Option<crate::apu::Apu>,
 
     #[serde(skip)]
-    screen: Vec<Pixel>,
+    screen: Vec<Color>,
     #[serde(skip)]
     pub cart: Option<Box<dyn mmu::MemoryMapped>>,
 }
@@ -87,7 +87,7 @@ impl Default for System {
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
             joypad: joypad::Joypad::new(),
-            screen: vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
+            screen: vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
             #[cfg(feature = "audio")]
             apu: None,
@@ -108,7 +108,7 @@ impl System {
     }
 
     pub fn restore_from_deserialize(&mut self) {
-        self.screen = vec![Pixel::zero(); (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
+        self.screen = vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
     }
     pub fn set_cart(&mut self, cart: Box<dyn mmu::MemoryMapped>) {
         self.cart = Some(cart);
@@ -117,7 +117,7 @@ impl System {
     pub fn gpu(&self) -> &gpu::Gpu {
         &self.gpu
     }
-    pub fn get_screen(&self) -> &[Pixel] {
+    pub fn get_screen(&self) -> &[Color] {
         &self.screen
     }
 

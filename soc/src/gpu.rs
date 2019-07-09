@@ -39,20 +39,35 @@ pub enum Color {
     Black,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// BGRA pixel format.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub struct Pixel {
+    pub a: u8,
     pub r: u8,
     pub g: u8,
     pub b: u8,
 }
 
-impl Pixel {
-    pub fn zero() -> Pixel {
-        Pixel { r: 0, g: 0, b: 0 }
+impl From<Color> for Pixel {
+    fn from(color: Color) -> Pixel {
+        match color {
+            Color::White => Pixel::new(255u8, 255u8, 255u8),
+            Color::LightGray => Pixel::new(192u8, 192u8, 192u8),
+            Color::DarkGray => Pixel::new(96u8, 96u8, 96u8),
+            Color::Black  => Pixel::new(0u8, 0u8, 0u8),
+        }
     }
+}
 
-    pub fn from_values(r: u8, g: u8, b: u8) -> Pixel {
-        Pixel { r, g, b }
+impl Pixel {
+    /*
+    pub fn zero() -> Pixel {
+        Pixel { r: 0, g: 0, b: 0, a:0 }
+    }*/
+
+    pub fn new(r: u8, g: u8, b: u8) -> Pixel {
+        Pixel { b, g, r, a: 255 }
     }
 }
 
@@ -396,7 +411,7 @@ impl Gpu {
         &mut self,
         t_state: TState,
         bus: &mut mmu::MemoryBus,
-        screen: &mut [Pixel],
+        screen: &mut [Color],
     ) -> system::Interrupts {
         if !self.state.lcd_control.enable_display() {
             self.state.update_tock_disabled(bus);
@@ -450,7 +465,7 @@ impl Gpu {
         }
     }
 
-    fn lcd_transfer_cycle(&mut self, screen: &mut [Pixel]) {
+    fn lcd_transfer_cycle(&mut self, screen: &mut [Color]) {
         self.fetcher = self.fetcher.execute_tcycle(&self);
 
         // Handle window.
@@ -479,7 +494,7 @@ impl Gpu {
                     debug_assert_lt!(self.current_y(), LCD_HEIGHT as i32);
                     debug_assert_lt!(self.pixels_pushed(), LCD_WIDTH as i32);
                     screen[(self.pixels_pushed() + self.current_y() * LCD_WIDTH as i32) as usize] =
-                        self.fifo_entry_to_pixel(self.fifo.peek());
+                        self.fifo_entry_to_color(self.fifo.peek());
                 }
 
                 self.state.pixels_pushed += 1;
@@ -568,7 +583,7 @@ impl Gpu {
         }
     }
 
-    fn fifo_entry_to_pixel(&self, entry: FifoEntry) -> Pixel {
+    fn fifo_entry_to_color(&self, entry: FifoEntry) -> Color {
         let palette = if entry.is_sprite() {
             if entry.palette() == 0 {
                 self.sprite_palette_0
@@ -580,10 +595,10 @@ impl Gpu {
         };
 
         match (palette >> (entry.pixel_index() * 2)) & 0x3 {
-            0 => Pixel::from_values(255u8, 255u8, 255u8),
-            1 => Pixel::from_values(192u8, 192u8, 192u8),
-            2 => Pixel::from_values(96u8, 96u8, 96u8),
-            3 | _ => Pixel::from_values(0u8, 0u8, 0u8),
+            0 => Color::White,
+            1 => Color::LightGray,
+            2 => Color::DarkGray,
+            3 | _ => Color::Black,
         }
     }
 

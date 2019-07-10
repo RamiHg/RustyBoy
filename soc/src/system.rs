@@ -1,5 +1,6 @@
 use bitflags::bitflags;
 
+use crate::cart::Cart;
 use crate::cpu;
 use crate::error;
 use crate::gpu;
@@ -58,8 +59,7 @@ pub struct System {
 
     #[serde(skip)]
     screen: Vec<Color>,
-    #[serde(skip)]
-    pub cart: Option<Box<dyn mmu::MemoryMapped>>,
+    pub cart: Option<Box<dyn Cart>>,
 }
 
 impl Default for System {
@@ -109,8 +109,9 @@ impl System {
 
     pub fn restore_from_deserialize(&mut self) {
         self.screen = vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
+        self.apu = Some(Default::default());
     }
-    pub fn set_cart(&mut self, cart: Box<dyn mmu::MemoryMapped>) {
+    pub fn set_cart(&mut self, cart: Box<dyn Cart>) {
         self.cart = Some(cart);
     }
 
@@ -128,7 +129,7 @@ impl System {
     fn read_request(&self, raw_address: i32) -> Result<i32> {
         let modules: &[Option<&dyn mmu::MemoryMapped>] = &[
             Some(&self.timer),
-            Some(self.cart.as_ref().unwrap().as_ref()),
+            Some(self.cart.as_ref().unwrap().as_ref().as_ref()),
             Some(&self.serial),
             Some(&self.gpu),
             Some(&self.dma),
@@ -152,7 +153,7 @@ impl System {
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
         let modules: &mut [Option<&mut dyn mmu::MemoryMapped>] = &mut [
             Some(&mut self.timer),
-            Some(self.cart.as_mut().unwrap().as_mut()),
+            Some(self.cart.as_mut().unwrap().as_mut().as_mut()),
             Some(&mut self.serial),
             Some(&mut self.gpu),
             Some(&mut self.dma),
@@ -205,11 +206,12 @@ impl System {
     }
 
     fn handle_cpu_memory_writes(&mut self) -> Result<()> {
-        if self.dma.is_active() {
-            return Ok(());
-        }
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
+            if self.dma.is_active() {
+                trace!(target: "dma", "Attempting to write to {:X} while DMA is active.", self.cpu.state.address_latch);
+                return Ok(());
+            }
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
             debug_assert!(util::is_8bit(self.cpu.state.data_latch));
             if self.cpu.t_state.get() == 4
@@ -232,15 +234,18 @@ impl System {
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
-        let is_dma =
-            self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
-        mmu::MemoryBus {
+        let mut bus = mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
-            read_latch: self.cpu.state.read_latch && !is_dma,
-            write_latch: self.cpu.state.write_latch && !is_dma,
+            read_latch: self.cpu.state.read_latch,
+            write_latch: self.cpu.state.write_latch && !self.dma.is_active(),
             t_state: self.cpu.t_state.get(),
+        };
+        if self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch) {
+            // Reads during DMA return 0xFF;
+            bus.data_latch = 0xFF;
         }
+        bus
     }
 
     fn handle_dma(&mut self) -> Result<()> {
@@ -339,8 +344,14 @@ impl System {
             && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
             && !self.cpu.is_handling_interrupt
         {
-            let pc_plus =
-                |x| self.read_request(self.cpu.registers.get(cpu::register::Register::PC) + x);
+            let pc = self.cpu.registers.get(cpu::register::Register::PC);
+            trace!(target: "disas", "SP {:X}", self.cpu.registers.get(cpu::register::Register::SP));
+            if pc >= 0xFFFD {
+                trace!(target: "disas", "PC too large, at {:X}", pc);
+                //return Ok(());
+                panic!();
+            }
+            let pc_plus = |x| self.read_request(pc + x);
             let disas =
                 gb_disas::decode::decode(pc_plus(0)? as u8, pc_plus(1)? as u8, pc_plus(2)? as u8);
             if let core::result::Result::Ok(op) = disas {

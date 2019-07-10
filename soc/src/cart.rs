@@ -5,11 +5,14 @@ use crate::mmu;
 mod mbc1;
 mod mbc3;
 
-pub type Cart = dyn mmu::MemoryMapped;
-
 pub const ROM_BANK_SIZE: i32 = 16 * 1024;
 pub const RAM_BANK_SIZE: i32 = 8 * 1024;
 
+#[typetag::serde(tag = "type")]
+pub trait Cart:
+    mmu::MemoryMapped + AsRef<dyn mmu::MemoryMapped> + AsMut<dyn mmu::MemoryMapped>
+{
+}
 #[derive(Debug)]
 enum MbcVersion {
     None,
@@ -81,12 +84,13 @@ pub fn read_file(file_name: &str) -> Vec<u8> {
     file_contents
 }
 
-pub fn from_file(file_name: &str) -> Box<dyn mmu::MemoryMapped> {
+pub fn from_file(file_name: &str) -> Box<dyn Cart> {
     from_file_contents(&read_file(file_name))
 }
 
-pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn mmu::MemoryMapped> {
+pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn Cart> {
     let cart_type = CartType::from_setting(file_contents[0x0147]);
+    println!("Cart type {:X?}", file_contents[0x0147]);
     let rom_size = get_rom_size(file_contents[0x148]);
     let ram_size = if cart_type.has_ram {
         get_ram_size(file_contents[0x149])
@@ -94,6 +98,7 @@ pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn mmu::MemoryMapped> {
         0
     };
     let mut mem = vec![0; rom_size];
+    assert_eq!(rom_size, file_contents.len());
     // Copy over contents from file into memory.
     mem[0..file_contents.len()].copy_from_slice(file_contents);
     assert_eq!(mem[0x148], file_contents[0x148]);
@@ -107,7 +112,9 @@ pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn mmu::MemoryMapped> {
 mod none {
     use crate::mmu;
 
+    #[derive(Serialize, Deserialize)]
     pub struct Cart {
+        #[serde(with = "serde_bytes")]
         mem: Vec<u8>,
     }
 
@@ -135,12 +142,27 @@ mod none {
             }
         }
     }
+
+    #[typetag::serde(name = "none")]
+    impl super::Cart for Cart {}
+
+    impl AsRef<dyn mmu::MemoryMapped> for Cart {
+        fn as_ref(&self) -> &(dyn mmu::MemoryMapped + 'static) {
+            self
+        }
+    }
+    impl AsMut<dyn mmu::MemoryMapped> for Cart {
+        fn as_mut(&mut self) -> &mut (dyn mmu::MemoryMapped + 'static) {
+            self
+        }
+    }
 }
 
 #[cfg(test)]
 pub mod test {
     use crate::mmu;
 
+    #[derive(Serialize, Deserialize)]
     pub struct DynamicCart {
         mem: Vec<u8>,
     }

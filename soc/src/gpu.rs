@@ -1,8 +1,6 @@
 use arrayvec::ArrayVec;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 mod fetcher;
 mod fifo;
@@ -40,13 +38,13 @@ pub enum Color {
 }
 
 /// BGRA pixel format.
-#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Pixel {
-    pub a: u8,
-    pub r: u8,
-    pub g: u8,
     pub b: u8,
+    pub g: u8,
+    pub r: u8,
+    pub a: u8,
 }
 
 impl From<Color> for Pixel {
@@ -55,7 +53,7 @@ impl From<Color> for Pixel {
             Color::White => Pixel::new(255u8, 255u8, 255u8),
             Color::LightGray => Pixel::new(192u8, 192u8, 192u8),
             Color::DarkGray => Pixel::new(96u8, 96u8, 96u8),
-            Color::Black  => Pixel::new(0u8, 0u8, 0u8),
+            Color::Black => Pixel::new(0u8, 0u8, 0u8),
         }
     }
 }
@@ -99,8 +97,10 @@ pub struct Gpu {
     fetched_sprites: [bool; 10],
 
     // VRAM.
-    vram: Rc<RefCell<Vec<u8>>>,
-    oam: Rc<RefCell<Vec<u8>>>,
+    #[serde(with = "serde_bytes")]
+    vram: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    oam: Vec<u8>,
 
     pub options: Options,
 
@@ -360,8 +360,8 @@ impl Gpu {
             fetched_sprites: [false; 10],
 
             // Store OAM with Vram in order to reduce amount of copying.
-            vram: Rc::new(RefCell::new(vec![0; 8192])),
-            oam: Rc::new(RefCell::new(vec![0; 160])),
+            vram: vec![0; 8192],
+            oam: vec![0; 160],
 
             options: Options::new(),
 
@@ -374,22 +374,24 @@ impl Gpu {
     }
 
     pub fn vram(&self, address: i32) -> u8 {
-        self.vram.borrow()[(address - 0x8000) as usize]
+        self.vram[(address - 0x8000) as usize]
     }
     fn set_vram(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
-        self.vram.borrow_mut()[(address - 0x8000) as usize] = value as u8;
+        self.vram[(address - 0x8000) as usize] = value as u8;
     }
     pub fn oam(&self, address: i32) -> u8 {
-        self.oam.borrow()[(address - 0xFE00) as usize]
+        self.oam[(address - 0xFE00) as usize]
     }
     fn set_oam(&mut self, address: i32, value: i32) {
         debug_assert!(util::is_8bit(value));
-        self.oam.borrow_mut()[(address - 0xFE00) as usize] = value as u8;
+        self.oam[(address - 0xFE00) as usize] = value as u8;
     }
 
     pub fn at_vblank(&self) -> bool {
-        self.state.counter == 4 && self.state.current_y == 144
+        self.lcd_control().enable_display()
+            && self.state.counter == 4
+            && self.state.current_y == 144
     }
 
     fn can_access_oam(&self) -> bool {
@@ -456,7 +458,7 @@ impl Gpu {
 
         if self.lcd_control().enable_sprites() {
             self.visible_sprites = sprites::find_visible_sprites(
-                &*self.oam.borrow(),
+                &self.oam,
                 self.state.current_y,
                 self.lcd_control().large_sprites(),
             );
@@ -524,7 +526,7 @@ impl Gpu {
             self.pixels_pushed(),
             &self.visible_sprites,
             &self.fetched_sprites,
-            self.oam.borrow().as_ref(),
+            &self.oam,
         );
         let has_visible_sprite = maybe_visible_sprite_array_index.is_some();
 
@@ -604,7 +606,7 @@ impl Gpu {
 
     fn get_sprite(&self, sprite_index: u8) -> SpriteEntry {
         // HW: Might not be possible to do in 1 cycle unless OAM is SRAM
-        SpriteEntry::from_slice(&self.oam.borrow()[sprite_index as usize * 4..])
+        SpriteEntry::from_slice(&self.oam[sprite_index as usize * 4..])
     }
 
     fn current_y(&self) -> i32 {
@@ -701,6 +703,8 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::OAM => {
                 if self.can_access_oam() {
                     self.set_oam(raw, value);
+                } else {
+                    trace!(target: "gpu", "Ignored OAM write.");
                 }
                 Some(())
             }

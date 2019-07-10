@@ -3,8 +3,11 @@
 use crate::cart;
 use crate::mmu;
 
+#[derive(Serialize, Deserialize)]
 pub struct Cart {
+    #[serde(with = "serde_bytes")]
     mem: Vec<u8>,
+    #[serde(with = "serde_bytes")]
     ram: Vec<u8>,
     enable_ram: bool,
     rom_bank: i32,
@@ -33,9 +36,14 @@ impl Cart {
 
     fn translate_rom_bank_read(&self, raw_address: i32) -> i32 {
         if self.rom_bank < self.num_rom_banks {
+           // dbg!(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000));
             debug_assert_gt!(self.rom_bank, 0);
             self.mem(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000))
         } else {
+            println!(
+                "BAD! Accessing bank {} out of {}",
+                self.rom_bank, self.num_rom_banks
+            );
             0xFF
         }
     }
@@ -44,6 +52,10 @@ impl Cart {
         if self.ram_bank < self.num_ram_banks {
             self.ram(self.ram_bank * cart::RAM_BANK_SIZE + (raw_address - 0xA000))
         } else {
+            println!(
+                "[cart] Tried to read ram but bank is {} while num is {}",
+                self.ram_bank, self.num_ram_banks
+            );
             0xFF
         }
     }
@@ -55,12 +67,14 @@ impl Cart {
             0xA000..=0xBFFF => {
                 if self.enable_ram {
                     if self.ram_bank < 8 {
+                        println!("[cart] Success!");
                         Some(self.translate_ram_bank_read(raw_address))
                     } else {
                         // TODO: Do we care about the RTC?
                         Some(0x00)
                     }
                 } else {
+                    println!("[cart] Tried to read RAM but it's disabled.");
                     Some(0xFF)
                 }
             }
@@ -96,6 +110,7 @@ impl mmu::MemoryMapped for Cart {
             // RAM Enable.
             0x0000..=0x1FFF => {
                 self.enable_ram = (value & 0x0F) == 0x0A;
+                println!("[cart] RAM is now {}", self.enable_ram);
                 Some(())
             }
             // ROM Bank.
@@ -104,16 +119,34 @@ impl mmu::MemoryMapped for Cart {
                     0 => 1,
                     num => num,
                 };
+                println!(
+                    "[cart] Switching to bank {} due to {}",
+                    self.rom_bank, value
+                );
                 Some(())
             }
             // RAM Bank.
             0x4000..=0x5FFF => {
-                self.ram_bank = value & 0x0C;
+                self.ram_bank = value & 0x07;
+                debug_assert_lt!(self.ram_bank, self.num_ram_banks);
                 Some(())
             }
             // RTC Stuff.
             0x6000..=0x7FFF => Some(()),
             _ => None,
         }
+    }
+}
+
+#[typetag::serde(name = "mbc3")]
+impl super::Cart for Cart {}
+impl AsRef<dyn mmu::MemoryMapped> for Cart {
+    fn as_ref(&self) -> &(dyn mmu::MemoryMapped + 'static) {
+        self
+    }
+}
+impl AsMut<dyn mmu::MemoryMapped> for Cart {
+    fn as_mut(&mut self) -> &mut (dyn mmu::MemoryMapped + 'static) {
+        self
     }
 }

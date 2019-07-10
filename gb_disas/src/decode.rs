@@ -151,7 +151,7 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
                     .with_rhs(Arg::from_reg("C").as_ffplus()),
                 7 => Op::new_sized("LD", 3)
                     .with_lhs(Arg::from_reg("A"))
-                    .with_rhs(imm_16),
+                    .with_rhs(imm_16.as_indirect()),
                 _ => Op::new_sized("JP", 3)
                     .with_lhs(Arg::from_cond(components.y))
                     .with_rhs(imm_16),

@@ -5,9 +5,10 @@ authors = ["Ramy"]
 edition = "2018"
 
 [features]
-default = ["audio"]
+default = ["audio", "disas"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["portaudio", "sample", "libsamplerate"]
+disas = []
 
 [dependencies]
 arraydeque = "0.4.5"
@@ -17,11 +18,13 @@ bitfield = "0.13.2"
 csv = "1.1.1"
 fern = "0.5.8"
 lazy_static = "1.3.0"
-log = {version = "0.4.6", features = ["release_max_level_error"]}
+log = {version = "0.4.6"}#, features = ["release_max_level_trace"]}
 more-asserts = "0.2.1"
 num-derive = "0.2.5"
 serde = {version = "1.0.94", features = ["derive", "rc"]}
+serde_bytes = "0.11.1"
 spin = "0.5.0"
+typetag = "0.1.3"
 
 gb_disas = { path = "../gb_disas" }
 

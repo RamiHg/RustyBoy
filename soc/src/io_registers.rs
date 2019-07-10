@@ -93,6 +93,36 @@ macro_rules! impl_bitfield_helpful_traits {
     };
 }
 
+/// Helper macro to serialize a type using another type as a proxy.
+/// # Example
+/// ```rust
+/// serialize_as!(deque_serialize, ArrayDeque<[MicroCode; 24]>, Vec<MicroCode>);
+/// ```
+macro_rules! serialize_as {
+    ($scope:ident, $Type:ty, $Proxy:ty) => {
+        mod $scope {
+            use super::*;
+            use serde::de::{Deserialize, Deserializer};
+            use serde::ser::{Serialize, Serializer};
+
+            pub fn serialize<S>(item: &$Type, serializer: S) -> std::result::Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                Into::<$Proxy>::into(item.clone()).serialize(serializer)
+            }
+
+            pub fn deserialize<'de, D>(deserializer: D) -> std::result::Result<$Type, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let proxy = <$Proxy>::deserialize(deserializer)?;
+                Ok(proxy.into())
+            }
+        }
+    };
+}
+
 macro_rules! impl_serde_bitfield_traits {
     ($Type:ident) => {
         impl serde::ser::Serialize for $Type {

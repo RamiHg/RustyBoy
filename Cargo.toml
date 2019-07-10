@@ -1,8 +1,11 @@
+cargo-features = ["profile-overrides"]
+
 [workspace]
 members = [
     "gb_disas",
     "soc"
 ]
+
 
 [package]
 name = "rusty_boy"
@@ -13,10 +16,16 @@ edition = "2018"
 [dependencies]
 gl = "0.12.0"
 glutin = "0.21.0"
-serde_json = "1.0.40"
+bincode = "1.1.4"
 structopt = "0.2.18"
 # Workspace dependencies.
 soc = { path = "soc" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.overrides."*"]
+opt-level = 3
 
 # Uncomment for incremental release settings.
 [profile.release]

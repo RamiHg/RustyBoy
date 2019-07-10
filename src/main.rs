@@ -64,10 +64,10 @@ fn main() {
     let args = Opt::from_args();
 
     log::setup_logging(log::LogSettings {
-        interrupts: false,
+        interrupts: true,
         disassembly: false,
         timer: false,
-        dma: false,
+        dma: true,
         gpu: false,
     })
     .unwrap();
@@ -141,13 +141,12 @@ fn main() {
 fn serialize(system: &system::System, args: &Opt) {
     use std::fs::File;
     let file = File::create(&args.serialize_path).unwrap();
-    serde_json::to_writer_pretty(file, system).unwrap();
+    bincode::serialize_into(file, system).unwrap();
 }
 
 fn deserialize(system: &mut system::System, args: &Opt) {
     use std::fs::File;
     let file = File::open(&args.serialize_path).unwrap();
-    *system = serde_json::from_reader(file).unwrap();
+    *system = bincode::deserialize_from(file).unwrap();
     system.restore_from_deserialize();
-    system.set_cart(cart::from_file(args.cart_path.to_str().unwrap()));
 }

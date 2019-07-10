@@ -99,8 +99,16 @@ fn load_all_shaders() -> GLuint {
             println!("{}", log);
         }
         let mut link_status = 0;
-        GL!(gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut link_status));
-        assert_eq!(link_status, gl::TRUE as i32, "Linking failed. See log above.");
+        GL!(gl::GetProgramiv(
+            program_id,
+            gl::LINK_STATUS,
+            &mut link_status
+        ));
+        assert_eq!(
+            link_status,
+            gl::TRUE as i32,
+            "Linking failed. See log above."
+        );
         GL!(gl::DetachShader(program_id, vert_shader));
         GL!(gl::DetachShader(program_id, frag_shader));
         GL!(gl::DeleteShader(vert_shader));
@@ -128,7 +136,7 @@ impl Window {
         }
 
         let context = glutin::ContextBuilder::new()
-            .with_vsync(true)
+            .with_vsync(false)
             .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
             .with_gl_profile(glutin::GlProfile::Core)
             .build_windowed(window, &events_loop)
@@ -187,7 +195,10 @@ impl Window {
 
     pub fn update_screen(&self, screen: &[gpu::Color]) {
         // Create pixels!
-        let pixels = screen.iter().map(|x| gpu::Pixel::from(*x)).collect::<Vec<gpu::Pixel>>();
+        let pixels = screen
+            .iter()
+            .map(|x| gpu::Pixel::from(*x))
+            .collect::<Vec<gpu::Pixel>>();
 
         unsafe {
             GL!(gl::TexSubImage2D(

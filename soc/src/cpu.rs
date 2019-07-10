@@ -54,6 +54,8 @@ impl TState {
     }
 }
 
+serialize_as!(deque_serialize, ArrayDeque<[MicroCode; 24]>, Vec<MicroCode>);
+
 #[derive(Serialize, Deserialize)]
 // This needs to get heavily refactored, with the control unit
 // code being migrated here, and state made private.
@@ -62,8 +64,7 @@ pub struct Cpu {
     pub registers: register::File,
     #[serde(skip)]
     pub decoder: decoder::Decoder,
-    // TODO: THIS BREAKS SERIALIZATION.
-    #[serde(skip)]
+    #[serde(with = "deque_serialize")]
     pub micro_code_stack: ArrayDeque<[MicroCode; 24]>,
 
     pub t_state: TState,

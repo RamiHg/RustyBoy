@@ -73,7 +73,7 @@ pub struct Cpu {
     interrupts_enabled: bool,
     interrupt_handle_mcycle: i32,
 
-    is_halted: bool,
+    pub is_halted: bool,
 }
 
 impl Cpu {

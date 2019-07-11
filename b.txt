@@ -1,0 +1,936 @@
+
+[disas]: SP DFE1
+[disas]: FF89	C9	RET
+[disas]: SP DFE3
+[disas]: 2054	3E	LD A, 0x1
+[disas]: SP DFE3
+[disas]: 2056	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFE3
+[disas]: 2058	EA	LD (0x2000), A
+[disas]: SP DFE3
+[disas]: 205B	CD	CALL 0x4B0F
+[disas]: SP DFE1
+[disas]: 4B0F	FA	LD A, (0xCFCB)
+[disas]: SP DFE1
+[disas]: 4B12	3D	DEC A
+[disas]: SP DFE1
+[disas]: 4B13	28	JR Z, 9
+[disas]: SP DFE1
+[disas]: 4B15	FE	CP 0xFF
+[disas]: SP DFE1
+[disas]: 4B17	C0	RET NZ
+[disas]: SP DFE3
+[disas]: 205E	CD	CALL 0x3E5C
+[disas]: SP DFE1
+[disas]: 3E5C	E5	PUSH HL
+[disas]: SP DFDF
+[disas]: 3E5D	D5	PUSH DE
+[disas]: SP DFDD
+[disas]: 3E5E	C5	PUSH BC
+[disas]: SP DFDB
+[disas]: 3E5F	6	LD B, 0x4
+[disas]: SP DFDB
+[disas]: 3E61	21	LD HL, 0x7A8F
+[disas]: SP DFDB
+[disas]: 3E64	CD	CALL 0x35D6
+[disas]: SP DFD9
+[disas]: 35D6	F0	LD A, (0xFF00 + 0xB8)
+[disas]: SP DFD9
+[disas]: 35D8	F5	PUSH AF
+[disas]: SP DFD7
+[disas]: 35D9	78	LD A, B
+[disas]: SP DFD7
+[disas]: 35DA	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFD7
+[disas]: 35DC	EA	LD (0x2000), A
+[disas]: SP DFD7
+[disas]: 35DF	1	LD BC, 0x35E4
+[disas]: SP DFD7
+[disas]: 35E2	C5	PUSH BC
+[disas]: SP DFD5
+[disas]: 35E3	E9	JP HL
+[disas]: SP DFD5
+[disas]: 7A8F	F0	LD A, (0xFF00 + 0x4)
+[disas]: SP DFD5
+[disas]: 7A91	47	LD B, A
+[disas]: SP DFD5
+[disas]: 7A92	F0	LD A, (0xFF00 + 0xD3)
+[disas]: SP DFD5
+[disas]: 7A94	88	ADC A, B
+[disas]: SP DFD5
+[disas]: 7A95	E0	LD (0xFF00 + 0xD3), A
+[disas]: SP DFD5
+[disas]: 7A97	F0	LD A, (0xFF00 + 0x4)
+[disas]: SP DFD5
+[disas]: 7A99	47	LD B, A
+[disas]: SP DFD5
+[disas]: 7A9A	F0	LD A, (0xFF00 + 0xD4)
+[disas]: SP DFD5
+[disas]: 7A9C	98	SBC A, B
+[disas]: SP DFD5
+[disas]: 7A9D	E0	LD (0xFF00 + 0xD4), A
+[disas]: SP DFD5
+[disas]: 7A9F	C9	RET
+[disas]: SP DFD7
+[disas]: 35E4	C1	POP BC
+[disas]: SP DFD9
+[disas]: 35E5	78	LD A, B
+[disas]: SP DFD9
+[disas]: 35E6	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFD9
+[disas]: 35E8	EA	LD (0x2000), A
+[disas]: SP DFD9
+[disas]: 35EB	C9	RET
+[disas]: SP DFDB
+[disas]: 3E67	F0	LD A, (0xFF00 + 0xD3)
+[disas]: SP DFDB
+[disas]: 3E69	C1	POP BC
+[disas]: SP DFDD
+[disas]: 3E6A	D1	POP DE
+[disas]: SP DFDF
+[disas]: 3E6B	E1	POP HL
+[disas]: SP DFE1
+[disas]: 3E6C	C9	RET
+[disas]: SP DFE3
+[disas]: 2061	F0	LD A, (0xFF00 + 0xD6)
+[disas]: SP DFE3
+[disas]: 2063	A7	AND A
+[disas]: SP DFE3
+[disas]: 2064	28	JR Z, 3
+[disas]: SP DFE3
+[disas]: 2069	F0	LD A, (0xFF00 + 0xD5)
+[disas]: SP DFE3
+[disas]: 206B	A7	AND A
+[disas]: SP DFE3
+[disas]: 206C	28	JR Z, 3
+[disas]: SP DFE3
+[disas]: 2071	CD	CALL 0x28CB
+[disas]: SP DFE1
+[disas]: 28CB	FA	LD A, (0xCFC7)
+[disas]: SP DFE1
+[disas]: 28CE	A7	AND A
+[disas]: SP DFE1
+[disas]: 28CF	20	JR NZ, 11
+[disas]: SP DFE1
+[disas]: 28D1	FA	LD A, (0xD72C)
+[disas]: SP DFE1
+[disas]: 28D4	Bad opcode CB
+[disas]: SP DFE1
+[disas]: 28D5	4F	LD C, A
+[disas]: SP DFE1
+[disas]: 28D6	C0	RET NZ
+[disas]: SP DFE1
+[disas]: 28D7	3E	LD A, 0x77
+[disas]: SP DFE1
+[disas]: 28D9	E0	LD (0xFF00 + 0x24), A
+[disas]: SP DFE1
+[disas]: 28DB	C9	RET
+[disas]: SP DFE3
+[disas]: 2074	FA	LD A, (0xC0EF)
+[disas]: SP DFE3
+[disas]: 2077	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFE3
+[disas]: 2079	EA	LD (0x2000), A
+[disas]: SP DFE3
+[disas]: 207C	FE	CP 0x2
+[disas]: SP DFE3
+[disas]: 207E	20	JR NZ, 5
+[disas]: SP DFE3
+[disas]: 2085	FE	CP 0x8
+[disas]: SP DFE3
+[disas]: 2087	20	JR NZ, 8
+[disas]: SP DFE3
+[disas]: 2091	CD	CALL 0x5177
+[disas]: SP DFE1
+[disas]: 5177	E	LD C, 0x0
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 5183	79	LD A, C
+[disas]: SP DFE1
+[disas]: 5184	FE	CP 0x4
+[disas]: SP DFE1
+[disas]: 5186	30	JR NC, 26
+[disas]: SP DFE1
+[disas]: 5188	FA	LD A, (0xC002)
+[disas]: SP DFE1
+[disas]: 518B	A7	AND A
+[disas]: SP DFE1
+[disas]: 518C	28	JR Z, 20
+[disas]: SP DFE1
+[disas]: 51A2	CD	CALL 0x51AC
+[disas]: SP DFDF
+[disas]: 51AC	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51AE	21	LD HL, 0xC0B6
+[disas]: SP DFDF
+[disas]: 51B1	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51B2	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51B3	FE	CP 0x1
+[disas]: SP DFDF
+[disas]: 51B5	CA	JP Z, 0x5244
+[disas]: SP DFDF
+[disas]: 51B8	3D	DEC A
+[disas]: SP DFDF
+[disas]: 51B9	77	LD (HL), A
+[disas]: SP DFDF
+[disas]: 51BA	79	LD A, C
+[disas]: SP DFDF
+[disas]: 51BB	FE	CP 0x4
+[disas]: SP DFDF
+[disas]: 51BD	30	JR NC, 9
+[disas]: SP DFDF
+[disas]: 51BF	21	LD HL, 0xC02A
+[disas]: SP DFDF
+[disas]: 51C2	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51C3	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51C4	A7	AND A
+[disas]: SP DFDF
+[disas]: 51C5	28	JR Z, 1
+[disas]: SP DFDF
+[disas]: 51C8	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51CB	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51CC	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51CD	76	HALT
+[disas]: SP DFDF
+[disas]: 51CE	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51D3	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51D5	21	LD HL, 0xC036
+[disas]: SP DFDF
+[disas]: 51D8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51D9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51DA	46	LD B, (HL)
+[disas]: SP DFDF
+[disas]: 51DB	20	JR NZ, 8
+[disas]: SP DFDF
+[disas]: 51DD	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E0	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E1	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51E2	56	LD D, (HL)
+[disas]: SP DFDF
+[disas]: 51E3	20	JR NZ, 20
+[disas]: SP DFDF
+[disas]: 51E5	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51EA	66	LD H, (HL)
+[disas]: SP DFDF
+[disas]: 51EB	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51F0	21	LD HL, 0xC04E
+[disas]: SP DFDF
+[disas]: 51F3	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51F4	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51F5	A7	AND A
+[disas]: SP DFDF
+[disas]: 51F6	28	JR Z, 2
+[disas]: SP DFDF
+[disas]: 51F8	35	DEC (HL)
+[disas]: SP DFDF
+[disas]: 51F9	C9	RET
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 5183	79	LD A, C
+[disas]: SP DFE1
+[disas]: 5184	FE	CP 0x4
+[disas]: SP DFE1
+[disas]: 5186	30	JR NC, 26
+[disas]: SP DFE1
+[disas]: 5188	FA	LD A, (0xC002)
+[disas]: SP DFE1
+[disas]: 518B	A7	AND A
+[disas]: SP DFE1
+[disas]: 518C	28	JR Z, 20
+[disas]: SP DFE1
+[disas]: 51A2	CD	CALL 0x51AC
+[disas]: SP DFDF
+[disas]: 51AC	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51AE	21	LD HL, 0xC0B6
+[disas]: SP DFDF
+[disas]: 51B1	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51B2	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51B3	FE	CP 0x1
+[disas]: SP DFDF
+[disas]: 51B5	CA	JP Z, 0x5244
+[disas]: SP DFDF
+[disas]: 51B8	3D	DEC A
+[disas]: SP DFDF
+[disas]: 51B9	77	LD (HL), A
+[disas]: SP DFDF
+[disas]: 51BA	79	LD A, C
+[disas]: SP DFDF
+[disas]: 51BB	FE	CP 0x4
+[disas]: SP DFDF
+[disas]: 51BD	30	JR NC, 9
+[disas]: SP DFDF
+[disas]: 51BF	21	LD HL, 0xC02A
+[disas]: SP DFDF
+[disas]: 51C2	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51C3	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51C4	A7	AND A
+[disas]: SP DFDF
+[disas]: 51C5	28	JR Z, 1
+[disas]: SP DFDF
+[disas]: 51C8	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51CB	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51CC	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51CD	76	HALT
+[disas]: SP DFDF
+[disas]: 51CE	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51D3	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51D5	21	LD HL, 0xC036
+[disas]: SP DFDF
+[disas]: 51D8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51D9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51DA	46	LD B, (HL)
+[disas]: SP DFDF
+[disas]: 51DB	20	JR NZ, 8
+[disas]: SP DFDF
+[disas]: 51DD	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E0	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E1	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51E2	56	LD D, (HL)
+[disas]: SP DFDF
+[disas]: 51E3	20	JR NZ, 20
+[disas]: SP DFDF
+[disas]: 51E5	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51EA	66	LD H, (HL)
+[disas]: SP DFDF
+[disas]: 51EB	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51F0	21	LD HL, 0xC04E
+[disas]: SP DFDF
+[disas]: 51F3	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51F4	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51F5	A7	AND A
+[disas]: SP DFDF
+[disas]: 51F6	28	JR Z, 2
+[disas]: SP DFDF
+[disas]: 51F8	35	DEC (HL)
+[disas]: SP DFDF
+[disas]: 51F9	C9	RET
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 5183	79	LD A, C
+[disas]: SP DFE1
+[disas]: 5184	FE	CP 0x4
+[disas]: SP DFE1
+[disas]: 5186	30	JR NC, 26
+[disas]: SP DFE1
+[disas]: 5188	FA	LD A, (0xC002)
+[disas]: SP DFE1
+[disas]: 518B	A7	AND A
+[disas]: SP DFE1
+[disas]: 518C	28	JR Z, 20
+[disas]: SP DFE1
+[disas]: 51A2	CD	CALL 0x51AC
+[disas]: SP DFDF
+[disas]: 51AC	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51AE	21	LD HL, 0xC0B6
+[disas]: SP DFDF
+[disas]: 51B1	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51B2	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51B3	FE	CP 0x1
+[disas]: SP DFDF
+[disas]: 51B5	CA	JP Z, 0x5244
+[disas]: SP DFDF
+[disas]: 51B8	3D	DEC A
+[disas]: SP DFDF
+[disas]: 51B9	77	LD (HL), A
+[disas]: SP DFDF
+[disas]: 51BA	79	LD A, C
+[disas]: SP DFDF
+[disas]: 51BB	FE	CP 0x4
+[disas]: SP DFDF
+[disas]: 51BD	30	JR NC, 9
+[disas]: SP DFDF
+[disas]: 51BF	21	LD HL, 0xC02A
+[disas]: SP DFDF
+[disas]: 51C2	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51C3	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51C4	A7	AND A
+[disas]: SP DFDF
+[disas]: 51C5	28	JR Z, 1
+[disas]: SP DFDF
+[disas]: 51C8	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51CB	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51CC	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51CD	76	HALT
+[disas]: SP DFDF
+[disas]: 51CE	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51D3	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51D5	21	LD HL, 0xC036
+[disas]: SP DFDF
+[disas]: 51D8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51D9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51DA	46	LD B, (HL)
+[disas]: SP DFDF
+[disas]: 51DB	20	JR NZ, 8
+[disas]: SP DFDF
+[disas]: 51DD	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E0	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E1	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51E2	56	LD D, (HL)
+[disas]: SP DFDF
+[disas]: 51E3	20	JR NZ, 20
+[disas]: SP DFDF
+[disas]: 51E5	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51EA	66	LD H, (HL)
+[disas]: SP DFDF
+[disas]: 51EB	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51F0	21	LD HL, 0xC04E
+[disas]: SP DFDF
+[disas]: 51F3	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51F4	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51F5	A7	AND A
+[disas]: SP DFDF
+[disas]: 51F6	28	JR Z, 2
+[disas]: SP DFDF
+[disas]: 51FA	21	LD HL, 0xC056
+[disas]: SP DFDF
+[disas]: 51FD	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51FE	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51FF	A7	AND A
+[disas]: SP DFDF
+[disas]: 5200	20	JR NZ, 1
+[disas]: SP DFDF
+[disas]: 5202	C9	RET
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 5183	79	LD A, C
+[disas]: SP DFE1
+[disas]: 5184	FE	CP 0x4
+[disas]: SP DFE1
+[disas]: 5186	30	JR NC, 26
+[disas]: SP DFE1
+[disas]: 5188	FA	LD A, (0xC002)
+[disas]: SP DFE1
+[disas]: 518B	A7	AND A
+[disas]: SP DFE1
+[disas]: 518C	28	JR Z, 20
+[disas]: SP DFE1
+[disas]: 51A2	CD	CALL 0x51AC
+[disas]: SP DFDF
+[disas]: 51AC	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51AE	21	LD HL, 0xC0B6
+[disas]: SP DFDF
+[disas]: 51B1	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51B2	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51B3	FE	CP 0x1
+[disas]: SP DFDF
+[disas]: 51B5	CA	JP Z, 0x5244
+[disas]: SP DFDF
+[disas]: 51B8	3D	DEC A
+[disas]: SP DFDF
+[disas]: 51B9	77	LD (HL), A
+[disas]: SP DFDF
+[disas]: 51BA	79	LD A, C
+[disas]: SP DFDF
+[disas]: 51BB	FE	CP 0x4
+[disas]: SP DFDF
+[disas]: 51BD	30	JR NC, 9
+[disas]: SP DFDF
+[disas]: 51BF	21	LD HL, 0xC02A
+[disas]: SP DFDF
+[disas]: 51C2	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51C3	7E	LD A, (HL)
+[disas]: SP DFDF
+[disas]: 51C4	A7	AND A
+[disas]: SP DFDF
+[disas]: 51C5	28	JR Z, 1
+[disas]: SP DFDF
+[disas]: 51C8	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51CB	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51CC	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51CD	76	HALT
+[disas]: SP DFDF
+[disas]: 51CE	28	JR Z, 3
+[disas]: SP DFDF
+[disas]: 51D3	6	LD B, 0x0
+[disas]: SP DFDF
+[disas]: 51D5	21	LD HL, 0xC036
+[disas]: SP DFDF
+[disas]: 51D8	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51D9	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51DA	46	LD B, (HL)
+[disas]: SP DFDF
+[disas]: 51DB	20	JR NZ, 8
+[disas]: SP DFDF
+[disas]: 51DD	21	LD HL, 0xC02E
+[disas]: SP DFDF
+[disas]: 51E0	9	ADD HL, BC
+[disas]: SP DFDF
+[disas]: 51E1	Bad opcode CB
+[disas]: SP DFDF
+[disas]: 51E2	56	LD D, (HL)
+[disas]: SP DFDF
+[disas]: 51E3	20	JR NZ, 20
+[disas]: SP DFDF
+[disas]: 51F9	C9	RET
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 5179	6	LD B, 0x0
+[disas]: SP DFE1
+[disas]: 517B	21	LD HL, 0xC026
+[disas]: SP DFE1
+[disas]: 517E	9	ADD HL, BC
+[disas]: SP DFE1
+[disas]: 517F	7E	LD A, (HL)
+[disas]: SP DFE1
+[disas]: 5180	A7	AND A
+[disas]: SP DFE1
+[disas]: 5181	28	JR Z, 34
+[disas]: SP DFE1
+[disas]: 51A5	79	LD A, C
+[disas]: SP DFE1
+[disas]: 51A6	C	INC C
+[disas]: SP DFE1
+[disas]: 51A7	FE	CP 0x7
+[disas]: SP DFE1
+[disas]: 51A9	20	JR NZ, -50
+[disas]: SP DFE1
+[disas]: 51AB	C9	RET
+[disas]: SP DFE3
+[disas]: 2094	6	LD B, 0x6
+[disas]: SP DFE3
+[disas]: 2096	21	LD HL, 0x4DEE
+[disas]: SP DFE3
+[disas]: 2099	CD	CALL 0x35D6
+[disas]: SP DFE1
+[disas]: 35D6	F0	LD A, (0xFF00 + 0xB8)
+[disas]: SP DFE1
+[disas]: 35D8	F5	PUSH AF
+[disas]: SP DFDF
+[disas]: 35D9	78	LD A, B
+[disas]: SP DFDF
+[disas]: 35DA	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFDF
+[disas]: 35DC	EA	LD (0x2000), A
+[disas]: SP DFDF
+[disas]: 35DF	1	LD BC, 0x35E4
+[disas]: SP DFDF
+[disas]: 35E2	C5	PUSH BC
+[disas]: SP DFDD
+[disas]: 35E3	E9	JP HL
+[disas]: SP DFDD
+[disas]: 4DEE	CD	CALL 0x4E36
+[disas]: SP DFDB
+[disas]: 4E36	FA	LD A, (0xD13A)
+[disas]: SP DFDB
+[disas]: 4E39	A7	AND A
+[disas]: SP DFDB
+[disas]: 4E3A	20	JR NZ, 4
+[disas]: SP DFDB
+[disas]: 4E40	3D	DEC A
+[disas]: SP DFDB
+[disas]: 4E41	EA	LD (0xD13A), A
+[disas]: SP DFDB
+[disas]: 4E44	A7	AND A
+[disas]: SP DFDB
+[disas]: 4E45	C0	RET NZ
+[disas]: SP DFDD
+[disas]: 4DF1	FA	LD A, (0xD732)
+[disas]: SP DFDD
+[disas]: 4DF4	Bad opcode CB
+[disas]: SP DFDD
+[disas]: 4DF5	47	LD B, A
+[disas]: SP DFDD
+[disas]: 4DF6	C8	RET Z
+[disas]: SP DFDF
+[disas]: 35E4	C1	POP BC
+[disas]: SP DFE1
+[disas]: 35E5	78	LD A, B
+[disas]: SP DFE1
+[disas]: 35E6	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFE1
+[disas]: 35E8	EA	LD (0x2000), A
+[disas]: SP DFE1
+[disas]: 35EB	C9	RET
+[disas]: SP DFE3
+[disas]: 209C	F0	LD A, (0xFF00 + 0xF9)
+[disas]: SP DFE3
+[disas]: 209E	A7	AND A
+[disas]: SP DFE3
+[disas]: 209F	CC	CALL Z, 0x15F
+[disas]: SP DFE1
+[disas]: 015F	3E	LD A, 0x20
+[disas]: SP DFE1
+[disas]: 0161	E	LD C, 0x0
+[disas]: SP DFE1
+[disas]: 0163	E0	LD (0xFF00 + 0x0), A
+[disas]: SP DFE1
+[disas]: 0165	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0167	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0169	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 016B	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 016D	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 016F	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0171	2F	CPL
+[disas]: SP DFE1
+[disas]: 0172	E6	AND 0xF
+[disas]: SP DFE1
+[disas]: 0174	Bad opcode CB
+[disas]: SP DFE1
+[disas]: 0175	37	SCF
+[disas]: SP DFE1
+[disas]: 0176	47	LD B, A
+[disas]: SP DFE1
+[disas]: 0177	3E	LD A, 0x10
+[disas]: SP DFE1
+[disas]: 0179	E0	LD (0xFF00 + 0x0), A
+[disas]: SP DFE1
+[disas]: 017B	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 017D	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 017F	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0181	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0183	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0185	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0187	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 0189	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 018B	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 018D	F0	LD A, (0xFF00 + 0x0)
+[disas]: SP DFE1
+[disas]: 018F	2F	CPL
+[disas]: SP DFE1
+[disas]: 0190	E6	AND 0xF
+[disas]: SP DFE1
+[disas]: 0192	B0	OR B
+[disas]: SP DFE1
+[disas]: 0193	E0	LD (0xFF00 + 0xF8), A
+[disas]: SP DFE1
+[disas]: 0195	3E	LD A, 0x30
+[disas]: SP DFE1
+[disas]: 0197	E0	LD (0xFF00 + 0x0), A
+[disas]: SP DFE1
+[disas]: 0199	C9	RET
+[disas]: SP DFE3
+[disas]: 20A2	FA	LD A, (0xD122)
+[disas]: SP DFE3
+[disas]: 20A5	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFE3
+[disas]: 20A7	EA	LD (0x2000), A
+[disas]: SP DFE3
+[disas]: 20AA	E1	POP HL
+[disas]: SP DFE5
+[disas]: 20AB	D1	POP DE
+[disas]: SP DFE7
+[disas]: 20AC	C1	POP BC
+[disas]: SP DFE9
+[disas]: 20AD	F1	POP AF
+[disas]: SP DFEB
+[disas]: 20AE	D9	RETI
+[int]: Enabling interrupts.
+[disas]: SP DFED
+[disas]: 2663	33	INC SP
+[disas]: SP DFEE
+[disas]: 2664	FA	LD A, (0xD0AD)
+[disas]: SP DFEE
+[disas]: 2667	6F	LD L, A
+[disas]: SP DFEE
+[disas]: 2668	FA	LD A, (0xD0AE)
+[disas]: SP DFEE
+[disas]: 266B	67	LD H, A
+[disas]: SP DFEE
+[disas]: 266C	7E	LD A, (HL)
+[disas]: SP DFEE
+[disas]: 266D	B3	OR E
+[disas]: SP DFEE
+[disas]: 266E	77	LD (HL), A
+[disas]: SP DFEE
+[disas]: 266F	C9	RET
+[disas]: SP DFF0
+[disas]: 1325	9	ADD HL, BC
+[disas]: SP DFF0
+[disas]: 1326	1	LD BC, 0x4
+[disas]: SP DFF0
+[disas]: 1329	11	LD DE, 0xD35F
+[disas]: SP DFF0
+[disas]: 132C	CD	CALL 0xB5
+[disas]: SP DFEE
+[disas]: 00B5	2A	LD A, (HL+)
+[disas]: SP DFEE
+[disas]: 00B6	12	LD (DE), A
+[disas]: SP DFEE
+[disas]: 00B7	13	INC DE
+[disas]: SP DFEE
+[disas]: 00B8	B	DEC BC
+[disas]: SP DFEE
+[disas]: 00B9	79	LD A, C
+[disas]: SP DFEE
+[disas]: 00BA	B0	OR B
+[disas]: SP DFEE
+[disas]: 00BB	20	JR NZ, -8
+[disas]: SP DFEE
+[disas]: 00B5	2A	LD A, (HL+)
+[disas]: SP DFEE
+[disas]: 00B6	12	LD (DE), A
+[disas]: SP DFEE
+[disas]: 00B7	13	INC DE
+[disas]: SP DFEE
+[disas]: 00B8	B	DEC BC
+[disas]: SP DFEE
+[disas]: 00B9	79	LD A, C
+[disas]: SP DFEE
+[disas]: 00BA	B0	OR B
+[disas]: SP DFEE
+[disas]: 00BB	20	JR NZ, -8
+[disas]: SP DFEE
+[disas]: 00B5	2A	LD A, (HL+)
+[disas]: SP DFEE
+[disas]: 00B6	12	LD (DE), A
+[disas]: SP DFEE
+[disas]: 00B7	13	INC DE
+[disas]: SP DFEE
+[disas]: 00B8	B	DEC BC
+[disas]: SP DFEE
+[disas]: 00B9	79	LD A, C
+[disas]: SP DFEE
+[disas]: 00BA	B0	OR B
+[disas]: SP DFEE
+[disas]: 00BB	20	JR NZ, -8
+[disas]: SP DFEE
+[disas]: 00B5	2A	LD A, (HL+)
+[disas]: SP DFEE
+[disas]: 00B6	12	LD (DE), A
+[disas]: SP DFEE
+[disas]: 00B7	13	INC DE
+[disas]: SP DFEE
+[disas]: 00B8	B	DEC BC
+[disas]: SP DFEE
+[disas]: 00B9	79	LD A, C
+[disas]: SP DFEE
+[disas]: 00BA	B0	OR B
+[disas]: SP DFEE
+[disas]: 00BB	20	JR NZ, -8
+[disas]: SP DFEE
+[disas]: 00BD	C9	RET
+[disas]: SP DFF0
+[disas]: 132F	F1	POP AF
+[disas]: SP DFF2
+[disas]: 1330	E0	LD (0xFF00 + 0xB8), A
+[disas]: SP DFF2
+[disas]: 1332	EA	LD (0x2000), A

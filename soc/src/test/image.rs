@@ -10,6 +10,7 @@ impl From<bmp::Pixel> for gpu::Pixel {
             r: pixel.r,
             g: pixel.g,
             b: pixel.b,
+            a: 255,
         }
     }
 }
@@ -33,8 +34,6 @@ pub fn golden_image_path(test_name: &str) -> PathBuf {
 }
 
 pub fn load_golden_image(path: impl AsRef<Path>) -> Vec<gpu::Pixel> {
-    
-
     let img = bmp::open(path).unwrap();
     assert_eq!(img.get_width(), LCD_WIDTH as u32);
     assert_eq!(img.get_height(), LCD_HEIGHT as u32);
@@ -52,8 +51,8 @@ pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
     dump_image(sub_dir, test_name, system.get_screen());
 }
 
-pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
-    use bmp::{Image};
+pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Color]) {
+    use bmp::Image;
     let test_name_path = Path::new(test_name);
     let mut path = base_path_to(sub_dir);
     std::fs::create_dir_all(path.join(test_name_path.parent().unwrap_or(Path::new(".")))).unwrap();
@@ -61,11 +60,8 @@ pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Pixel]) {
     let mut img = Image::new(LCD_WIDTH as u32, LCD_HEIGHT as u32);
     for j in 0..LCD_HEIGHT as usize {
         for i in 0..LCD_WIDTH as usize {
-            img.set_pixel(
-                i as u32,
-                j as u32,
-                screen[i + j * LCD_WIDTH as usize].into(),
-            );
+            let pixel: gpu::Pixel = screen[i + j * LCD_WIDTH as usize].into();
+            img.set_pixel(i as u32, j as u32, pixel.into());
         }
     }
     img.save(path).unwrap();
@@ -78,6 +74,7 @@ pub fn is_white_screen(screen: &[gpu::Pixel]) -> bool {
                 r: 255,
                 g: 255,
                 b: 255,
+                a: 255,
             })
         {
             return false;

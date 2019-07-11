@@ -36,14 +36,16 @@ impl Cart {
 
     fn translate_rom_bank_read(&self, raw_address: i32) -> i32 {
         if self.rom_bank < self.num_rom_banks {
-           // dbg!(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000));
+            // dbg!(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000));
             debug_assert_gt!(self.rom_bank, 0);
             self.mem(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000))
         } else {
-            println!(
-                "BAD! Accessing bank {} out of {}",
-                self.rom_bank, self.num_rom_banks
-            );
+            // println!(
+            //     "BAD! Accessing bank {} out of {}",
+            //     self.rom_bank, self.num_rom_banks
+            // );
+
+            // panic!();
             0xFF
         }
     }
@@ -56,6 +58,8 @@ impl Cart {
                 "[cart] Tried to read ram but bank is {} while num is {}",
                 self.ram_bank, self.num_ram_banks
             );
+
+            panic!();
             0xFF
         }
     }
@@ -67,14 +71,17 @@ impl Cart {
             0xA000..=0xBFFF => {
                 if self.enable_ram {
                     if self.ram_bank < 8 {
-                        println!("[cart] Success!");
                         Some(self.translate_ram_bank_read(raw_address))
                     } else {
                         // TODO: Do we care about the RTC?
+                        //
+                        panic!();
                         Some(0x00)
                     }
                 } else {
                     println!("[cart] Tried to read RAM but it's disabled.");
+
+                    //panic!();
                     Some(0xFF)
                 }
             }
@@ -119,10 +126,8 @@ impl mmu::MemoryMapped for Cart {
                     0 => 1,
                     num => num,
                 };
-                println!(
-                    "[cart] Switching to bank {} due to {}",
-                    self.rom_bank, value
-                );
+                debug_assert_lt!(self.rom_bank, self.num_rom_banks);
+                println!("Setting to {} by {}", self.rom_bank, value);
                 Some(())
             }
             // RAM Bank.

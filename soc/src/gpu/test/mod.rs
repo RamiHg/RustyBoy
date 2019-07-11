@@ -263,8 +263,8 @@ impl SpriteBuilder {
 pub fn build_golden(
     image_fn: &ImageFn,
     transform_fn: &impl Fn(usize, usize) -> (usize, usize),
-) -> Vec<gpu::Pixel> {
-    use gpu::{Pixel, LCD_HEIGHT, LCD_WIDTH};
+) -> Vec<gpu::Color> {
+    use gpu::{LCD_HEIGHT, LCD_WIDTH};
 
     let mut result = Vec::with_capacity(LCD_WIDTH * LCD_HEIGHT);
     for j in 0..LCD_HEIGHT {
@@ -272,19 +272,14 @@ pub fn build_golden(
             // First, transform the coordinates.
             let (new_i, new_j) = transform_fn(i, j);
             use Color::*;
-            result.push(match image_fn(new_i % 256, new_j % 256) {
-                White => Pixel::from_values(255u8, 255u8, 255u8),
-                LightGray => Pixel::from_values(192u8, 192u8, 192u8),
-                DarkGray => Pixel::from_values(96u8, 96u8, 96u8),
-                Black => Pixel::from_values(0u8, 0u8, 0u8),
-            });
+            result.push(image_fn(new_i % 256, new_j % 256));
         }
     }
     result
 }
 
 /// Tests the current system screen vs a golden image.
-pub fn compare_with_golden(test_name: &str, system: &System, golden: &[gpu::Pixel]) {
+pub fn compare_with_golden(test_name: &str, system: &System, golden: &[gpu::Color]) {
     if system.get_screen() != golden {
         dump_system_image(Path::new("./failed_tests/gpu"), test_name, system);
         dump_image(

@@ -1,5 +1,3 @@
-cargo-features = ["profile-overrides"]
-
 [workspace]
 members = [
     "gb_disas",
@@ -24,8 +22,8 @@ soc = { path = "soc" }
 [profile.dev]
 opt-level = 1
 
-[profile.dev.overrides."*"]
-opt-level = 3
+# [profile.dev.overrides."*"]
+# opt-level = 3
 
 # Uncomment for incremental release settings.
 [profile.release]

@@ -190,12 +190,18 @@ impl System {
                     && System::is_invalid_source_address(self.cpu.state.address_latch)
                     && self.cpu.state.address_latch > 0x100
                 {
+                    panic!("Reading during dma {:X}", self.cpu.state.address_latch);
                     Ok(0xFF)
                 } else {
                     self.read_request(self.cpu.state.address_latch)
                 };
                 if let Ok(value) = maybe_data {
                     self.cpu.state.data_latch = value;
+                } else {
+                    match self.cpu.state.address_latch {
+                        0xFF41 | 0xFF40 | 0xFF45 | 0xFF44 => (),
+                        _ => panic!("No! {:X}", self.cpu.state.address_latch),
+                    }
                 }
             } else if false {
                 // Write garbage in data latch to catch bad reads.
@@ -209,6 +215,7 @@ impl System {
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
             if self.dma.is_active() {
+                panic!();
                 trace!(target: "dma", "Attempting to write to {:X} while DMA is active.", self.cpu.state.address_latch);
                 return Ok(());
             }
@@ -234,16 +241,18 @@ impl System {
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
+        let is_dma =
+            self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
         let mut bus = mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
-            read_latch: self.cpu.state.read_latch,
-            write_latch: self.cpu.state.write_latch && !self.dma.is_active(),
+            read_latch: self.cpu.state.read_latch && !is_dma,
+            write_latch: self.cpu.state.write_latch && !is_dma,
             t_state: self.cpu.t_state.get(),
         };
         if self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch) {
             // Reads during DMA return 0xFF;
-            bus.data_latch = 0xFF;
+            // bus.data_latch = 0xFF;
         }
         bus
     }
@@ -269,6 +278,7 @@ impl System {
     fn handle_timer(&mut self) -> Result<()> {
         let bus = self.temp_hack_get_bus();
         let (new_timer, should_interrupt) = self.timer.execute_tcycle(&bus);
+        self.timer = new_timer;
         self.maybe_fire_interrupt(should_interrupt);
         Ok(())
     }
@@ -343,6 +353,7 @@ impl System {
         if self.cpu.t_state.get() == 1
             && self.cpu.state.decode_mode == cpu::DecodeMode::Fetch
             && !self.cpu.is_handling_interrupt
+            && !self.cpu.is_halted
         {
             let pc = self.cpu.registers.get(cpu::register::Register::PC);
             trace!(target: "disas", "SP {:X}", self.cpu.registers.get(cpu::register::Register::SP));
@@ -377,7 +388,7 @@ impl System {
 
 #[cfg(test)]
 impl System {
-    pub fn new_test_system(cart: Box<dyn mmu::MemoryMapped>) -> System {
+    pub fn new_test_system(cart: Box<dyn Cart>) -> System {
         let mut system = System::default();
         system.set_cart(cart);
         // Clear all registers.

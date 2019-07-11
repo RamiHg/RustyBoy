@@ -194,4 +194,18 @@ pub mod test {
             }
         }
     }
+
+    #[typetag::serde(name = "dynamic_test")]
+    impl super::Cart for DynamicCart {}
+
+    impl AsRef<dyn mmu::MemoryMapped> for DynamicCart {
+        fn as_ref(&self) -> &(dyn mmu::MemoryMapped + 'static) {
+            self
+        }
+    }
+    impl AsMut<dyn mmu::MemoryMapped> for DynamicCart {
+        fn as_mut(&mut self) -> &mut (dyn mmu::MemoryMapped + 'static) {
+            self
+        }
+    }
 }

@@ -7,8 +7,6 @@ use crate::mmu;
 use crate::system;
 use crate::timer;
 
-
-
 #[allow(dead_code)]
 pub mod instructions {
     use super::Register::{self, *};
@@ -122,7 +120,7 @@ pub fn with_dynamic_cart() -> TestContext {
 }
 
 impl TestContext {
-    fn with_default(cart: Box<dyn mmu::MemoryMapped>) -> TestContext {
+    fn with_default(cart: Box<dyn cart::Cart>) -> TestContext {
         // Figure out the test name.
         // let bt = backtrace::Backtrace::new();
         // let first_non_setup = bt.frames()[2..]

@@ -83,7 +83,10 @@ impl mmu::MemoryMapped for Apu {
             // Channel R/L mix (NR51)
             0xFF25 => Some(i32::from(self.audio_regs.sound_mix.load(Acquire))),
             // Sound status (NR52).
-            0xFF26 => Some(i32::from(self.audio_regs.sound_status.load(Acquire) | 0x70)),
+            0xFF26 => {
+                //panic!("Ruh-oh!");
+                Some(i32::from(self.audio_regs.sound_status.load(Acquire) | 0x70))
+            }
             // Square 1
             0xFF10..=0xFF14 => Some(get_byte(
                 self.audio_regs.square_1_config.load(Acquire),

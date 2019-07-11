@@ -65,7 +65,7 @@ fn main() {
 
     log::setup_logging(log::LogSettings {
         interrupts: true,
-        disassembly: false,
+        disassembly: true,
         timer: false,
         dma: true,
         gpu: false,

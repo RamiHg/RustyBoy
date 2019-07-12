@@ -649,7 +649,6 @@ impl mmu::MemoryMapped for Gpu {
                 if self.can_access_oam() {
                     Some(self.oam(raw) as i32)
                 } else {
-                    panic!("reading from OAM bad boy");
                     Some(0xFF)
                 }
             }
@@ -693,9 +692,6 @@ impl mmu::MemoryMapped for Gpu {
                 _ => None,
             },
             mmu::Location::VRam => {
-                // if raw == 0x8000 && self.vram(0x8000) as i32 != value {
-                //     println!("Setting VRAM to {:X?}", value);
-                // }
                 if self.can_access_vram() {
                     self.set_vram(raw, value);
                 }
@@ -704,9 +700,6 @@ impl mmu::MemoryMapped for Gpu {
             mmu::Location::OAM => {
                 if self.can_access_oam() {
                     self.set_oam(raw, value);
-                } else {
-                    panic!("Ignored OAM write.");
-                    trace!(target: "gpu", "Ignored OAM write.");
                 }
                 Some(())
             }

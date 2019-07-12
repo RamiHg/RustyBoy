@@ -4,7 +4,6 @@ members = [
     "soc"
 ]
 
-
 [package]
 name = "rusty_boy"
 version = "1.0.0"
@@ -12,18 +11,12 @@ authors = ["Ramy"]
 edition = "2018"
 
 [dependencies]
-gl = "0.12.0"
+gl = "0.13.0"
 glutin = "0.21.0"
 bincode = "1.1.4"
 structopt = "0.2.18"
 # Workspace dependencies.
 soc = { path = "soc" }
-
-[profile.dev]
-opt-level = 1
-
-# [profile.dev.overrides."*"]
-# opt-level = 3
 
 # Uncomment for incremental release settings.
 [profile.release]

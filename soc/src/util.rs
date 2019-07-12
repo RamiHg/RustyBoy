@@ -2,6 +2,27 @@
 use num_traits::PrimInt;
 use std::sync::atomic::Ordering;
 
+macro_rules! strict_fail {
+    ($($vals:expr),*) => {
+        #[cfg(feature = "strict_assert")]
+        panic!($($vals),*);
+    }
+}
+
+macro_rules! strict_assert_lt {
+    ($($vals:expr),*) => {
+        #[cfg(feature = "strict_assert")]
+        assert_lt!($($vals),*);
+    };
+}
+
+macro_rules! strict_assert {
+    ($($vals:expr),*) => {
+        #[cfg(feature = "strict_assert")]
+        assert!($($vals),*);
+    };
+}
+
 pub fn is_8bit(value: i32) -> bool {
     (value as u32) <= core::u8::MAX.into()
 }

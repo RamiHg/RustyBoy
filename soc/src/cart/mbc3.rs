@@ -19,8 +19,6 @@ pub struct Cart {
 
 impl Cart {
     pub fn from_mem(mem: Vec<u8>, ram_size: usize) -> Cart {
-        assert_gt!(ram_size, 0);
-        dbg!(ram_size);
         let rom_size = mem.len() as i32;
         Cart {
             mem,
@@ -36,30 +34,18 @@ impl Cart {
 
     fn translate_rom_bank_read(&self, raw_address: i32) -> i32 {
         if self.rom_bank < self.num_rom_banks {
-            // dbg!(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000));
-            debug_assert_gt!(self.rom_bank, 0);
             self.mem(self.rom_bank * cart::ROM_BANK_SIZE + (raw_address - 0x4000))
         } else {
-            // println!(
-            //     "BAD! Accessing bank {} out of {}",
-            //     self.rom_bank, self.num_rom_banks
-            // );
-
-            // panic!();
+            // Silently fail. Strict assert checks when setting bank.
             0xFF
         }
     }
 
     fn translate_ram_bank_read(&self, raw_address: i32) -> i32 {
+        strict_assert_lt!(self.ram_bank, self.num_ram_banks);
         if self.ram_bank < self.num_ram_banks {
             self.ram(self.ram_bank * cart::RAM_BANK_SIZE + (raw_address - 0xA000))
         } else {
-            println!(
-                "[cart] Tried to read ram but bank is {} while num is {}",
-                self.ram_bank, self.num_ram_banks
-            );
-
-            panic!();
             0xFF
         }
     }
@@ -69,19 +55,15 @@ impl Cart {
             0x0000..=0x3FFF => Some(self.mem(raw_address)),
             0x4000..=0x7FFF => Some(self.translate_rom_bank_read(raw_address)),
             0xA000..=0xBFFF => {
+                strict_assert!(self.enable_ram, "Tried to read RAM but it's disabled.");
                 if self.enable_ram {
                     if self.ram_bank < 8 {
                         Some(self.translate_ram_bank_read(raw_address))
                     } else {
                         // TODO: Do we care about the RTC?
-                        //
-                        panic!();
                         Some(0x00)
                     }
                 } else {
-                    println!("[cart] Tried to read RAM but it's disabled.");
-
-                    //panic!();
                     Some(0xFF)
                 }
             }
@@ -117,7 +99,6 @@ impl mmu::MemoryMapped for Cart {
             // RAM Enable.
             0x0000..=0x1FFF => {
                 self.enable_ram = (value & 0x0F) == 0x0A;
-                println!("[cart] RAM is now {}", self.enable_ram);
                 Some(())
             }
             // ROM Bank.
@@ -126,14 +107,12 @@ impl mmu::MemoryMapped for Cart {
                     0 => 1,
                     num => num,
                 };
-                debug_assert_lt!(self.rom_bank, self.num_rom_banks);
-                println!("Setting to {} by {}", self.rom_bank, value);
+                strict_assert_lt!(self.rom_bank, self.num_rom_banks);
                 Some(())
             }
             // RAM Bank.
             0x4000..=0x5FFF => {
-                self.ram_bank = value & 0x07;
-                debug_assert_lt!(self.ram_bank, self.num_ram_banks);
+                self.ram_bank = value & 0x0C;
                 Some(())
             }
             // RTC Stuff.

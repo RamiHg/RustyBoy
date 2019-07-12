@@ -90,7 +90,6 @@ pub fn from_file(file_name: &str) -> Box<dyn Cart> {
 
 pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn Cart> {
     let cart_type = CartType::from_setting(file_contents[0x0147]);
-    println!("Cart type {:X?}", file_contents[0x0147]);
     let rom_size = get_rom_size(file_contents[0x148]);
     let ram_size = if cart_type.has_ram {
         get_ram_size(file_contents[0x149])

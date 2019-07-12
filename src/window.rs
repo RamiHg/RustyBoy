@@ -136,7 +136,7 @@ impl Window {
         }
 
         let context = glutin::ContextBuilder::new()
-            .with_vsync(false)
+            .with_vsync(true)
             .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
             .with_gl_profile(glutin::GlProfile::Core)
             .build_windowed(window, &events_loop)

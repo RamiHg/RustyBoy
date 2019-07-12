@@ -147,8 +147,14 @@ impl Cpu {
     fn has_pending_interrupts(&mut self, memory: &Memory, hack: bool) -> Result<bool> {
         debug_assert!(self.interrupts_enabled || self.is_halted);
         let (mode, t_to_check) = (DecodeMode::Decode, 3);
-        // Only look at interrupts in the beginning of T3, right before PC is incremented.
-        if self.state.decode_mode != mode || self.t_state.get() != t_to_check {
+        // Only look at interrupts in the beginning of T3, right before PC is incremented. Also,
+        // since CB-mode is implemented by a dummy CB instruction that simply flips an internal
+        // decoder flag, make sure we're not in the 2nd phase of CB decode! Spend close to 24 hours
+        // trying to debug why games were randomly crashing.. TODO: Add a regression test for it.
+        if self.state.decode_mode != mode
+            || self.t_state.get() != t_to_check
+            || self.state.in_cb_mode
+        {
             return Ok(false);
         }
         // TODO: All interrupts can be disabled if CPU writes to IF in the same cycle. Somehow

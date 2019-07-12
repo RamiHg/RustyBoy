@@ -24,7 +24,7 @@ struct Opt {
         long = "serialize_path",
         short = "sp",
         parse(from_os_str),
-        default_value = "./serialized.json"
+        default_value = "./serialized.bincode"
     )]
     serialize_path: std::path::PathBuf,
 
@@ -64,10 +64,10 @@ fn main() {
     let args = Opt::from_args();
 
     log::setup_logging(log::LogSettings {
-        interrupts: true,
-        disassembly: true,
+        interrupts: false,
+        disassembly: false,
         timer: false,
-        dma: true,
+        dma: false,
         gpu: false,
     })
     .unwrap();

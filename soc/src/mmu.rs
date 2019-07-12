@@ -137,9 +137,6 @@ impl MemoryMapped for Memory {
                 Some(())
             }
             InternalRam | Registers | HighRam => {
-                if raw == 0xC0EF {
-                    println!("[OMG] SETTING TO {}", value);
-                }
                 self.mem[raw as usize] = value as u8;
                 Some(())
             }

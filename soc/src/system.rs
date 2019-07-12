@@ -190,7 +190,7 @@ impl System {
                     && System::is_invalid_source_address(self.cpu.state.address_latch)
                     && self.cpu.state.address_latch > 0x100
                 {
-                    panic!("Reading during dma {:X}", self.cpu.state.address_latch);
+                    strict_fail!("Reading during dma {:X}", self.cpu.state.address_latch);
                     Ok(0xFF)
                 } else {
                     self.read_request(self.cpu.state.address_latch)
@@ -214,9 +214,12 @@ impl System {
     fn handle_cpu_memory_writes(&mut self) -> Result<()> {
         // Service write requests at T=4's rising edge.
         if self.cpu.state.write_latch {
+            strict_assert!(
+                !self.dma.is_active(),
+                "Attempting to write to {:X} while DMA is active.",
+                self.cpu.state.address_latch
+            );
             if self.dma.is_active() {
-                panic!();
-                trace!(target: "dma", "Attempting to write to {:X} while DMA is active.", self.cpu.state.address_latch);
                 return Ok(());
             }
             debug_assert!(util::is_16bit(self.cpu.state.address_latch));
@@ -243,17 +246,13 @@ impl System {
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
         let is_dma =
             self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
-        let mut bus = mmu::MemoryBus {
+        let bus = mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
             read_latch: self.cpu.state.read_latch && !is_dma,
             write_latch: self.cpu.state.write_latch && !is_dma,
             t_state: self.cpu.t_state.get(),
         };
-        if self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch) {
-            // Reads during DMA return 0xFF;
-            // bus.data_latch = 0xFF;
-        }
         bus
     }
 
@@ -358,9 +357,9 @@ impl System {
             let pc = self.cpu.registers.get(cpu::register::Register::PC);
             trace!(target: "disas", "SP {:X}", self.cpu.registers.get(cpu::register::Register::SP));
             if pc >= 0xFFFD {
+                // Can probably just fix this if indeed some instructions are here.
                 trace!(target: "disas", "PC too large, at {:X}", pc);
-                //return Ok(());
-                panic!();
+                return Ok(());
             }
             let pc_plus = |x| self.read_request(pc + x);
             let disas =

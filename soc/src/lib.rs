@@ -4,9 +4,13 @@
 // #![deny(warnings)]
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::cast_lossless)]
+// #![cfg_attr(feature = "strict_assert", allow(unreachable_code))]
 
 #[macro_use]
 mod io_registers;
+
+#[macro_use]
+mod util;
 
 // TODO: Fix the public API. Don't expose so many internals.
 pub mod cart;
@@ -24,7 +28,6 @@ mod dma;
 mod mmu;
 mod serial;
 mod timer;
-mod util;
 
 #[cfg(test)]
 mod test;

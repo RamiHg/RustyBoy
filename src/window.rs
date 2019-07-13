@@ -106,7 +106,7 @@ fn load_all_shaders() -> GLuint {
         ));
         assert_eq!(
             link_status,
-            gl::TRUE as i32,
+            i32::from(gl::TRUE),
             "Linking failed. See log above."
         );
         GL!(gl::DetachShader(program_id, vert_shader));

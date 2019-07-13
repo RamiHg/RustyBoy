@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::mmu;
 
 mod channels;
+mod components;
 mod device;
 mod registers;
 mod sound;
@@ -140,11 +141,10 @@ impl mmu::MemoryMapped for Apu {
                     });
             }),
             // Square 1
-            0xFF10..=0xFF14 => Some(atomic_set_byte(
-                &self.audio_regs.square_1_config,
-                raw - 0xFF10,
-                value,
-            )),
+            0xFF10..=0xFF14 => {
+                atomic_set_byte(&self.audio_regs.square_1_config, raw - 0xFF10, value);
+                Some(())
+            }
             // Square 2
             0xFF16..=0xFF19 => Some({
                 atomic_set_byte(&self.audio_regs.square_2_config, raw - 0xFF15, value);

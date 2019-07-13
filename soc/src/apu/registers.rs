@@ -8,26 +8,19 @@ pub enum EnvelopeMode {
 }
 from_u8!(EnvelopeMode);
 
-#[derive(Debug, FromPrimitive)]
-pub enum SweepMode {
-    Increase,
-    Decrease,
-}
-from_u8!(SweepMode);
-
 bitfield! {
     pub struct SquareConfig(u64);
     impl Debug;
     u8;
     pub sweep_shift, _: 2, 0;
-    pub into SweepMode, sweep_mode, _: 3, 3;
+    pub sweep_negate, _: 3;
     pub sweep_time, _: 6, 4;
     pub length, _: 13, 8;
     pub duty, _: 15, 14;
     pub envelope_counter, _: 18, 16;
     pub into EnvelopeMode, envelope_mode, _: 19, 19;
     pub volume, _: 23, 20;
-    pub u16, freq, _: 34, 24;
+    pub u16, freq, set_freq: 34, 24;
     pub is_timed, _: 38;
     pub triggered, set_triggered: 39;
 }

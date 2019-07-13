@@ -3,11 +3,10 @@ use sample::Frame as _;
 use std::sync::{atomic::AtomicU64, atomic::AtomicU8, Arc};
 
 use super::registers::*;
-use super::sound::{SoundSampler, SoundSamplerSignal};
+use super::sound::{SoundSampler, Square};
 use super::SharedWaveTable;
 use crate::util::iterate_bits;
 
-pub type MonoFrame = sample::frame::Mono<f32>;
 pub type StereoFrame = sample::frame::Stereo<f32>;
 
 // pub enum SoundType {
@@ -124,10 +123,10 @@ use std::rc::Rc;
 pub struct ChannelMixer {
     global_regs: SharedAudioRegs,
     cached_regs: Rc<RefCell<CachedAudioRegs>>,
-    square_1: Option<SoundSamplerSignal>,
-    square_2: Option<SoundSamplerSignal>,
-    wave: Option<SoundSamplerSignal>,
-    noise: Option<SoundSamplerSignal>,
+    square_1: Option<SoundSampler>,
+    square_2: Option<SoundSampler>,
+    wave: Option<SoundSampler>,
+    noise: Option<SoundSampler>,
 }
 
 impl ChannelMixer {
@@ -156,34 +155,38 @@ impl ChannelMixer {
         use ChannelEvent::*;
         match event {
             TriggerSquare1(config) => {
-                self.square_1 = Some(SoundSampler::from_square_config(config).into_signal());
+                self.square_1 = Some(SoundSampler::from_square_config(config));
             }
             TriggerSquare2(config) => {
-                self.square_2 = Some(SoundSampler::from_square_config(config).into_signal());
+                self.square_2 = Some(SoundSampler::from_square_config(config));
             }
             TriggerWave(config) => {
                 let wave_table: u128 = *self.global_regs.wave_table.try_read().unwrap();
-                self.wave = Some(SoundSampler::from_wave_config(config, wave_table).into_signal());
+                self.wave = Some(SoundSampler::from_wave_config(config, wave_table));
             }
             TriggerNoise(config) => {
-                self.noise = Some(SoundSampler::from_noise_config(config).into_signal());
+                self.noise = Some(SoundSampler::from_noise_config(config));
             }
         }
     }
 
     pub fn next_sample(&mut self) -> StereoFrame {
-        use sample::Signal;
         // First, collect all the mono frames.
         let mono_frames = [
-            self.square_1.iter_mut(),
-            self.square_2.iter_mut(),
-            self.wave.iter_mut(),
-            self.noise.iter_mut(),
+            self.square_1.as_mut().map(Square::sample),
+            self.square_2.as_mut().map(Square::sample),
         ]
-        .iter_mut()
+        .into_iter()
         .flatten()
-        .map(|wave| wave.next())
-        .collect::<ArrayVec<[MonoFrame; 4]>>();
+        .flatten()
+        .cloned()
+        .chain(
+            [self.wave.iter_mut(), self.noise.iter_mut()]
+                .iter_mut()
+                .flatten()
+                .flat_map(Iterator::next),
+        )
+        .collect::<ArrayVec<[f32; 4]>>();
 
         let sound_mix = self.cached_regs.borrow_mut().sound_mix;
 
@@ -194,7 +197,7 @@ impl ChannelMixer {
                 .zip(iterate_bits(bits))
                 .filter(|&(_, is_on)| is_on)
             {
-                frame[idx] += mono[0] / 4.0;
+                frame[idx] += mono / 4.0;
             }
         };
         let volume_control = self.cached_regs.borrow_mut().volume_control;

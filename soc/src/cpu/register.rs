@@ -212,7 +212,7 @@ impl File {
 
 impl core::fmt::Debug for File {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "\n")?;
+        writeln!(f)?;
         for i in 0..=(Register::ALU_TMP as i32) {
             writeln!(
                 f,

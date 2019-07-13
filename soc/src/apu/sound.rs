@@ -2,7 +2,8 @@ use arrayvec::ArrayVec;
 use std::iter::Cycle;
 use std::iter::FromIterator as _;
 
-use crate::apu::registers::{EnvelopeMode, NoiseConfig, SquareConfig, SweepMode, WaveConfig};
+use crate::apu::components::{Envelope, Noise, Sweep};
+use crate::apu::registers::{EnvelopeMode, NoiseConfig, SquareConfig, WaveConfig};
 use crate::util::{timer, CountdownTimer, Timer};
 
 const WAVE_DUTIES: [[u8; 8]; 4] = [
@@ -23,21 +24,18 @@ fn packed_wave_to_array(packed: u128) -> [u8; 32] {
     array
 }
 
-struct Envelope {
-    pub mode: EnvelopeMode,
-    pub timer: Cycle<Timer>,
+pub trait Square {
+    /// Updates internal state from any change that might have happened in the register.
+    fn update_from_reg(&mut self, config: SquareConfig);
+    fn update_to_reg(&self, config: &mut SquareConfig);
+    fn sample(&mut self) -> Option<f32>;
 }
 
-struct Sweep {
-    pub mode: SweepMode,
-    pub shift: i32,
-    pub timer: Cycle<Timer>,
-}
-
-struct Noise {
-    pub buzz: bool,
-    pub lfsr: u16,
-    pub timer: Cycle<Timer>,
+impl Iterator for Square {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        self.sample()
+    }
 }
 
 pub struct SoundSampler {
@@ -55,27 +53,52 @@ pub struct SoundSampler {
     is_done: bool,
 }
 
-pub type SoundSamplerSignal = sample::signal::FromIterator<SoundSampler>;
+impl Square for SoundSampler {
+    fn update_from_reg(&mut self, config: SquareConfig) {
+        let new_freq = i32::from(config.freq());
+        if new_freq != self.frequency {
+            self.frequency = new_freq;
+            self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
+        }
+        // TODO: Make this more robust - actually store remaining length period.
+        if config.length() == 0 {
+            self.is_done = true;
+        }
+    }
+
+    fn update_to_reg(&self, config: &mut SquareConfig) {
+        config.set_freq(self.frequency as u16);
+    }
+
+    fn sample(&mut self) -> Option<f32> {
+        if self.is_done {
+            return None;
+        }
+        let sample = self.sample_waveform();
+        // Update the envelope (volume). Disabled on wave.
+        if let Some(envelope) = &mut self.envelope {
+            self.volume = envelope.clock(self.volume);
+        }
+        // Update the sweep (frequency). Disabled on wave.
+        if let Some(sweep) = &mut self.sweep {
+            self.frequency = sweep.update(self.frequency);
+            if self.frequency >= 0 && self.frequency <= 2047 {
+                self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
+            }
+        }
+        Some(sample / 15.0)
+    }
+}
 
 impl SoundSampler {
     pub fn from_square_config(config: SquareConfig) -> SoundSampler {
-        let sweep_setting = if config.sweep_time() > 0 {
-            Some((
-                config.sweep_mode(),
-                config.sweep_shift().into(),
-                config.sweep_time().into(),
-            ))
-        } else {
-            None
-        };
-        //dbg!(config);
         SoundSampler::from_settings(
             &WAVE_DUTIES[config.duty() as usize],
             config.volume().into(),
             config.freq().into(),
             4,
             Some((config.envelope_mode(), config.envelope_counter().into())),
-            sweep_setting,
+            Sweep::from_config(config),
             64 - config.length() as i32,
             config.is_timed(),
         )
@@ -132,16 +155,11 @@ impl SoundSampler {
         frequency: i32,
         freq_multiplier: i32,
         envelope_setting: Option<(EnvelopeMode, i32)>,
-        sweep_setting: Option<(SweepMode, i32, i32)>,
+        sweep: Option<Sweep>,
         length: i32,
         stop_on_done: bool,
     ) -> SoundSampler {
         let envelope = envelope_setting.map(|(mode, time)| Envelope::new(mode, time));
-        let sweep = sweep_setting.map(|(mode, shift, time)| Sweep {
-            mode,
-            shift,
-            timer: timer(time * super::SWEEP_PERIOD).cycle(),
-        });
         SoundSampler {
             waveform: ArrayVec::from_iter(waveform.iter().cloned()),
             waveform_index: 0,
@@ -157,8 +175,18 @@ impl SoundSampler {
         }
     }
 
-    pub fn into_signal(self) -> SoundSamplerSignal {
-        sample::signal::from_iter(self)
+    fn sample_waveform(&mut self) -> f32 {
+        let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume;
+        if self.freq_timer.next().unwrap().is_some() {
+            self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
+        }
+        // Update the duration.
+        if let Some(0) = self.length_timer.next() {
+            if self.stop_on_done {
+                self.is_done = true;
+            }
+        }
+        sample
     }
 
     fn make_freq_timer(freq: i32, multiplier: i32) -> std::iter::Cycle<CountdownTimer> {
@@ -166,51 +194,9 @@ impl SoundSampler {
     }
 }
 
-impl Envelope {
-    pub fn new(mode: EnvelopeMode, time: i32) -> Envelope {
-        Envelope {
-            mode,
-            timer: timer(time * super::ENVELOPE_PERIOD).cycle(),
-        }
-    }
-
-    pub fn clock(&mut self, volume: f32) -> f32 {
-        if let Some(0) = self.timer.next() {
-            match self.mode {
-                EnvelopeMode::Attenuate => (volume - 1.0).max(0.),
-                EnvelopeMode::Amplify => (volume + 1.).min(15.),
-            }
-        } else {
-            volume
-        }
-    }
-}
-
-impl Noise {
-    pub fn sample(&self) -> u8 {
-        (!self.lfsr & 1) as u8
-    }
-
-    pub fn clock(&mut self) {
-        if let Some(0) = self.timer.next() {
-            let mut lfsr = self.lfsr;
-            // XOR the low two bits.
-            let new_bit = (lfsr & 1) ^ ((lfsr >> 1) & 1);
-            // Shift right and stick the result in the new high bit.
-            lfsr = (lfsr >> 1) | (new_bit << 14);
-            debug_assert_ge!(lfsr.leading_zeros(), 1);
-            if self.buzz {
-                // Also stick in 7th bit.
-                lfsr = (lfsr & !(1 << 6)) | (new_bit << 6);
-            }
-            self.lfsr = lfsr;
-        }
-    }
-}
-
 impl Iterator for SoundSampler {
-    type Item = sample::frame::Mono<f32>;
-    fn next(&mut self) -> Option<Self::Item> {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
         if self.is_done {
             return None;
         }
@@ -232,28 +218,12 @@ impl Iterator for SoundSampler {
         if let Some(envelope) = &mut self.envelope {
             self.volume = envelope.clock(self.volume);
         }
-        // Update the sweep (frequency). Disabled on wave.
-        if let Some(Sweep { mode, shift, timer }) = &mut self.sweep {
-            if let Some(0) = timer.next() {
-                let change = self.frequency >> *shift;
-                self.frequency += match mode {
-                    SweepMode::Increase => change,
-                    SweepMode::Decrease => -change,
-                };
-                if self.frequency < 0 || self.frequency > 2047 {
-                    self.is_done = true;
-                } else {
-                    // Hard-coding multiplier to 4 since it is disabled on wave.
-                    self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
-                }
-            }
-        }
         // Update the duration.
         if let Some(0) = self.length_timer.next() {
             if self.stop_on_done {
                 self.is_done = true;
             }
         }
-        Some([sample / 15.0])
+        Some(sample / 15.0)
     }
 }

@@ -39,7 +39,7 @@ impl MCycleList {
                 }
             })
             // Compile each TCycle.
-            .map(|x| compiler::compile_op_list(x))
+            .map(compiler::compile_op_list)
             // Skip the first 2 nop tcycles.
             .skip(2)
             .collect()

@@ -10,3 +10,6 @@ test_golden/
 dumps/
 wilbert_golden/
 serialized.*
+
+# VSCode stuff.
+.vscode/launch.json

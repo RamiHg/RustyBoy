@@ -17,6 +17,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Bincode instead of JSON for the serialization format. Orders of magnitude faster (duh).
+- Optimized the main emulation loop for a minor loss in closeness to FPGA-design. The emulator is
+  significantly faster now (2-3x on average.)
 
 ### Fixed
 

@@ -73,7 +73,7 @@ impl AudioThread {
     ) -> pa::stream::CallbackResult {
         let _now = std::time::Instant::now();
         let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
-        self.mixer.handle_events();
+        self.mixer.on_sample_begin();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
         self.resample_src_scratch.clear();
@@ -103,8 +103,8 @@ impl AudioThread {
             &self.resample_dst_scratch[..data.output_frames_gen as usize],
         )
         .expect("Couldn't convert to stereo.");
-        // TODO: Can probably remove this copy. Not that it matters.
         debug_assert_ge!(self.sample_buffer.capacity(), frames.len());
+        // TODO: Can probably remove this copy. Not that it matters.
         self.sample_buffer.extend(frames.iter());
         // println!(
         //     "Took {} ms",
@@ -117,6 +117,8 @@ impl AudioThread {
             let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
+        // Finally, update any global state.
+        self.mixer.on_sample_end();
         pa::Continue
     }
 }

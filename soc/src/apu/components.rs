@@ -16,11 +16,11 @@ impl Envelope {
         }
     }
 
-    pub fn clock(&mut self, volume: f32) -> f32 {
+    pub fn clock(&mut self, volume: i32) -> i32 {
         if let Some(0) = self.timer.next() {
             match self.mode {
-                EnvelopeMode::Attenuate => (volume - 1.0).max(0.),
-                EnvelopeMode::Amplify => (volume + 1.).min(15.),
+                EnvelopeMode::Attenuate => (volume - 1).max(0),
+                EnvelopeMode::Amplify => (volume + 1).min(15),
             }
         } else {
             volume
@@ -47,12 +47,17 @@ impl Sweep {
         }
     }
 
-    pub fn update(&mut self, mut frequency: i32) -> i32 {
+    pub fn update(&mut self, frequency: u16) -> Option<u16> {
         if let Some(0) = self.timer.next() {
             let change = frequency >> self.shift;
-            frequency += if self.negate { -change } else { change };
+            Some(if self.negate {
+                frequency.wrapping_sub(change)
+            } else {
+                frequency + change
+            })
+        } else {
+            None
         }
-        frequency
     }
 }
 

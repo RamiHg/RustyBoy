@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use bitflags::bitflags;
 use std::iter::Cycle;
 use std::iter::FromIterator as _;
 
@@ -24,17 +25,101 @@ fn packed_wave_to_array(packed: u128) -> [u8; 32] {
     array
 }
 
-pub trait Square {
-    /// Updates internal state from any change that might have happened in the register.
-    fn update_from_reg(&mut self, config: SquareConfig);
-    fn update_to_reg(&self, config: &mut SquareConfig);
+pub trait Wave {
+    fn update_from_reg(&mut self, config: WaveConfig);
+    fn update_to_reg(&self, config: &mut WaveConfig);
     fn sample(&mut self) -> Option<f32>;
 }
 
-impl Iterator for Square {
-    type Item = f32;
-    fn next(&mut self) -> Option<f32> {
-        self.sample()
+bitflags! {
+    pub struct ComponentCycle: i32 {
+        const ENVELOPE  = 0b0010;
+        const LENGTH    = 0b0100;
+        const SWEEP     = 0b1000;
+    }
+}
+
+pub trait Sound {
+    fn update_from_reg(&mut self, reg: u64);
+    fn update_to_reg(&self, reg: &mut u64);
+    fn sample(&mut self, cycles: ComponentCycle) -> Option<f32>;
+}
+
+pub struct Square {
+    config: SquareConfig,
+    waveform_index: u8,
+    envelope: Envelope,
+    sweep: Option<Sweep>,
+    freq_timer: Timer,
+    is_done: bool,
+}
+
+impl Square {
+    pub fn new(config: SquareConfig) -> Square {
+        Square {
+            config,
+            waveform_index: 0,
+            envelope: Envelope::new(config.envelope_mode(), config.envelope_counter().into()),
+            sweep: Sweep::from_config(config),
+            freq_timer: Square::make_freq_timer(config.freq()),
+            is_done: false,
+        }
+    }
+
+    fn make_freq_timer(freq: u16) -> Timer {
+        timer((2048 - i32::from(freq)) * 4)
+    }
+}
+
+impl Sound for Square {
+    fn update_from_reg(&mut self, reg: u64) {
+        let reset_timer = self.config.freq() != SquareConfig(reg).freq();
+        self.config.0 = reg;
+        if reset_timer {
+            self.freq_timer = Square::make_freq_timer(self.config.freq());
+        }
+    }
+
+    fn update_to_reg(&self, reg: &mut u64) {
+        *reg = self.config.0;
+    }
+
+    fn sample(&mut self, cycles: ComponentCycle) -> Option<f32> {
+        if self.is_done {
+            return None;
+        }
+        let sample = WAVE_DUTIES[usize::from(self.config.duty())][usize::from(self.waveform_index)]
+            as f32
+            * self.config.volume() as f32;
+        // Update waveform.
+        if self.freq_timer.next().unwrap() == 0 {
+            self.waveform_index = (self.waveform_index + 1) % 8;
+            self.freq_timer = Square::make_freq_timer(self.config.freq());
+        }
+        // Update the envelope (volume).
+        self.config
+            .set_volume(self.envelope.clock(self.config.volume().into()) as u8);
+
+        // Update the sweep (frequency).
+        if let Some(sweep) = &mut self.sweep {
+            if let Some(freq) = sweep.update(self.config.freq()) {
+                self.config.set_freq(freq);
+                if freq <= 2047 {
+                    self.freq_timer = Square::make_freq_timer(freq);
+                } else {
+                    self.is_done = true;
+                }
+            }
+        }
+        // Length.
+        if cycles.contains(ComponentCycle::LENGTH) {
+            let new_len = self.config.length() + 1;
+            if new_len >= 64 && self.config.is_timed() {
+                self.is_done = true;
+            }
+            self.config.set_length(new_len);
+        }
+        Some(sample as f32 / 15.0)
     }
 }
 
@@ -53,57 +138,7 @@ pub struct SoundSampler {
     is_done: bool,
 }
 
-impl Square for SoundSampler {
-    fn update_from_reg(&mut self, config: SquareConfig) {
-        let new_freq = i32::from(config.freq());
-        if new_freq != self.frequency {
-            self.frequency = new_freq;
-            self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
-        }
-        // TODO: Make this more robust - actually store remaining length period.
-        if config.length() == 0 {
-            self.is_done = true;
-        }
-    }
-
-    fn update_to_reg(&self, config: &mut SquareConfig) {
-        config.set_freq(self.frequency as u16);
-    }
-
-    fn sample(&mut self) -> Option<f32> {
-        if self.is_done {
-            return None;
-        }
-        let sample = self.sample_waveform();
-        // Update the envelope (volume). Disabled on wave.
-        if let Some(envelope) = &mut self.envelope {
-            self.volume = envelope.clock(self.volume);
-        }
-        // Update the sweep (frequency). Disabled on wave.
-        if let Some(sweep) = &mut self.sweep {
-            self.frequency = sweep.update(self.frequency);
-            if self.frequency >= 0 && self.frequency <= 2047 {
-                self.freq_timer = SoundSampler::make_freq_timer(self.frequency, 4);
-            }
-        }
-        Some(sample / 15.0)
-    }
-}
-
 impl SoundSampler {
-    pub fn from_square_config(config: SquareConfig) -> SoundSampler {
-        SoundSampler::from_settings(
-            &WAVE_DUTIES[config.duty() as usize],
-            config.volume().into(),
-            config.freq().into(),
-            4,
-            Some((config.envelope_mode(), config.envelope_counter().into())),
-            Sweep::from_config(config),
-            64 - config.length() as i32,
-            config.is_timed(),
-        )
-    }
-
     pub fn from_wave_config(config: WaveConfig, packed_wave_table: u128) -> SoundSampler {
         // move to test?
         // debug_assert_eq!(
@@ -203,7 +238,6 @@ impl Iterator for SoundSampler {
         // TODO: Refactor so that we don't have this ugly logic.
         let sample = if let Some(noise) = &mut self.noise {
             let sample = noise.sample();
-            debug_assert_le!(sample, 1);
             noise.clock();
             sample
         } else {
@@ -216,7 +250,7 @@ impl Iterator for SoundSampler {
             * self.volume;
         // Update the envelope (volume). Disabled on wave.
         if let Some(envelope) = &mut self.envelope {
-            self.volume = envelope.clock(self.volume);
+            self.volume = envelope.clock(self.volume as i32) as f32;
         }
         // Update the duration.
         if let Some(0) = self.length_timer.next() {

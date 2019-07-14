@@ -15,11 +15,11 @@ bitfield! {
     pub sweep_shift, _: 2, 0;
     pub sweep_negate, _: 3;
     pub sweep_time, _: 6, 4;
-    pub length, _: 13, 8;
+    pub length, set_length: 13, 8;
     pub duty, _: 15, 14;
     pub envelope_counter, _: 18, 16;
     pub into EnvelopeMode, envelope_mode, _: 19, 19;
-    pub volume, _: 23, 20;
+    pub volume, set_volume: 23, 20;
     pub u16, freq, set_freq: 34, 24;
     pub is_timed, _: 38;
     pub triggered, set_triggered: 39;

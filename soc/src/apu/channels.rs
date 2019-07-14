@@ -1,11 +1,12 @@
 use arrayvec::ArrayVec;
 use sample::Frame as _;
+use std::iter::Cycle;
 use std::sync::{atomic::AtomicU64, atomic::AtomicU8, Arc};
 
 use super::registers::*;
-use super::sound::{SoundSampler, Square};
+use super::sound::{ComponentCycle, Sound, SoundSampler, Square};
 use super::SharedWaveTable;
-use crate::util::iterate_bits;
+use crate::util::{iterate_bits, timer, Timer};
 
 pub type StereoFrame = sample::frame::Stereo<f32>;
 
@@ -46,7 +47,7 @@ impl CachedAudioRegs {
         }
     }
 
-    pub fn update_state(&mut self, state: &mut SharedAudioRegs) {
+    pub fn sync_from_shared(&mut self, state: &SharedAudioRegs) {
         use std::sync::atomic::Ordering;
         self.sound_mix = ChannelMixConfig(state.sound_mix.load(Ordering::Acquire));
         self.volume_control = VolumeControl(state.volume_control.load(Ordering::Acquire));
@@ -54,6 +55,21 @@ impl CachedAudioRegs {
         self.square_2_config = SquareConfig(state.square_2_config.load(Ordering::Acquire));
         self.wave_config = WaveConfig(state.wave_config.load(Ordering::Acquire));
         self.noise_config = NoiseConfig(state.noise_config.load(Ordering::Acquire));
+    }
+
+    pub fn sync_to_shared(&self, prev_state: &CachedAudioRegs, state: &mut SharedAudioRegs) {
+        let ordering = std::sync::atomic::Ordering::Relaxed;
+        // TODO: Only updating square for now.
+        state.square_1_config.compare_and_swap(
+            prev_state.square_1_config.0,
+            self.square_1_config.0,
+            ordering,
+        );
+        state.square_2_config.compare_and_swap(
+            prev_state.square_2_config.0,
+            self.square_2_config.0,
+            ordering,
+        );
     }
 }
 
@@ -107,7 +123,7 @@ impl SharedAudioRegs {
                 Ok(_) => return Some(new_value.0),
                 Err(x) => {
                     current_value = CommonSoundConfig(x);
-                    panic!(
+                    strict_fail!(
                         "Actually have contention with main thread! On {:?}",
                         current_value
                     );
@@ -118,15 +134,16 @@ impl SharedAudioRegs {
 }
 
 use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct ChannelMixer {
     global_regs: SharedAudioRegs,
-    cached_regs: Rc<RefCell<CachedAudioRegs>>,
-    square_1: Option<SoundSampler>,
-    square_2: Option<SoundSampler>,
+    cached_regs: RefCell<CachedAudioRegs>,
+    square_1: Option<Square>,
+    square_2: Option<Square>,
     wave: Option<SoundSampler>,
     noise: Option<SoundSampler>,
+
+    length_timer: Cycle<Timer>,
 }
 
 impl ChannelMixer {
@@ -134,31 +151,58 @@ impl ChannelMixer {
         let global_sound_status = global_regs.sound_status.clone();
         ChannelMixer {
             global_regs,
-            cached_regs: Rc::new(RefCell::new(CachedAudioRegs::new(global_sound_status))),
+            cached_regs: RefCell::new(CachedAudioRegs::new(global_sound_status)),
             square_1: None,
             square_2: None,
             wave: None,
             noise: None,
+            length_timer: timer(super::LENGTH_COUNTER_PERIOD).cycle(),
         }
     }
 
-    pub fn handle_events(&mut self) {
-        self.cached_regs
-            .borrow_mut()
-            .update_state(&mut self.global_regs);
+    pub fn on_sample_begin(&mut self) {
+        self.handle_events();
+        // Update all current sounds with any changes from the audio registers.
+        let cached_regs = self.cached_regs.borrow();
+        if let Some(square) = &mut self.square_1 {
+            square.update_from_reg(cached_regs.square_1_config.0);
+        }
+        if let Some(square) = &mut self.square_2 {
+            square.update_from_reg(cached_regs.square_2_config.0);
+        }
+    }
+
+    pub fn on_sample_end(&mut self) {
+        // Update the global registers based on the current sound state.
+        let prev_state = self.cached_regs.clone().into_inner();
+        let mut cached_regs = self.cached_regs.borrow_mut();
+        if let Some(square) = &mut self.square_1 {
+            square.update_to_reg(&mut cached_regs.square_1_config.0);
+        }
+        if let Some(square) = &mut self.square_2 {
+            square.update_to_reg(&mut cached_regs.square_2_config.0);
+        }
+        cached_regs.sync_to_shared(&prev_state, &mut self.global_regs);
+    }
+
+    fn handle_events(&mut self) {
         for event in self.global_regs.poll_events() {
             self.handle_event(event);
         }
+        // TODO: Can combine in one pass.
+        self.cached_regs
+            .borrow_mut()
+            .sync_from_shared(&mut self.global_regs);
     }
 
     fn handle_event(&mut self, event: ChannelEvent) {
         use ChannelEvent::*;
         match event {
             TriggerSquare1(config) => {
-                self.square_1 = Some(SoundSampler::from_square_config(config));
+                self.square_1 = Some(Square::new(config));
             }
             TriggerSquare2(config) => {
-                self.square_2 = Some(SoundSampler::from_square_config(config));
+                self.square_2 = Some(Square::new(config));
             }
             TriggerWave(config) => {
                 let wave_table: u128 = *self.global_regs.wave_table.try_read().unwrap();
@@ -172,25 +216,26 @@ impl ChannelMixer {
 
     pub fn next_sample(&mut self) -> StereoFrame {
         // First, collect all the mono frames.
+        // TODO: Will be simplified once all sounds are implemented as traits.
+        let mut component_cycles = ComponentCycle::empty();
+        if self.length_timer.next().unwrap() == 0 {
+            component_cycles |= ComponentCycle::LENGTH;
+        }
         let mono_frames = [
-            self.square_1.as_mut().map(Square::sample),
-            self.square_2.as_mut().map(Square::sample),
+            self.square_1.as_mut().map(|s| s.sample(component_cycles)),
+            self.square_2.as_mut().map(|s| s.sample(component_cycles)),
+            self.wave.as_mut().map(Iterator::next),
+            self.noise.as_mut().map(Iterator::next),
         ]
-        .into_iter()
-        .flatten()
-        .flatten()
+        .iter()
         .cloned()
-        .chain(
-            [self.wave.iter_mut(), self.noise.iter_mut()]
-                .iter_mut()
-                .flatten()
-                .flat_map(Iterator::next),
-        )
+        .map(Option::unwrap_or_default)
+        .map(Option::unwrap_or_default)
         .collect::<ArrayVec<[f32; 4]>>();
 
         let sound_mix = self.cached_regs.borrow_mut().sound_mix;
 
-        let mut frame = StereoFrame::equilibrium();
+        let mut frame = [0.0, 0.0];
         let mut add_to_frame = |idx, bits| {
             for (mono, _) in mono_frames
                 .iter()
@@ -206,10 +251,8 @@ impl ChannelMixer {
         // And the left channel.
         add_to_frame(0, sound_mix.0 >> 4);
         // Scale left/right volumes.
-        frame = frame.mul_amp([
-            volume_control.left() as f32 + 1.0,
-            volume_control.right() as f32 + 1.0,
-        ]);
+        frame[0] *= volume_control.left() as f32 + 1.0;
+        frame[1] *= volume_control.right() as f32 + 1.0;
         debug_assert_le!(frame[0], 15.0);
         debug_assert_ge!(frame[0], 0.0);
         debug_assert_le!(frame[1], 15.0);

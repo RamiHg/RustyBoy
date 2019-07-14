@@ -30,7 +30,7 @@ bitfield! {
     impl Debug;
     u8;
     pub enabled, _: 7;
-    pub length, _: 15, 8;
+    pub u16, length, set_length: 15, 8;
     pub volume, _: 22, 21;
     pub u16, freq, _: 34, 24;
     pub is_timed, _: 38;

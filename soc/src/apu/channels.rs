@@ -4,7 +4,7 @@ use std::iter::Cycle;
 use std::sync::{atomic::AtomicU64, atomic::AtomicU8, Arc};
 
 use super::registers::*;
-use super::sound::{ComponentCycle, Sound, SoundSampler, Square};
+use super::sound::{ComponentCycle, Sound, SoundSampler, Square, Wave};
 use super::SharedWaveTable;
 use crate::util::{iterate_bits, timer, Timer};
 
@@ -140,7 +140,7 @@ pub struct ChannelMixer {
     cached_regs: RefCell<CachedAudioRegs>,
     square_1: Option<Square>,
     square_2: Option<Square>,
-    wave: Option<SoundSampler>,
+    wave: Option<Wave>,
     noise: Option<SoundSampler>,
 
     length_timer: Cycle<Timer>,
@@ -170,6 +170,9 @@ impl ChannelMixer {
         if let Some(square) = &mut self.square_2 {
             square.update_from_reg(cached_regs.square_2_config.0);
         }
+        if let Some(wave) = &mut self.wave {
+            wave.update_from_reg(cached_regs.wave_config.0);
+        }
     }
 
     pub fn on_sample_end(&mut self) {
@@ -181,6 +184,9 @@ impl ChannelMixer {
         }
         if let Some(square) = &mut self.square_2 {
             square.update_to_reg(&mut cached_regs.square_2_config.0);
+        }
+        if let Some(wave) = &mut self.wave {
+            wave.update_to_reg(&mut cached_regs.wave_config.0);
         }
         cached_regs.sync_to_shared(&prev_state, &mut self.global_regs);
     }
@@ -206,7 +212,7 @@ impl ChannelMixer {
             }
             TriggerWave(config) => {
                 let wave_table: u128 = *self.global_regs.wave_table.try_read().unwrap();
-                self.wave = Some(SoundSampler::from_wave_config(config, wave_table));
+                self.wave = Some(Wave::new(config, wave_table));
             }
             TriggerNoise(config) => {
                 self.noise = Some(SoundSampler::from_noise_config(config));
@@ -224,7 +230,7 @@ impl ChannelMixer {
         let mono_frames = [
             self.square_1.as_mut().map(|s| s.sample(component_cycles)),
             self.square_2.as_mut().map(|s| s.sample(component_cycles)),
-            self.wave.as_mut().map(Iterator::next),
+            self.wave.as_mut().map(|s| s.sample(component_cycles)),
             self.noise.as_mut().map(Iterator::next),
         ]
         .iter()

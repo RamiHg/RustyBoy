@@ -72,7 +72,6 @@ impl AudioThread {
         args: pa::OutputStreamCallbackArgs<PaOutType>,
     ) -> pa::stream::CallbackResult {
         let _now = std::time::Instant::now();
-        let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
         self.mixer.on_sample_begin();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
@@ -106,19 +105,20 @@ impl AudioThread {
         debug_assert_ge!(self.sample_buffer.capacity(), frames.len());
         // TODO: Can probably remove this copy. Not that it matters.
         self.sample_buffer.extend(frames.iter());
+        // Update any global state.
+        self.mixer.on_sample_end();
         // println!(
         //     "Took {} ms",
         //     _resample_time.elapsed().as_micros() as f32 / 1000.0
         // );
         // Finally, write out the samples to the buffer.
+        let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
         let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer.iter_mut() {
             let sample = self.sample_buffer.pop_front();
             let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
-        // Finally, update any global state.
-        self.mixer.on_sample_end();
         pa::Continue
     }
 }

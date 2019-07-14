@@ -25,12 +25,6 @@ fn packed_wave_to_array(packed: u128) -> [u8; 32] {
     array
 }
 
-pub trait Wave {
-    fn update_from_reg(&mut self, config: WaveConfig);
-    fn update_to_reg(&self, config: &mut WaveConfig);
-    fn sample(&mut self) -> Option<f32>;
-}
-
 bitflags! {
     pub struct ComponentCycle: i32 {
         const ENVELOPE  = 0b0010;
@@ -43,6 +37,7 @@ pub trait Sound {
     fn update_from_reg(&mut self, reg: u64);
     fn update_to_reg(&self, reg: &mut u64);
     fn sample(&mut self, cycles: ComponentCycle) -> Option<f32>;
+    fn is_done(&self) -> bool;
 }
 
 pub struct Square {
@@ -84,6 +79,10 @@ impl Sound for Square {
         *reg = self.config.0;
     }
 
+    fn is_done(&self) -> bool {
+        self.is_done
+    }
+
     fn sample(&mut self, cycles: ComponentCycle) -> Option<f32> {
         if self.is_done {
             return None;
@@ -123,6 +122,74 @@ impl Sound for Square {
     }
 }
 
+pub struct Wave {
+    config: WaveConfig,
+    waveform: ArrayVec<[u8; 32]>,
+    waveform_index: u8,
+    freq_timer: Timer,
+    is_done: bool,
+}
+
+impl Wave {
+    pub fn new(config: WaveConfig, packed_wave_table: u128) -> Wave {
+        Wave {
+            config,
+            waveform: ArrayVec::from(packed_wave_to_array(packed_wave_table)),
+            waveform_index: 0,
+            freq_timer: Wave::make_freq_timer(config.freq()),
+            is_done: false,
+        }
+    }
+
+    fn make_freq_timer(freq: u16) -> Timer {
+        timer((2048 - i32::from(freq)) * 2)
+    }
+}
+
+impl Sound for Wave {
+    fn update_from_reg(&mut self, reg: u64) {
+        let reset_timer = self.config.freq() != WaveConfig(reg).freq();
+        self.config.0 = reg;
+        if reset_timer {
+            self.freq_timer = Wave::make_freq_timer(self.config.freq());
+        }
+    }
+
+    fn update_to_reg(&self, reg: &mut u64) {
+        *reg = self.config.0;
+    }
+
+    fn is_done(&self) -> bool {
+        self.is_done
+    }
+
+    fn sample(&mut self, cycles: ComponentCycle) -> Option<f32> {
+        if self.is_done {
+            return None;
+        }
+        let volume = if !self.config.enabled() || self.config.volume() == 0 {
+            0.0
+        } else {
+            1.0 / self.config.volume() as f32
+        };
+        let sample = self.waveform[usize::from(self.waveform_index)] as f32 * volume;
+        // Update waveform.
+        if self.freq_timer.next().unwrap() == 0 {
+            self.waveform_index = (self.waveform_index + 1) % 32;
+            self.freq_timer = Wave::make_freq_timer(self.config.freq());
+        }
+        // Length.
+        if cycles.contains(ComponentCycle::LENGTH) {
+            let new_len = self.config.length() + 1;
+            if new_len >= 256 && self.config.is_timed() {
+                self.is_done = true;
+            }
+            self.config.set_length(new_len);
+        }
+        Some(sample / 15.0)
+    }
+}
+
 pub struct SoundSampler {
     waveform: ArrayVec<[u8; 32]>,
     waveform_index: i32,
@@ -139,29 +206,6 @@ pub struct SoundSampler {
 }
 
 impl SoundSampler {
-    pub fn from_wave_config(config: WaveConfig, packed_wave_table: u128) -> SoundSampler {
-        // move to test?
-        // debug_assert_eq!(
-        //     packed_wave_to_array(0xefcdab89_67452301_u128),
-        //     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        // );
-        let volume = if !config.enabled() || config.volume() == 0 {
-            0.0
-        } else {
-            1.0 / config.volume() as f32
-        };
-        SoundSampler::from_settings(
-            &packed_wave_to_array(packed_wave_table),
-            volume,
-            config.freq().into(),
-            2,
-            None,
-            None,
-            256 - config.length() as i32,
-            config.is_timed(),
-        )
-    }
-
     pub fn from_noise_config(config: NoiseConfig) -> SoundSampler {
         let mut sampler = SoundSampler::from_settings(
             &[],
@@ -209,21 +253,6 @@ impl SoundSampler {
             is_done: false,
         }
     }
-
-    fn sample_waveform(&mut self) -> f32 {
-        let sample = self.waveform[self.waveform_index as usize] as f32 * self.volume;
-        if self.freq_timer.next().unwrap().is_some() {
-            self.waveform_index = (self.waveform_index + 1) % self.waveform.len() as i32;
-        }
-        // Update the duration.
-        if let Some(0) = self.length_timer.next() {
-            if self.stop_on_done {
-                self.is_done = true;
-            }
-        }
-        sample
-    }
-
     fn make_freq_timer(freq: i32, multiplier: i32) -> std::iter::Cycle<CountdownTimer> {
         CountdownTimer::new(8, (2048 - freq) * multiplier).cycle()
     }

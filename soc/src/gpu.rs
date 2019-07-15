@@ -547,7 +547,7 @@ impl Gpu {
                         self.fetcher = self.fetcher.start_new_sprite(
                             &self,
                             sprite_index as i32,
-                            &self.get_sprite(sprite_index),
+                            self.get_sprite(sprite_index),
                         );
                         self.drawing_mode = DrawingMode::FetchingSprite;
                     }

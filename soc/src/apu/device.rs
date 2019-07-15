@@ -50,8 +50,6 @@ struct AudioThread {
 
 impl AudioThread {
     pub fn new(audio_regs: SharedAudioRegs) -> AudioThread {
-        use sample::Frame as _;
-
         let mixer = ChannelMixer::new(audio_regs);
 
         let mut error: i32 = 0;
@@ -61,8 +59,8 @@ impl AudioThread {
         AudioThread {
             mixer,
             resampler,
-            resample_src_scratch: vec![StereoFrame::equilibrium(); 44 * FRAMES_PER_BUFFER],
-            resample_dst_scratch: vec![StereoFrame::equilibrium(); FRAMES_PER_BUFFER + 16],
+            resample_src_scratch: vec![StereoFrame::default(); 44 * FRAMES_PER_BUFFER],
+            resample_dst_scratch: vec![StereoFrame::default(); FRAMES_PER_BUFFER + 16],
             sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER + 1),
         }
     }

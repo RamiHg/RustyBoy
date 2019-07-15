@@ -62,7 +62,7 @@ impl PixelFetcher {
         self,
         gpu: &Gpu,
         sprite_index: i32,
-        sprite: &SpriteEntry,
+        sprite: SpriteEntry,
     ) -> PixelFetcher {
         let mut y_within_tile = (gpu.current_y() - sprite.top()) % 16;
         if sprite.flip_y() {

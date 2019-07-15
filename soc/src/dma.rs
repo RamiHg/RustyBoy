@@ -23,7 +23,7 @@ impl Dma {
         }
     }
 
-    pub fn is_active(&self) -> bool {
+    pub fn is_active(self) -> bool {
         self.byte_index > 0 && self.byte_index <= 160
     }
 

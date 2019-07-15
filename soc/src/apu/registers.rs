@@ -41,10 +41,10 @@ bitfield! {
     pub struct NoiseConfig(u64);
     impl Debug;
     u8;
-    pub length, _: 13, 8;
+    pub length, set_length: 13, 8;
     pub envelope_counter, _: 18, 16;
     pub into EnvelopeMode, envelope_mode, _: 19, 19;
-    pub volume, _: 23, 20;
+    pub volume, set_volume: 23, 20;
     pub divisor_code, _: 26, 24;
     pub width_mode, _: 27;
     pub shift, _: 31, 28;
@@ -84,7 +84,7 @@ bitfield! {
     pub square_1, _: 0;
     pub square_2, _: 1;
     pub wave, _: 2;
-    pub sound4_on, _: 3;
+    pub noise, _: 3;
     pub global_enable, _: 7;
 }
 

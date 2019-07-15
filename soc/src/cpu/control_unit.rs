@@ -121,11 +121,12 @@ fn alu_logic(
     current_regs: &register::File,
     new_regs: &mut register::File,
 ) -> i32 {
-    let mut act = current_regs.get(Register::ACT);
-    if code.alu_mem_as_act {
+    let act = if code.alu_mem_as_act {
         debug_assert!(util::is_8bit(data_bus));
-        act = data_bus;
-    }
+        data_bus
+    } else {
+        current_regs.get(Register::ACT)
+    };
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {

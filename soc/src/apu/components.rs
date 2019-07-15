@@ -16,10 +16,10 @@ impl Envelope {
         }
     }
 
-    pub fn clock(&mut self, volume: i32) -> i32 {
+    pub fn clock(&mut self, volume: u8) -> u8 {
         if let Some(0) = self.timer.next() {
             match self.mode {
-                EnvelopeMode::Attenuate => (volume - 1).max(0),
+                EnvelopeMode::Attenuate => volume.saturating_sub(1),
                 EnvelopeMode::Amplify => (volume + 1).min(15),
             }
         } else {
@@ -57,34 +57,6 @@ impl Sweep {
             })
         } else {
             None
-        }
-    }
-}
-
-pub struct Noise {
-    pub buzz: bool,
-    pub lfsr: u16,
-    pub timer: Cycle<Timer>,
-}
-
-impl Noise {
-    pub fn sample(&self) -> u8 {
-        (!self.lfsr & 1) as u8
-    }
-
-    pub fn clock(&mut self) {
-        if let Some(0) = self.timer.next() {
-            let mut lfsr = self.lfsr;
-            // XOR the low two bits.
-            let new_bit = (lfsr & 1) ^ ((lfsr >> 1) & 1);
-            // Shift right and stick the result in the new high bit.
-            lfsr = (lfsr >> 1) | (new_bit << 14);
-            debug_assert_ge!(lfsr.leading_zeros(), 1);
-            if self.buzz {
-                // Also stick in 7th bit.
-                lfsr = (lfsr & !(1 << 6)) | (new_bit << 6);
-            }
-            self.lfsr = lfsr;
         }
     }
 }

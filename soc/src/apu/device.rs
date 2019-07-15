@@ -1,5 +1,4 @@
 use libsamplerate::{src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST};
-use portaudio as pa;
 use std::collections::VecDeque;
 use std::os::raw::c_long;
 
@@ -14,29 +13,36 @@ const MIN_SAMPLE_RATE: f32 = 4_194_304.0 / 2.0;
 /// The sampling rate chosen for the device.
 pub const DEVICE_RATE: f32 = 48_000.0;
 
-type PaOutType = f32;
+pub use platform::*;
 
-#[allow(dead_code)]
-pub struct Device {
-    pa: pa::PortAudio,
-    pa_stream: pa::stream::Stream<pa::stream::NonBlocking, pa::stream::Output<PaOutType>>,
-}
+mod platform {
+    use super::*;
+    use portaudio as pa;
+    #[allow(dead_code)]
+    pub struct Device {
+        pa: pa::PortAudio,
+        pa_stream: pa::stream::Stream<pa::stream::NonBlocking, pa::stream::Output<f32>>,
+    }
 
-impl Device {
-    pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, pa::Error> {
-        let pa = pa::PortAudio::new()?;
-        let mut settings = pa.default_output_stream_settings::<PaOutType>(
-            NUM_CHANNELS as i32,
-            DEVICE_RATE.into(),
-            FRAMES_PER_BUFFER as u32,
-        )?;
-        settings.flags |= pa::stream::flags::CLIP_OFF | pa::stream::flags::DITHER_OFF;
-        // Create the channel for communicating with the APU.
-        let mut thread = AudioThread::new(global_regs);
-        let mut pa_stream =
-            pa.open_non_blocking_stream(settings, move |args| thread.stream_callback(args))?;
-        pa_stream.start()?;
-        Ok(Device { pa, pa_stream })
+    impl Device {
+        pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, pa::Error> {
+            let pa = pa::PortAudio::new()?;
+            let mut settings = pa.default_output_stream_settings::<f32>(
+                NUM_CHANNELS as i32,
+                DEVICE_RATE.into(),
+                FRAMES_PER_BUFFER as u32,
+            )?;
+            settings.flags |= pa::stream::flags::CLIP_OFF | pa::stream::flags::DITHER_OFF;
+            // Create the channel for communicating with the APU.
+            let mut thread = AudioThread::new(global_regs);
+            let mut pa_stream = pa.open_non_blocking_stream(settings, move |args| {
+                let pa::OutputStreamCallbackArgs { buffer, .. } = args;
+                thread.stream_callback(buffer);
+                pa::Continue
+            })?;
+            pa_stream.start()?;
+            Ok(Device { pa, pa_stream })
+        }
     }
 }
 
@@ -65,17 +71,17 @@ impl AudioThread {
         }
     }
 
-    pub fn stream_callback(
-        &mut self,
-        args: pa::OutputStreamCallbackArgs<PaOutType>,
-    ) -> pa::stream::CallbackResult {
+    pub fn stream_callback(&mut self, buffer: &mut [f32]) {
         let _now = std::time::Instant::now();
+        let buffer: &mut [StereoFrame] = sample::slice::to_frame_slice_mut(buffer)
+            .expect("Couldn't convert output buffer to stereo.");
+        let frames_per_buffer = buffer.len();
         self.mixer.on_sample_begin();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
-        self.resample_src_scratch.clear();
         const MCYCLES_TO_SAMPLE: i32 =
             (MIN_SAMPLE_RATE / DEVICE_RATE * FRAMES_PER_BUFFER as f32 + 1.0) as i32;
+        self.resample_src_scratch.clear();
         for _ in 0..MCYCLES_TO_SAMPLE {
             // Skip every other sample (to downsample to 2MiHz).
             self.mixer.next_sample();
@@ -95,6 +101,10 @@ impl AudioThread {
             src_ratio: (DEVICE_RATE / MIN_SAMPLE_RATE) as f64,
         };
         let result = unsafe { src_process(self.resampler, &mut data) };
+        assert_le!(
+            data.output_frames_gen as usize,
+            self.resample_dst_scratch.len()
+        );
         debug_assert_eq!(result, 0);
         let frames: &[StereoFrame] = sample::slice::to_frame_slice(
             &self.resample_dst_scratch[..data.output_frames_gen as usize],
@@ -110,14 +120,11 @@ impl AudioThread {
         //     _resample_time.elapsed().as_micros() as f32 / 1000.0
         // );
         // Finally, write out the samples to the buffer.
-        let pa::OutputStreamCallbackArgs { buffer, time, .. } = args;
-        let buffer: &mut [[PaOutType; 2]] = sample::slice::to_frame_slice_mut(buffer).unwrap();
         for out_frame in buffer.iter_mut() {
             let sample = self.sample_buffer.pop_front();
             let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
-        pa::Continue
     }
 }
 

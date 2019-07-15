@@ -31,9 +31,9 @@ impl Default for Apu {
     fn default() -> Self {
         let audio_regs = channels::SharedAudioRegs::default();
         let maybe_device = device::Device::try_new(audio_regs.clone());
-        if let Err(err) = maybe_device {
-            println!(
-                "Audio device is not available. Audio will be disabled. Error: {}",
+        if let Err(err) = &maybe_device {
+            eprintln!(
+                "Could not initialize audio. Audio will be disabled. Error: {}",
                 err
             );
         }

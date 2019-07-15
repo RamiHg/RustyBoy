@@ -1,8 +1,6 @@
 use super::*;
 use crate::io_registers::Addresses;
 
-
-
 #[test]
 fn test_simple() {
     let nums: Vec<u8> = (0u8..161u8).collect();

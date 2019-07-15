@@ -59,7 +59,6 @@ test_target!(
     acceptance__interrupts__ie_push;
     acceptance__push_timing;
     acceptance__pop_timing;
-    
 
     acceptance__ret_timing;
     acceptance__ret_cc_timing;
@@ -70,7 +69,7 @@ test_target!(
     acceptance__rst_timing;
 
     acceptance__intr_timing;
-    
+
     acceptance__ei_timing;
     acceptance__di_timing___GS;
     acceptance__rapid_di_ei;
@@ -128,13 +127,13 @@ test_target!(
     wilbert__lcdon_mode_timing;
 
     wilbert__ly_lyc___GS;
-    
+
     // wilbert__ly_lyc_write___GS;
     // wilbert__ly_lyc_0_write___GS;
     // wilbert__ly_lyc_153_write___GS;
 
     wilbert__ly_lyc_0___GS;
-   
+
     wilbert__ly00_01_mode0_2;
     wilbert__ly00_mode0_2___GS;
     wilbert__ly00_mode1_0___GS;

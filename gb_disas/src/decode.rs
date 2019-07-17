@@ -41,9 +41,9 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
                     .with_rhs(Arg::from_i8(byte1)),
             },
             // z = 1
-            1 if !components.q => Op::new_sized("LD", 3)
-                .with_lhs(Arg::from_sp_table(components.p))
-                .with_rhs(imm_16),
+            1 if !components.q => {
+                Op::new_sized("LD", 3).with_lhs(Arg::from_sp_table(components.p)).with_rhs(imm_16)
+            }
             1 => Op::new("ADD")
                 .with_lhs(Arg::from_reg("HL"))
                 .with_rhs(Arg::from_sp_table(components.p)),
@@ -106,10 +106,7 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
             .with_lhs(Arg::from_reg_table(components.y))
             .with_rhs(Arg::from_reg_table(components.z))),
         // x = 2
-        2 => Ok(Op::new_alu_op(
-            components.y,
-            Arg::from_reg_table(components.z),
-        )),
+        2 => Ok(Op::new_alu_op(components.y, Arg::from_reg_table(components.z))),
         // x = 3
         3 | _ => match components.z {
             // z = 0
@@ -134,9 +131,7 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
                 0 => Op::new("RET"),
                 1 => Op::new("RETI"),
                 2 => Op::new("JP").with_lhs(Arg::from_reg("HL")),
-                3 | _ => Op::new("LD")
-                    .with_lhs(Arg::from_reg("SP"))
-                    .with_rhs(Arg::from_reg("HL")),
+                3 | _ => Op::new("LD").with_lhs(Arg::from_reg("SP")).with_rhs(Arg::from_reg("HL")),
             }),
             // z = 2
             2 => Ok(match components.y {
@@ -152,9 +147,7 @@ pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
                 7 => Op::new_sized("LD", 3)
                     .with_lhs(Arg::from_reg("A"))
                     .with_rhs(imm_16.as_indirect()),
-                _ => Op::new_sized("JP", 3)
-                    .with_lhs(Arg::from_cond(components.y))
-                    .with_rhs(imm_16),
+                _ => Op::new_sized("JP", 3).with_lhs(Arg::from_cond(components.y)).with_rhs(imm_16),
             }),
             // z = 3
             3 => match components.y {

@@ -80,10 +80,7 @@ impl Iterator for CountdownTimer {
 impl CountdownTimer {
     #[allow(dead_code)]
     pub fn new(counter: i32, period: i32) -> CountdownTimer {
-        CountdownTimer {
-            counter,
-            timer: timer(period).cycle(),
-        }
+        CountdownTimer { counter, timer: timer(period).cycle() }
     }
 }
 

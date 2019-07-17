@@ -46,10 +46,7 @@ impl Address {
             (0xFF00..=0xFF4B) | 0xFFFF => Ok(Address(Registers, raw)),
             0xFF4C..=0xFF7F => Ok(Address(UnknownRegisters, raw)),
             0xFF80..=0xFFFE => Ok(Address(HighRam, raw)),
-            _ => Err(error::Type::InvalidOperation(format!(
-                "Address {:X?} is invalid.",
-                raw
-            ))),
+            _ => Err(error::Type::InvalidOperation(format!("Address {:X?} is invalid.", raw))),
         }
     }
 }
@@ -156,9 +153,7 @@ impl Memory {
 
 impl Memory {
     pub fn new() -> Memory {
-        Memory {
-            mem: vec![0; 0x10000],
-        }
+        Memory { mem: vec![0; 0x10000] }
     }
 
     /// Temporary while the entire system moves away form direct memory access.

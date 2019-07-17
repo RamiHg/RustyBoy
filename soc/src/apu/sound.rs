@@ -91,8 +91,7 @@ impl Sound for Square {
             self.freq_timer = Square::make_freq_timer(self.config.freq());
         }
         // Update the envelope (volume).
-        self.config
-            .set_volume(self.envelope.clock(self.config.volume()));
+        self.config.set_volume(self.envelope.clock(self.config.volume()));
 
         // Update the sweep (frequency).
         if let Some(sweep) = &mut self.sweep {
@@ -247,8 +246,7 @@ impl Sound for Noise {
         debug_assert!(!self.is_done);
         let sample = (!self.lfsr & 1) as u8 * self.config.volume();
         self.clock();
-        self.config
-            .set_volume(self.envelope.clock(self.config.volume()));
+        self.config.set_volume(self.envelope.clock(self.config.volume()));
         if cycles.contains(ComponentCycle::LENGTH) {
             let new_len = self.config.length() + 1;
             if new_len >= 64 && self.config.is_timed() {

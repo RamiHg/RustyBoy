@@ -115,16 +115,8 @@ impl Timer {
         let tac = self.tac.0;
         let freq_0 = is_bit_set(tac, 0);
         let freq_1 = is_bit_set(tac, 1);
-        let freq_1_a = if freq_0 {
-            is_bit_set(*self.div, 7)
-        } else {
-            is_bit_set(*self.div, 5)
-        };
-        let freq_1_b = if freq_0 {
-            is_bit_set(*self.div, 3)
-        } else {
-            is_bit_set(*self.div, 9)
-        };
+        let freq_1_a = if freq_0 { is_bit_set(*self.div, 7) } else { is_bit_set(*self.div, 5) };
+        let freq_1_b = if freq_0 { is_bit_set(*self.div, 3) } else { is_bit_set(*self.div, 9) };
         (if freq_1 { freq_1_a } else { freq_1_b }) && self.tac.enabled()
     }
 

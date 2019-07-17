@@ -24,18 +24,11 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
     system.set_cart(cart);
     system.gpu_mut().options = options;
 
-    let break_opcode = if target.contains("wilbert") {
-        0xED
-    } else {
-        0x40
-    };
+    let break_opcode = if target.contains("wilbert") { 0xED } else { 0x40 };
 
     loop {
         system.execute_machine_cycle().unwrap();
-        let op = system
-            .cpu_mut()
-            .registers
-            .get(cpu::register::Register::INSTR);
+        let op = system.cpu_mut().registers.get(cpu::register::Register::INSTR);
         if op == break_opcode {
             break;
         }

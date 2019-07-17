@@ -159,9 +159,7 @@ impl System {
             Some(&mut self.dma),
             Some(&mut self.joypad),
             #[cfg(feature = "audio")]
-            self.apu
-                .as_mut()
-                .map(|x| -> &mut dyn mmu::MemoryMapped { x }),
+            self.apu.as_mut().map(|x| -> &mut dyn mmu::MemoryMapped { x }),
             Some(&mut self.memory),
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -235,12 +233,9 @@ impl System {
     }
 
     fn maybe_fire_interrupt(&mut self, maybe_fire: Interrupts) {
-        let mut current_if = self
-            .memory
-            .read(io_registers::Addresses::InterruptFired as i32);
+        let mut current_if = self.memory.read(io_registers::Addresses::InterruptFired as i32);
         current_if |= maybe_fire.bits();
-        self.memory
-            .store(io_registers::Addresses::InterruptFired as i32, current_if);
+        self.memory.store(io_registers::Addresses::InterruptFired as i32, current_if);
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
@@ -290,8 +285,7 @@ impl System {
 
     fn handle_gpu(&mut self) {
         let mut bus = self.temp_hack_get_bus();
-        self.gpu
-            .execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
+        self.gpu.execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
         let should_interrupt = self.gpu.execute_tcycle_tock(
             self.cpu.t_state.get_as_tstate(),
             &mut bus,
@@ -315,8 +309,7 @@ impl System {
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         self.handle_gpu();
-        self.cpu
-            .execute_t_cycle(&mut self.memory, self.gpu.hack())?;
+        self.cpu.execute_t_cycle(&mut self.memory, self.gpu.hack())?;
         self.handle_timer()?;
         let new_serial = self.handle_serial();
 
@@ -393,9 +386,7 @@ impl System {
         // Clear all registers.
         system.cpu.registers = cpu::register::File::new();
         // Start with the GPU disabled.
-        system
-            .write_request(io_registers::Addresses::LcdControl as i32, 0)
-            .unwrap();
+        system.write_request(io_registers::Addresses::LcdControl as i32, 0).unwrap();
         // And the timer.
         system.memory_write(io_registers::Addresses::TimerControl as i32, 0);
         system

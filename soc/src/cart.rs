@@ -29,30 +29,12 @@ struct CartType {
 impl CartType {
     fn from_setting(cart_type_value: u8) -> CartType {
         match cart_type_value {
-            0x00 => CartType {
-                mbc: MbcVersion::None,
-                has_ram: false,
-            },
-            0x01 => CartType {
-                mbc: MbcVersion::Mbc1,
-                has_ram: false,
-            },
-            0x02 | 0x03 => CartType {
-                mbc: MbcVersion::Mbc1,
-                has_ram: true,
-            },
-            0x08 | 0x09 => CartType {
-                mbc: MbcVersion::None,
-                has_ram: true,
-            },
-            0x0F | 0x11 => CartType {
-                mbc: MbcVersion::Mbc3,
-                has_ram: false,
-            },
-            0x10 | 0x12 | 0x13 => CartType {
-                mbc: MbcVersion::Mbc3,
-                has_ram: true,
-            },
+            0x00 => CartType { mbc: MbcVersion::None, has_ram: false },
+            0x01 => CartType { mbc: MbcVersion::Mbc1, has_ram: false },
+            0x02 | 0x03 => CartType { mbc: MbcVersion::Mbc1, has_ram: true },
+            0x08 | 0x09 => CartType { mbc: MbcVersion::None, has_ram: true },
+            0x0F | 0x11 => CartType { mbc: MbcVersion::Mbc3, has_ram: false },
+            0x10 | 0x12 | 0x13 => CartType { mbc: MbcVersion::Mbc3, has_ram: true },
             _ => panic!("Unsupported cart type {}", cart_type_value),
         }
     }
@@ -91,11 +73,7 @@ pub fn from_file(file_name: &str) -> Box<dyn Cart> {
 pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn Cart> {
     let cart_type = CartType::from_setting(file_contents[0x0147]);
     let rom_size = get_rom_size(file_contents[0x148]);
-    let ram_size = if cart_type.has_ram {
-        get_ram_size(file_contents[0x149])
-    } else {
-        0
-    };
+    let ram_size = if cart_type.has_ram { get_ram_size(file_contents[0x149]) } else { 0 };
     let mut mem = vec![0; rom_size];
     assert_eq!(rom_size, file_contents.len());
     // Copy over contents from file into memory.
@@ -167,9 +145,7 @@ pub mod test {
     }
     impl DynamicCart {
         pub fn new() -> DynamicCart {
-            DynamicCart {
-                mem: vec![0; 0xC000],
-            }
+            DynamicCart { mem: vec![0; 0xC000] }
         }
     }
     impl mmu::MemoryMapped for DynamicCart {

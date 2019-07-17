@@ -109,10 +109,7 @@ impl Op {
                 (result, flags | (Flags::SUB | Flags::HCARRY))
             }
             Scf => (lhs, (flags & Flags::ZERO) | Flags::CARRY),
-            Ccf => (
-                lhs,
-                (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY),
-            ),
+            Ccf => (lhs, (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY)),
             Daa => daa(lhs, flags),
             Swap => {
                 let (result, flags) = generic_unary_op(lhs, swapper, zeroer);

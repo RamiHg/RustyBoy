@@ -197,14 +197,10 @@ impl Cpu {
         let interrupt_index = fired_interrupts.trailing_zeros() as i32;
         trace!(target: "int", "Firing int {}", interrupt_index);
         debug_assert!(interrupt_index <= 4);
-        self.registers
-            .set(register::Register::TEMP_LOW, interrupt_index * 8);
+        self.registers.set(register::Register::TEMP_LOW, interrupt_index * 8);
         // Finally, issue a write to clear the fired bit.
         let new_fired_interrupts = interrupt_fired_flag & !(1 << interrupt_index);
-        memory.store(
-            io_registers::Addresses::InterruptFired as i32,
-            new_fired_interrupts,
-        );
+        memory.store(io_registers::Addresses::InterruptFired as i32, new_fired_interrupts);
         Ok(())
     }
 

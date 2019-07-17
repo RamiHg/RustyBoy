@@ -194,28 +194,14 @@ fn test_sprite_overlapping_same_pixel_at(x: i32, y: i32) {
 
     use Color::*;
     let sprites = [
-        SpriteBuilder::with_pos(x, y)
-            .color(LightGray)
-            .mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
-        SpriteBuilder::with_pos(x, y)
-            .color(White)
-            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(LightGray)
-            .mask_row(0, [0, 1, 0, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(Black)
-            .mask_row(0, [0, 0, 0, 1, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(DarkGray)
-            .mask_row(0, [0, 0, 1, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(DarkGray)
-            .mask_row(0, [0, 0, 0, 0, 0, 0, 1, 0]),
+        SpriteBuilder::with_pos(x, y).color(LightGray).mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
+        SpriteBuilder::with_pos(x, y).color(White).mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(LightGray).mask_row(0, [0, 1, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(Black).mask_row(0, [0, 0, 0, 1, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(DarkGray).mask_row(0, [0, 0, 1, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(DarkGray).mask_row(0, [0, 0, 0, 0, 0, 0, 1, 0]),
         SpriteBuilder::with_pos(x, y).mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
-        SpriteBuilder::with_pos(x, y)
-            .color(Black)
-            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(Black).mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
     ];
 
     ImageBuilder::new()

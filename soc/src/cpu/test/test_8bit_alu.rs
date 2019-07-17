@@ -18,9 +18,7 @@ fn setup_lhs_rhs_carry(
         ops.push(rhs_value as u8);
     }
     if let HL = rhs {
-        with_default()
-            .set_mem_8bit(0xD000, rhs_value)
-            .set_reg(HL, 0xD000)
+        with_default().set_mem_8bit(0xD000, rhs_value).set_reg(HL, 0xD000)
     } else if let PC = rhs {
         with_default()
     } else {
@@ -37,9 +35,7 @@ fn setup_lhs_rhs(op: i32, lhs_value: i32, rhs: Register, rhs_value: i32) -> Test
 
 fn setup_unary(reg: Register, value: i32) -> TestContext {
     if let HL = reg {
-        with_default()
-            .set_mem_8bit(0xD000, value)
-            .set_reg(HL, 0xD000)
+        with_default().set_mem_8bit(0xD000, value).set_reg(HL, 0xD000)
     } else {
         with_default().set_reg(reg, value)
     }
@@ -62,10 +58,7 @@ fn cycles_for_source(src: Register) -> i32 {
 
 #[test]
 fn test_add_a() {
-    for (&op, &src) in [0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0xC6]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0xC6].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0x7F, src, 1)
             .assert_reg_eq(A, 0x80)
             .assert_flags(Flags::HCARRY)
@@ -86,10 +79,7 @@ fn test_add_a() {
 
 #[test]
 fn test_adc_a() {
-    for (&op, &src) in [0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0xCE]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0xCE].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs_carry(op, 0x7E, src, 1, true)
             .assert_reg_eq(A, 0x80)
             .assert_flags(Flags::HCARRY)
@@ -115,10 +105,7 @@ fn test_adc_a() {
 
 #[test]
 fn test_sub_a_r() {
-    for (&op, &src) in [0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0xD6]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0xD6].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0xF0, src, 0x1)
             .assert_reg_eq(A, 0xEF)
             .assert_flags(Flags::SUB | Flags::HCARRY)
@@ -139,10 +126,7 @@ fn test_sub_a_r() {
 
 #[test]
 fn test_sbc_a_r() {
-    for (&op, &src) in [0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0xDE]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0xDE].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs_carry(op, 0xF0, src, 0x0, true)
             .assert_reg_eq(A, 0xEF)
             .assert_flags(Flags::SUB | Flags::HCARRY)
@@ -164,10 +148,7 @@ fn test_sbc_a_r() {
 
 #[test]
 fn test_and_a_r() {
-    for (&op, &src) in [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xE6]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xE6].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0x0B, src, 0x05)
             .assert_reg_eq(A, 0x01)
             .assert_flags(Flags::HCARRY)
@@ -188,10 +169,7 @@ fn test_and_a_r() {
 
 #[test]
 fn test_or_a_r() {
-    for (&op, &src) in [0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xF6]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xF6].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0xAA, src, 0x55)
             .assert_reg_eq(A, 0xFF)
             .assert_flags(Flags::empty())
@@ -212,10 +190,7 @@ fn test_or_a_r() {
 
 #[test]
 fn test_xor_a_r() {
-    for (&op, &src) in [0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xEE]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xEE].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0xAA, src, 0x55)
             .assert_reg_eq(A, 0xFF)
             .assert_flags(Flags::empty())
@@ -236,10 +211,7 @@ fn test_xor_a_r() {
 
 #[test]
 fn test_cp_a_r() {
-    for (&op, &src) in [0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xFE]
-        .iter()
-        .zip(SOURCES.iter())
-    {
+    for (&op, &src) in [0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xFE].iter().zip(SOURCES.iter()) {
         setup_lhs_rhs(op, 0xF0, src, 0x1)
             .assert_reg_eq(A, 0xF0)
             .assert_flags(Flags::SUB | Flags::HCARRY)
@@ -266,11 +238,7 @@ fn test_rotate_op(op: u8, a_val: i32, carry: bool, expected: i32, expected_carry
         .set_flag(Flags::HCARRY, true)
         .execute_instructions(&[op])
         .assert_reg_eq(A, expected)
-        .assert_flags(if expected_carry {
-            Flags::CARRY
-        } else {
-            Flags::empty()
-        })
+        .assert_flags(if expected_carry { Flags::CARRY } else { Flags::empty() })
         .assert_mcycles(1);
     // Make sure Z flag is off even when result is 0
     with_default()
@@ -346,16 +314,13 @@ fn test_daa() {
 
 #[test]
 fn test_inc() {
-    for (&op, &reg) in [0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C]
-        .iter()
-        .zip(UNARY_SOURCES.iter())
+    for (&op, &reg) in
+        [0x04, 0x0C, 0x14, 0x1C, 0x24, 0x2C, 0x34, 0x3C].iter().zip(UNARY_SOURCES.iter())
     {
         expect_unary(
             reg,
             0x10,
-            setup_unary(reg, 0x0F)
-                .execute_instructions(&[op])
-                .assert_flags(Flags::HCARRY),
+            setup_unary(reg, 0x0F).execute_instructions(&[op]).assert_flags(Flags::HCARRY),
         );
         expect_unary(
             reg,
@@ -369,9 +334,8 @@ fn test_inc() {
 
 #[test]
 fn test_dec() {
-    for (&op, &reg) in [0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D]
-        .iter()
-        .zip(UNARY_SOURCES.iter())
+    for (&op, &reg) in
+        [0x05, 0x0D, 0x15, 0x1D, 0x25, 0x2D, 0x35, 0x3D].iter().zip(UNARY_SOURCES.iter())
     {
         expect_unary(
             reg,

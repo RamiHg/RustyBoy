@@ -286,10 +286,7 @@ fn test_rst() {
 
     let results = [3, 7, 11, 13, 17, 19, 23, 29];
 
-    for (i, &op) in [0xC7, 0xCF, 0xD7, 0xDF, 0xE7, 0xEF, 0xF7, 0xFF]
-        .iter()
-        .enumerate()
-    {
+    for (i, &op) in [0xC7, 0xCF, 0xD7, 0xDF, 0xE7, 0xEF, 0xF7, 0xFF].iter().enumerate() {
         with_default()
             .set_mem_range(0, &RST_HANDLERS)
             .execute_instructions(&[op])

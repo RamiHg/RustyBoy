@@ -68,9 +68,7 @@ impl CachedAudioRegs {
         );
         state
             .sound_status
-            .weak_update_with(Ordering::Release, |x: u8| {
-                (x & 0x80) | (self.sound_status.0 & 0xF)
-            });
+            .weak_update_with(Ordering::Release, |x: u8| (x & 0x80) | (self.sound_status.0 & 0xF));
     }
 }
 
@@ -142,11 +140,8 @@ impl<T: Sound> MaybeSound<T> {
         status_reg: &mut SoundStatus,
         sound_bit: i32,
     ) -> f32 {
-        let (sample, is_done) = self
-            .0
-            .as_mut()
-            .map(|s| (s.sample(cycles), s.is_done()))
-            .unwrap_or_default();
+        let (sample, is_done) =
+            self.0.as_mut().map(|s| (s.sample(cycles), s.is_done())).unwrap_or_default();
         if is_done {
             self.0 = None;
             status_reg.0 &= !(1 << sound_bit);
@@ -222,9 +217,7 @@ impl ChannelMixer {
             self.handle_event(event);
         }
         // TODO: Can combine in one pass.
-        self.cached_regs
-            .borrow_mut()
-            .sync_from_shared(&self.global_regs);
+        self.cached_regs.borrow_mut().sync_from_shared(&self.global_regs);
     }
 
     fn handle_event(&mut self, event: ChannelEvent) {
@@ -259,23 +252,16 @@ impl ChannelMixer {
             component_cycles |= ComponentCycle::LENGTH;
         }
         let mono_frames = [
-            self.square_1
-                .maybe_sample(component_cycles, &mut cached_regs.sound_status, 0),
-            self.square_2
-                .maybe_sample(component_cycles, &mut cached_regs.sound_status, 1),
-            self.wave
-                .maybe_sample(component_cycles, &mut cached_regs.sound_status, 2),
-            self.noise
-                .maybe_sample(component_cycles, &mut cached_regs.sound_status, 3),
+            self.square_1.maybe_sample(component_cycles, &mut cached_regs.sound_status, 0),
+            self.square_2.maybe_sample(component_cycles, &mut cached_regs.sound_status, 1),
+            self.wave.maybe_sample(component_cycles, &mut cached_regs.sound_status, 2),
+            self.noise.maybe_sample(component_cycles, &mut cached_regs.sound_status, 3),
         ];
         let sound_mix = cached_regs.sound_mix;
 
         let mut frame = [0.0, 0.0];
         let mut add_to_frame = |idx, bits| {
-            for (mono, _) in mono_frames
-                .iter()
-                .zip(iterate_bits(bits))
-                .filter(|&(_, is_on)| is_on)
+            for (mono, _) in mono_frames.iter().zip(iterate_bits(bits)).filter(|&(_, is_on)| is_on)
             {
                 frame[idx] += mono / 4.0;
             }

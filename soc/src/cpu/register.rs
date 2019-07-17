@@ -146,9 +146,7 @@ impl From<SingleTable> for Register {
 
 impl File {
     pub fn new() -> File {
-        File {
-            0: [0; Register::NumRegisters as usize],
-        }
+        File { 0: [0; Register::NumRegisters as usize] }
     }
 
     pub fn get(&self, any: Register) -> i32 {

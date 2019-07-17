@@ -99,9 +99,7 @@ impl TestDescriptor {
         // Execute!
         s.push_str(&format!("execute {}\n", self.num_instructions));
         // Serialize assertions.
-        self.assertions
-            .iter()
-            .for_each(|x| s.push_str(&x.serialize()));
+        self.assertions.iter().for_each(|x| s.push_str(&x.serialize()));
         s
     }
 }
@@ -145,10 +143,7 @@ impl TestContext {
 
         TestContext {
             system: Box::new(system::System::new_test_system(cart)),
-            desc: TestDescriptor {
-                name,
-                ..Default::default()
-            },
+            desc: TestDescriptor { name, ..Default::default() },
             cycles: 0,
         }
     }
@@ -176,10 +171,7 @@ impl TestContext {
         let mut current_flags =
             Flags::from_bits(self.system.cpu_mut().registers.get(Register::F)).unwrap();
         current_flags.set(flag, is_set);
-        self.system
-            .cpu_mut()
-            .registers
-            .set(Register::F, current_flags.bits());
+        self.system.cpu_mut().registers.set(Register::F, current_flags.bits());
         self
     }
 
@@ -209,10 +201,7 @@ impl TestContext {
     ) -> TestContext {
         // Capture the flags at the time of execution, rather than each bit set. Can possible
         // do this for registers as well.
-        self.desc.reg_setup.push((
-            Register::F,
-            self.system.cpu_mut().registers.get(Register::F),
-        ));
+        self.desc.reg_setup.push((Register::F, self.system.cpu_mut().registers.get(Register::F)));
         self.desc.add_mem_range(0xC000, instructions);
         self.desc.initial_pc = 0xC000;
         self.desc.num_instructions = instructions.len() as i32;
@@ -249,15 +238,13 @@ impl TestContext {
 
     pub fn gpu_mode(&self) -> gpu::registers::LcdMode {
         gpu::registers::LcdStatus(
-            self.system
-                .memory_read(io_registers::Addresses::LcdStatus as i32),
+            self.system.memory_read(io_registers::Addresses::LcdStatus as i32),
         )
         .mode()
     }
 
     pub fn set_gpu_enabled(mut self) -> TestContext {
-        self.system
-            .memory_write(io_registers::Addresses::LcdControl as i32, 0x91);
+        self.system.memory_write(io_registers::Addresses::LcdControl as i32, 0x91);
         self
     }
 
@@ -265,20 +252,14 @@ impl TestContext {
         self = self.set_mem_range(0xC000, &INF_LOOP);
         self.system.cpu_mut().registers.set(Register::PC, 0xC000);
 
-        while (self
-            .system
-            .memory_read(io_registers::Addresses::LcdStatus as i32)
-            & 0x3)
+        while (self.system.memory_read(io_registers::Addresses::LcdStatus as i32) & 0x3)
             == crate::gpu::registers::LcdMode::VBlank as i32
         //|| !self.system.is_fetching()
         {
             self.system.execute_machine_cycle().unwrap();
         }
 
-        while (self
-            .system
-            .memory_read(io_registers::Addresses::LcdStatus as i32)
-            & 0x3)
+        while (self.system.memory_read(io_registers::Addresses::LcdStatus as i32) & 0x3)
             != crate::gpu::registers::LcdMode::VBlank as i32
         //|| !self.system.is_fetching()
         {
@@ -293,11 +274,7 @@ impl TestContext {
         // Serialize the nuggets! (TODO: Kinda hacky. Make test trait that just prints)
         let data = self.desc.serialize();
         use std::{fs::OpenOptions, io::prelude::*};
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("test_data.txt")
-            .unwrap();
+        let mut file = OpenOptions::new().create(true).append(true).open("test_data.txt").unwrap();
         file.write_all(data.as_bytes()).unwrap();
         self
     }
@@ -311,10 +288,7 @@ impl TestContext {
 
     /// Only used for nugget creation.
     fn make_assert_mem_nugget(&mut self, base: i32, values: &[u8]) {
-        self.desc.assertions.push(Assertion::MemRange {
-            base,
-            values: values.to_vec(),
-        });
+        self.desc.assertions.push(Assertion::MemRange { base, values: values.to_vec() });
     }
 
     pub fn assert_mem_8bit_eq(mut self, address: i32, value: i32) -> TestContext {
@@ -333,9 +307,7 @@ impl TestContext {
     // Flags register.
     pub fn assert_flags(mut self, expected: Flags) -> TestContext {
         let flags = Flags::from_bits(self.system.cpu_mut().registers.get(Register::F)).unwrap();
-        self.desc
-            .assertions
-            .push(Assertion::RegEq(Register::F, flags.bits()));
+        self.desc.assertions.push(Assertion::RegEq(Register::F, flags.bits()));
         assert_eq!(flags, expected);
         self
     }

@@ -105,11 +105,7 @@ impl Default for Decoder {
             cb_op_codes.push(builder.decode(i, true).into_iter().collect());
         }
         let interrupt_opcodes = builder.interrupt_handler().into_iter().collect();
-        Decoder {
-            op_codes,
-            cb_op_codes,
-            interrupt_opcodes,
-        }
+        Decoder { op_codes, cb_op_codes, interrupt_opcodes }
     }
 }
 
@@ -133,9 +129,7 @@ struct DecoderBuilder {
 
 impl DecoderBuilder {
     pub fn new() -> DecoderBuilder {
-        DecoderBuilder {
-            pla: csv_loader::parse_csv(include_bytes!("../../instructions.csv")),
-        }
+        DecoderBuilder { pla: csv_loader::parse_csv(include_bytes!("../../instructions.csv")) }
     }
 
     pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {

@@ -31,13 +31,7 @@ impl MCycleList {
             .map(|x| vec![&x.t1.0, &x.t2.0, &x.t3.0, &x.t4.0])
             .flatten()
             // Replace all empty t-cycles with NOPs.
-            .map(|x| {
-                if x.is_empty() {
-                    Op::nop().iter()
-                } else {
-                    x.iter()
-                }
-            })
+            .map(|x| if x.is_empty() { Op::nop().iter() } else { x.iter() })
             // Compile each TCycle.
             .map(compiler::compile_op_list)
             // Skip the first 2 nop tcycles.

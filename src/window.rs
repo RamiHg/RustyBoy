@@ -41,19 +41,10 @@ void main() {
 
 fn compile_shader(shader: GLuint, source: &str) {
     unsafe {
-        GL!(gl::ShaderSource(
-            shader,
-            1,
-            [source.as_ptr() as *const _].as_ptr(),
-            core::ptr::null()
-        ));
+        GL!(gl::ShaderSource(shader, 1, [source.as_ptr() as *const _].as_ptr(), core::ptr::null()));
         GL!(gl::CompileShader(shader));
         let mut info_length = 0;
-        GL!(gl::GetShaderiv(
-            shader,
-            gl::INFO_LOG_LENGTH,
-            &mut info_length
-        ));
+        GL!(gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut info_length));
         if info_length > 0 {
             let mut log = String::from_utf8(vec![0; info_length as usize]).unwrap();
             GL!(gl::GetShaderInfoLog(
@@ -83,11 +74,7 @@ fn load_all_shaders() -> GLuint {
         GL!(gl::AttachShader(program_id, frag_shader));
         GL!(gl::LinkProgram(program_id));
         let mut info_length = 0;
-        GL!(gl::GetProgramiv(
-            program_id,
-            gl::INFO_LOG_LENGTH,
-            &mut info_length
-        ));
+        GL!(gl::GetProgramiv(program_id, gl::INFO_LOG_LENGTH, &mut info_length));
         if info_length > 0 {
             let mut log = String::from_utf8(vec![0; info_length as usize]).unwrap();
             GL!(gl::GetProgramInfoLog(
@@ -99,16 +86,8 @@ fn load_all_shaders() -> GLuint {
             println!("{}", log);
         }
         let mut link_status = 0;
-        GL!(gl::GetProgramiv(
-            program_id,
-            gl::LINK_STATUS,
-            &mut link_status
-        ));
-        assert_eq!(
-            link_status,
-            i32::from(gl::TRUE),
-            "Linking failed. See log above."
-        );
+        GL!(gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut link_status));
+        assert_eq!(link_status, i32::from(gl::TRUE), "Linking failed. See log above.");
         GL!(gl::DetachShader(program_id, vert_shader));
         GL!(gl::DetachShader(program_id, frag_shader));
         GL!(gl::DeleteShader(vert_shader));
@@ -174,31 +153,16 @@ impl Window {
                 gl::UNSIGNED_INT_8_8_8_8_REV,
                 core::ptr::null(),
             ));
-            GL!(gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::NEAREST as i32
-            ));
-            GL!(gl::TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                filter as i32
-            ));
+            GL!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32));
+            GL!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter as i32));
         }
 
-        Window {
-            context,
-            events_loop,
-            shader: fs_copy,
-        }
+        Window { context, events_loop, shader: fs_copy }
     }
 
     pub fn update_screen(&self, screen: &[gpu::Color]) {
         // Create pixels!
-        let pixels = screen
-            .iter()
-            .map(|x| gpu::Pixel::from(*x))
-            .collect::<Vec<gpu::Pixel>>();
+        let pixels = screen.iter().map(|x| gpu::Pixel::from(*x)).collect::<Vec<gpu::Pixel>>();
 
         unsafe {
             GL!(gl::TexSubImage2D(

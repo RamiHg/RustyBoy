@@ -1,5 +1,6 @@
 #[derive(Default)]
 pub struct LogSettings {
+    pub audio: bool,
     pub interrupts: bool,
     pub disassembly: bool,
     pub timer: bool,
@@ -8,24 +9,28 @@ pub struct LogSettings {
 }
 
 pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
-    if settings.interrupts || settings.disassembly || settings.timer || settings.dma || settings.gpu
-    {
+    let mut allowed_modules = std::collections::HashSet::new();
+    if settings.audio {
+        allowed_modules.insert("audio");
+    }
+    if settings.interrupts {
+        allowed_modules.insert("int");
+    }
+    if settings.disassembly && cfg!(feature = "disas") {
+        allowed_modules.insert("disas");
+    }
+    if settings.timer {
+        allowed_modules.insert("timer");
+    }
+    if settings.dma {
+        allowed_modules.insert("dma");
+    }
+    if settings.gpu {
+        allowed_modules.insert("gpu");
+    }
+    if !allowed_modules.is_empty() {
         fern::Dispatch::new()
-            .filter(move |metadata| {
-                if metadata.target() == "disas" {
-                    settings.disassembly
-                } else if metadata.target() == "int" {
-                    settings.interrupts
-                } else if metadata.target() == "timer" {
-                    settings.timer
-                } else if metadata.target() == "dma" {
-                    settings.dma
-                } else if metadata.target() == "gpu" {
-                    settings.gpu
-                } else {
-                    true
-                }
-            })
+            .filter(move |metadata| allowed_modules.contains(metadata.target()))
             .format(|out, message, record| {
                 out.finish(format_args!("[{}]: {}", record.target(), message))
             })

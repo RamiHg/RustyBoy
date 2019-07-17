@@ -6,12 +6,7 @@ use std::path::{Path, PathBuf};
 
 impl From<bmp::Pixel> for gpu::Pixel {
     fn from(pixel: bmp::Pixel) -> gpu::Pixel {
-        gpu::Pixel {
-            r: pixel.r,
-            g: pixel.g,
-            b: pixel.b,
-            a: 255,
-        }
+        gpu::Pixel { r: pixel.r, g: pixel.g, b: pixel.b, a: 255 }
     }
 }
 
@@ -69,14 +64,7 @@ pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Color]) {
 
 pub fn is_white_screen(screen: &[gpu::Pixel]) -> bool {
     for pixel in screen {
-        if *pixel
-            != (gpu::Pixel {
-                r: 255,
-                g: 255,
-                b: 255,
-                a: 255,
-            })
-        {
+        if *pixel != (gpu::Pixel { r: 255, g: 255, b: 255, a: 255 }) {
             return false;
         }
     }

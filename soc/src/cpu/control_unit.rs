@@ -19,22 +19,15 @@ fn fetch_t1() -> MicroCode {
 }
 
 fn fetch_t2() -> MicroCode {
-    MicroCode {
-        ..Default::default()
-    }
+    MicroCode { ..Default::default() }
 }
 
 fn true_nop() -> MicroCode {
-    MicroCode {
-        ..Default::default()
-    }
+    MicroCode { ..Default::default() }
 }
 
 fn nop_end() -> MicroCode {
-    MicroCode {
-        is_end: true,
-        ..Default::default()
-    }
+    MicroCode { is_end: true, ..Default::default() }
 }
 
 pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
@@ -58,17 +51,11 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
-                (
-                    cpu.micro_code_stack.pop_front().unwrap(),
-                    DecodeMode::Execute,
-                )
+                (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute)
             }
             _ => panic!("Invalid decode t-state"),
         },
-        DecodeMode::Execute => (
-            cpu.micro_code_stack.pop_front().unwrap(),
-            DecodeMode::Execute,
-        ),
+        DecodeMode::Execute => (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute),
     };
     // Execute the micro-code.
     let mut next_state = execute(&micro_code, cpu);
@@ -131,8 +118,7 @@ fn alu_logic(
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
         alu::Op::Bit | alu::Op::Res | alu::Op::Set => {
-            code.alu_op
-                .execute(act, i32::from(code.alu_bit_select), current_flags)
+            code.alu_op.execute(act, i32::from(code.alu_bit_select), current_flags)
         }
         _ => code.alu_op.execute(act, tmp, current_flags),
     };
@@ -232,11 +218,8 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         cpu.state.data_latch
     };
 
-    let addr_bus_value = if code.inc_to_addr_bus {
-        incrementer_logic(code, cpu, &current_regs)
-    } else {
-        -1
-    };
+    let addr_bus_value =
+        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
 
     if code.addr_write_enable {
         new_regs.set(code.addr_select, addr_bus_value);

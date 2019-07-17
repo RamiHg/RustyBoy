@@ -19,9 +19,7 @@ impl AluOutSelect {
 /// Main entry point. Uses compile_op and micro_code_combine (defined at the bottom) to compile a
 /// list of asm::Ops.
 pub fn compile_op_list<'a>(op_list: impl Iterator<Item = &'a Op>) -> MicroCode {
-    let code = op_list
-        .map(compile_op)
-        .fold(MicroCode::default(), micro_code_combine);
+    let code = op_list.map(compile_op).fold(MicroCode::default(), micro_code_combine);
     verify_micro_code(&code);
     code
 }
@@ -58,30 +56,20 @@ fn compile_addr(op: &Op) -> MicroCode {
     // Latch an address.
     let addr_select = op.lhs.expect_as_pair();
     op.rhs.expect_none();
-    MicroCode {
-        reg_to_addr_buffer: true,
-        addr_select,
-        ..Default::default()
-    }
+    MicroCode { reg_to_addr_buffer: true, addr_select, ..Default::default() }
 }
 
 fn compile_raddr(op: &Op) -> MicroCode {
     // This is simply ADDR followed by read enable.
     let base = compile_addr(op);
-    MicroCode {
-        mem_read_enable: true,
-        ..base
-    }
+    MicroCode { mem_read_enable: true, ..base }
 }
 
 fn compile_addr_h(op: &Op) -> MicroCode {
     // TODO: Put FF or 00 as an arg?
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        ff_to_addr_hi: op.cmd == Command::ADDR_H_FF,
-        ..Default::default()
-    }
+    MicroCode { ff_to_addr_hi: op.cmd == Command::ADDR_H_FF, ..Default::default() }
 }
 
 fn compile_rd(op: &Op) -> MicroCode {
@@ -112,11 +100,7 @@ fn compile_rd(op: &Op) -> MicroCode {
             alu_reg_write_enable: true,
             ..Default::default()
         },
-        _ => MicroCode {
-            reg_select: dst,
-            reg_write_enable: true,
-            ..Default::default()
-        },
+        _ => MicroCode { reg_select: dst, reg_write_enable: true, ..Default::default() },
     }
 }
 
@@ -124,12 +108,7 @@ fn compile_wr(op: &Op) -> MicroCode {
     let src = op.lhs.expect_as_register();
     assert!(src.is_single());
     op.rhs.expect_none();
-    MicroCode {
-        mem_write_enable: true,
-        reg_select: src,
-        reg_to_data: true,
-        ..Default::default()
-    }
+    MicroCode { mem_write_enable: true, reg_select: src, reg_to_data: true, ..Default::default() }
 }
 
 fn compile_incdec(op: &Op) -> MicroCode {
@@ -154,21 +133,12 @@ fn compile_ld(op: &Op) -> MicroCode {
     // Dirty secret: we have to use the ALU to do any (8-bit) register moves.
     let destination =
         AluOutSelect::from_register(op.lhs.expect_as_register()).unwrap_or_else(|| {
-            panic!(
-                "LD can only have an ALU register as a destination: {:?}",
-                op.lhs
-            )
+            panic!("LD can only have an ALU register as a destination: {:?}", op.lhs)
         });
     match &op.rhs.0 {
         Some(Arg::Register(source)) if source == &Register::A => match destination {
-            AluOutSelect::ACT => MicroCode {
-                alu_a_to_act: true,
-                ..Default::default()
-            },
-            AluOutSelect::Tmp => MicroCode {
-                alu_a_to_tmp: true,
-                ..Default::default()
-            },
+            AluOutSelect::ACT => MicroCode { alu_a_to_act: true, ..Default::default() },
+            AluOutSelect::Tmp => MicroCode { alu_a_to_tmp: true, ..Default::default() },
             _ => panic!("Cannot write A to {:?}", destination),
         },
         Some(Arg::Register(source)) => MicroCode {
@@ -182,44 +152,25 @@ fn compile_ld(op: &Op) -> MicroCode {
         },
         Some(Arg::ConstantPlaceholder(string)) if string == "MEM" => {
             debug_assert_eq!(destination, AluOutSelect::ACT);
-            MicroCode {
-                alu_mem_as_act: true,
-                ..Default::default()
-            }
+            MicroCode { alu_mem_as_act: true, ..Default::default() }
         }
         Some(Arg::ConstantPlaceholder(string)) => {
-            let value: i32 = string
-                .parse()
-                .unwrap_or_else(|_| panic!("Cannot parse {} as int", string));
+            let value: i32 =
+                string.parse().unwrap_or_else(|_| panic!("Cannot parse {} as int", string));
             if destination == AluOutSelect::Tmp {
                 match value {
-                    0 => MicroCode {
-                        alu_zero_to_tmp: true,
-                        ..Default::default()
-                    },
-                    1 => MicroCode {
-                        alu_one_to_tmp: true,
-                        ..Default::default()
-                    },
-                    64 => MicroCode {
-                        alu_64_to_tmp: true,
-                        ..Default::default()
-                    },
+                    0 => MicroCode { alu_zero_to_tmp: true, ..Default::default() },
+                    1 => MicroCode { alu_one_to_tmp: true, ..Default::default() },
+                    64 => MicroCode { alu_64_to_tmp: true, ..Default::default() },
                     _ => panic!("Unexpected LD TMP constant: {:?}", value),
                 }
             } else {
-                panic!(
-                    "Unsupported constant {} to load to {:?}",
-                    string, destination
-                )
+                panic!("Unsupported constant {} to load to {:?}", string, destination)
             }
         }
         Some(Arg::OpYMul8) => {
             assert_eq!(destination, AluOutSelect::ACT);
-            MicroCode {
-                alu_opymul8_to_act: true,
-                ..Default::default()
-            }
+            MicroCode { alu_opymul8_to_act: true, ..Default::default() }
         }
         _ => panic!("Unexpected LD RHS: {:?}", op.rhs.0),
     }
@@ -235,11 +186,7 @@ fn compile_alu(op: &Op) -> MicroCode {
     if op.lhs.0.is_none() {
         // We could very well want to throw away our results (e.g. in the case of BIT).
         if let alu::Op::Bit = alu_op {
-            return MicroCode {
-                alu_op,
-                alu_to_data: true,
-                ..Default::default()
-            };
+            return MicroCode { alu_op, alu_to_data: true, ..Default::default() };
         }
     }
     let dst = op.lhs.expect_as_register();
@@ -271,10 +218,7 @@ fn compile_alu(op: &Op) -> MicroCode {
 fn compile_cse(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        alu_cse_to_tmp: true,
-        ..Default::default()
-    }
+    MicroCode { alu_cse_to_tmp: true, ..Default::default() }
 }
 
 fn compile_fmsk(op: &Op) -> MicroCode {
@@ -282,10 +226,7 @@ fn compile_fmsk(op: &Op) -> MicroCode {
     if let Some(Arg::ConstantPlaceholder(string)) = &op.lhs.0 {
         let mask = i32::from_str_radix(string, 2)
             .unwrap_or_else(|_| panic!("Invalid FMSK constant: {}", string));
-        MicroCode {
-            alu_write_f_mask: mask as u8,
-            ..Default::default()
-        }
+        MicroCode { alu_write_f_mask: mask as u8, ..Default::default() }
     } else {
         panic!("Unexpected FMSK arg: {:?}", op.lhs)
     }
@@ -300,10 +241,7 @@ fn compile_f(op: &Op) -> MicroCode {
     };
     // I'm too lazy to make this any smarter.
     if string_value == "0" {
-        MicroCode {
-            alu_f_force_nz: true,
-            ..Default::default()
-        }
+        MicroCode { alu_f_force_nz: true, ..Default::default() }
     } else {
         panic!("Unsupported FZ command: {:?}", op);
     }
@@ -312,10 +250,7 @@ fn compile_f(op: &Op) -> MicroCode {
 fn compile_end(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        is_end: true,
-        ..Default::default()
-    }
+    MicroCode { is_end: true, ..Default::default() }
 }
 
 fn compile_ccend(op: &Op) -> MicroCode {
@@ -325,29 +260,19 @@ fn compile_ccend(op: &Op) -> MicroCode {
         panic!("Expected condition. Got: {:?}", op.lhs)
     };
     op.rhs.expect_none();
-    MicroCode {
-        is_cond_end: true,
-        cond,
-        ..Default::default()
-    }
+    MicroCode { is_cond_end: true, cond, ..Default::default() }
 }
 
 fn compile_ei(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        enable_interrupts: true,
-        ..Default::default()
-    }
+    MicroCode { enable_interrupts: true, ..Default::default() }
 }
 
 fn compile_di(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        disable_interrupts: true,
-        ..Default::default()
-    }
+    MicroCode { disable_interrupts: true, ..Default::default() }
 }
 
 fn compile_nop(op: &Op) -> MicroCode {
@@ -357,19 +282,13 @@ fn compile_nop(op: &Op) -> MicroCode {
 fn compile_cb(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        enter_cb_mode: true,
-        ..Default::default()
-    }
+    MicroCode { enter_cb_mode: true, ..Default::default() }
 }
 
 fn compile_halt(op: &Op) -> MicroCode {
     op.lhs.expect_none();
     op.rhs.expect_none();
-    MicroCode {
-        is_halt: true,
-        ..Default::default()
-    }
+    MicroCode { is_halt: true, ..Default::default() }
 }
 
 fn compile_bit(op: &Op) -> MicroCode {
@@ -379,10 +298,7 @@ fn compile_bit(op: &Op) -> MicroCode {
     } else {
         panic!("Invalid BIT argument: {:?}", op.lhs)
     };
-    MicroCode {
-        alu_bit_select: bit as u8,
-        ..Default::default()
-    }
+    MicroCode { alu_bit_select: bit as u8, ..Default::default() }
 }
 
 // The second part of compilation is combining all the TCycle's microcodes into one. This also
@@ -495,10 +411,7 @@ fn verify_micro_code(code: &MicroCode) {
                 || code.alu_64_to_tmp)),
         "Data hazard writing to TMP."
     );
-    assert!(
-        !(code.alu_a_to_act && code.alu_opymul8_to_act),
-        "Data hazard writing to ACT."
-    );
+    assert!(!(code.alu_a_to_act && code.alu_opymul8_to_act), "Data hazard writing to ACT.");
     // TODO: Fix this assert logic.
     assert!(
         !(code.alu_one_to_tmp && code.alu_a_to_tmp && code.alu_cse_to_tmp),
@@ -516,10 +429,7 @@ fn verify_micro_code(code: &MicroCode) {
         !(code.alu_f_force_nz && ((code.alu_write_f_mask & 0b1000) == 0)),
         "Forcing Z flag without writing it back,"
     );
-    assert!(
-        !(code.is_end && code.is_cond_end),
-        "End and CCEnd both set."
-    );
+    assert!(!(code.is_end && code.is_cond_end), "End and CCEnd both set.");
     assert!(
         !(code.enable_interrupts && code.disable_interrupts),
         "Cannot enable and disable interrupts at the same time."
@@ -528,10 +438,7 @@ fn verify_micro_code(code: &MicroCode) {
         !(code.enter_cb_mode && (code.is_end || code.is_cond_end)),
         "Can't enter CB mode while ending an instruction."
     );
-    assert!(
-        !(code.is_halt && !code.is_end),
-        "Must halt at the same time as an instruction end."
-    );
+    assert!(!(code.is_halt && !code.is_end), "Must halt at the same time as an instruction end.");
     assert!(!(code.alu_mem_as_act && (code.reg_write_enable || code.alu_reg_write_enable)));
     assert!(code.alu_bit_select < 8);
 }

@@ -30,6 +30,9 @@ struct Opt {
 
     #[structopt(long)]
     fixed_window: bool,
+    // Logging.
+    #[structopt(long)]
+    log_audio: bool,
 }
 
 // Helpful links:
@@ -69,6 +72,7 @@ fn main() {
         timer: false,
         dma: false,
         gpu: false,
+        audio: args.log_audio,
     })
     .unwrap();
 

@@ -4,9 +4,8 @@ use crate::cpu::register::Register;
 
 pub fn parse_op(op: &str) -> Op {
     let mut parts = op.splitn(2, char::is_whitespace);
-    let cmd_str = parts
-        .next()
-        .unwrap_or_else(|| panic!("Command {} did not contain a valid op.", op));
+    let cmd_str =
+        parts.next().unwrap_or_else(|| panic!("Command {} did not contain a valid op.", op));
     let mut args = parts.next().unwrap_or("").split(',').map(str::trim);
     let lhs = args.next().and_then(|x| parse_arg(x));
     let rhs = args.next().and_then(|x| parse_arg(x));
@@ -38,11 +37,7 @@ pub fn parse_op(op: &str) -> Op {
         "HALT" => HALT,
         _ => panic!("Unexpected command: \"{}\"", cmd_str),
     };
-    Op {
-        cmd,
-        lhs: MaybeArg::new(lhs),
-        rhs: MaybeArg::new(rhs),
-    }
+    Op { cmd, lhs: MaybeArg::new(lhs), rhs: MaybeArg::new(rhs) }
 }
 
 fn parse_arg(arg: &str) -> Option<Arg> {

@@ -219,8 +219,7 @@ impl InternalState {
         }
         if let TState::T1 | TState::T3 = t_state {
             self.lcd_status.set_mode(self.mode as u8);
-            self.lcd_status
-                .set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
+            self.lcd_status.set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
         }
         let stat_asserted = (self.interrupts.bits() & self.lcd_status.0) != 0;
         self.fire_interrupt = stat_asserted && !self.old_stat_asserted;
@@ -244,8 +243,7 @@ impl InternalState {
     }
 
     pub fn update_interrupts(&mut self, t_state: TState) {
-        self.interrupts
-            .remove(Interrupts::HBLANK | Interrupts::VBLANK | Interrupts::LYC);
+        self.interrupts.remove(Interrupts::HBLANK | Interrupts::VBLANK | Interrupts::LYC);
         if self.hblank_delay_tcycles < 7 {
             self.interrupts |= Interrupts::HBLANK;
         }
@@ -307,11 +305,7 @@ impl InternalState {
         bus.maybe_read(self.external_y);
         bus.maybe_read(self.lyc);
         if bus.reads_from(self.lcd_status) {
-            let enable_mask = if self.lcd_control.enable_display() {
-                0xFF
-            } else {
-                !0b111
-            };
+            let enable_mask = if self.lcd_control.enable_display() { 0xFF } else { !0b111 };
             bus.data_latch = (self.lcd_status.0 & enable_mask) | 0x80;
         }
     }
@@ -480,8 +474,7 @@ impl Gpu {
 
         if self.fifo.has_room() && self.fetcher.has_data() {
             let row = self.fetcher.get_row();
-            self.fifo
-                .push(FifoEntry::from_row(row, self.fetcher.window_mode));
+            self.fifo.push(FifoEntry::from_row(row, self.fetcher.window_mode));
             self.fetcher = self.fetcher.next();
         }
 

@@ -129,10 +129,7 @@ impl ImageBuilder {
             .set_mem_range(0xFE00, &oam)
             .set_mem_8bit(io_registers::Addresses::LcdControl as i32, lcdc.0)
             .set_mem_8bit(io_registers::Addresses::BgPalette as i32, 0b11_10_01_00)
-            .set_mem_8bit(
-                io_registers::Addresses::SpritePalette0 as i32,
-                0b11_10_01_00,
-            )
+            .set_mem_8bit(io_registers::Addresses::SpritePalette0 as i32, 0b11_10_01_00)
             .set_mem_8bit(io_registers::Addresses::ScrollX as i32, self.xscroll as i32)
             .set_mem_8bit(io_registers::Addresses::ScrollY as i32, self.yscroll as i32)
             .set_mem_8bit(io_registers::Addresses::WindowXPos as i32, self.wx as i32)
@@ -223,11 +220,7 @@ pub struct SpriteBuilder {
 
 impl SpriteBuilder {
     pub fn new() -> SpriteBuilder {
-        SpriteBuilder {
-            sprite: SpriteEntry(0),
-            color: Color::Black,
-            mask: None,
-        }
+        SpriteBuilder { sprite: SpriteEntry(0), color: Color::Black, mask: None }
     }
 
     pub fn with_pos(x: i32, y: i32) -> SpriteBuilder {

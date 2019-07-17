@@ -79,11 +79,7 @@ impl PixelFifo {
         for _ in 0..8 {
             fifo.push(FifoEntry(0));
         }
-        PixelFifo {
-            pixels_to_scroll,
-            fifo,
-            ..PixelFifo::new()
-        }
+        PixelFifo { pixels_to_scroll, fifo, ..PixelFifo::new() }
     }
 
     pub fn enough_for_sprite(&self) -> bool {

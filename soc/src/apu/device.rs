@@ -80,7 +80,22 @@ mod platform {
 
     pub struct Device {
         ctx: *mut SoundIo,
+        device: *mut SoundIoDevice,
+        out_stream: *mut SoundIoOutStream,
         shared_state: Box<SharedState>,
+    }
+
+    impl Drop for Device {
+        fn drop(&mut self) {
+            // Disable the stream.
+            unsafe { soundio_outstream_destroy(self.out_stream) };
+            // Join with the audio thread, and destroy it.
+            let mut audio_thread = self.shared_state.audio_thread.lock();
+            *audio_thread = None;
+            // Finally, destroy the device and context.
+            unsafe { soundio_device_unref(self.device); }
+            unsafe { soundio_destroy(self.ctx); }
+        }
     }
 
     impl Device {
@@ -131,9 +146,7 @@ mod platform {
             if err != 0 {
                 bail!("Could not start output stream: {}", err_as_str(err));
             }
-
-            // Ok(Device { output_stream })
-            Ok(Device { ctx, shared_state })
+            Ok(Device { ctx, device, out_stream, shared_state })
         }
 
         fn get_device_if_supported(ctx: *mut SoundIo, idx: i32) -> Option<*mut SoundIoDevice> {

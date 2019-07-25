@@ -34,7 +34,6 @@ pub fn setup_logging(settings: LogSettings) -> Result<(), fern::InitError> {
             .format(|out, message, record| {
                 out.finish(format_args!("[{}]: {}", record.target(), message))
             })
-            .level(log::LevelFilter::Trace)
             .chain(std::io::stdout())
             .apply()?;
     }

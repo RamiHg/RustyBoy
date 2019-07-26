@@ -107,7 +107,10 @@ impl System {
 
     pub fn restore_from_deserialize(&mut self) {
         self.screen = vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
-        self.apu = Some(Default::default());
+        #[cfg(feature = "audio")]
+        {
+            self.apu = Some(Default::default());
+        }
     }
     pub fn set_cart(&mut self, cart: Box<dyn Cart>) {
         self.cart = Some(cart);

@@ -64,7 +64,7 @@ pub trait Register: Copy {
     }
 
     fn or_bus(&self, bus: &MemoryBus) -> i32 {
-        bus.writes_to(self.address()).unwrap_or(self.value())
+        bus.writes_to(self.address()).unwrap_or_else(|| self.value())
     }
 
     fn set_from_bus(&mut self, bus: &MemoryBus) {

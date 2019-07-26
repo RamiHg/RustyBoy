@@ -143,12 +143,13 @@ impl From<SingleTable> for Register {
         }
     }
 }
-
-impl File {
-    pub fn new() -> File {
+impl Default for File {
+    fn default() -> File {
         File { 0: [0; Register::NumRegisters as usize] }
     }
+}
 
+impl File {
     pub fn get(&self, any: Register) -> i32 {
         let combine_any = |a, b| (self.get(a) << 8) | self.get(b);
         use Register::*;

@@ -267,9 +267,7 @@ impl InternalState {
     /// Sets the LY register that is visible from outside the PPU.
     /// Prerequisites: Only called on a PPU cycle (i.e. T1 and T3).
     fn update_external_y(&mut self) {
-        self.external_y.0 = if self.current_y == 0 {
-            0
-        } else if self.current_y == 153 && self.counter >= 4 {
+        self.external_y.0 = if self.current_y == 0 || (self.current_y == 153 && self.counter >= 4) {
             0
         } else {
             self.current_y
@@ -332,11 +330,10 @@ impl InternalState {
     }
 }
 
-impl Gpu {
-    pub fn new() -> Gpu {
+impl Default for Gpu {
+    fn default() -> Gpu {
         // This is the state of the GPU after the bootrom completes. The GPU is in the 4th cycle of
         // the vblank mode on line 153 (or 0 during cycle 0).
-
         Gpu {
             bg_palette: 0xFC,
             sprite_palette_0: 0xFF,
@@ -353,16 +350,17 @@ impl Gpu {
             visible_sprites: ArrayVec::new(),
             fetched_sprites: [false; 10],
 
-            // Store OAM with Vram in order to reduce amount of copying.
             vram: vec![0; 8192],
             oam: vec![0; 160],
 
-            options: Options::new(),
+            options: Options::default(),
 
-            state: InternalState::with_options(&Options::new()),
+            state: InternalState::with_options(&Options::default()),
         }
     }
+}
 
+impl Gpu {
     pub fn hack(&self) -> bool {
         self.state.fire_interrupt_oam_hack
     }
@@ -565,7 +563,7 @@ impl Gpu {
                         sprite.flip_x(),
                     )
                     .take(8)
-                    .skip(sprites::pixels_behind(self.pixels_pushed(), &sprite));
+                    .skip(sprites::pixels_behind(self.pixels_pushed(), sprite));
                     // Only keep enough pixels to
                     self.fetcher = self.fetcher.continue_scanline();
                     self.fifo = self.fifo.clone().combined_with_sprite(row);

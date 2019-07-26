@@ -11,11 +11,11 @@ struct OpComponents {
 impl OpComponents {
     fn from_byte(byte: u8) -> OpComponents {
         OpComponents {
-            x: (byte & 0b11000000) >> 6,
-            y: (byte & 0b00111000) >> 3,
-            z: (byte & 0b00000111),
-            p: (byte & 0b00110000) >> 4,
-            q: (byte & 0b00001000) != 0,
+            x: (byte & 0b1100_0000) >> 6,
+            y: (byte & 0b0011_1000) >> 3,
+            z: (byte & 0b0000_0111),
+            p: (byte & 0b0011_0000) >> 4,
+            q: (byte & 0b0000_1000) != 0,
         }
     }
 }
@@ -23,7 +23,7 @@ impl OpComponents {
 pub fn decode(byte0: u8, byte1: u8, byte2: u8) -> Result<Op, String> {
     let components = OpComponents::from_byte(byte0);
     let invalid_opcode_error = Err(format!("0x{:X?} is not a valid opcode.", byte0));
-    let imm_16 = Arg::Unsigned16bit(byte1 as u16 | ((byte2 as u16) << 8));
+    let imm_16 = Arg::Unsigned16bit(u16::from(byte1) | (u16::from(byte2) << 8));
 
     match components.x {
         // x = 0

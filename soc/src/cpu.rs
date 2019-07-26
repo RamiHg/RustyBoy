@@ -76,11 +76,11 @@ pub struct Cpu {
     pub is_halted: bool,
 }
 
-impl Cpu {
-    pub fn new() -> Cpu {
+impl Default for Cpu {
+    fn default() -> Cpu {
         let mut cpu = Cpu {
             state: State::default(),
-            registers: register::File::new(),
+            registers: register::File::default(),
             decoder: Default::default(),
             micro_code_stack: ArrayDeque::new(),
             t_state: TState::default(),
@@ -92,7 +92,9 @@ impl Cpu {
         cpu.registers.set(register::Register::PC, 0x100);
         cpu
     }
+}
 
+impl Cpu {
     pub fn execute_t_cycle(&mut self, memory: &mut Memory, hack: bool) -> Result<()> {
         // First step is to handle interrupts. Save off the is_halted flag since the next function
         // can unset it.
@@ -144,6 +146,7 @@ impl Cpu {
         Ok(())
     }
 
+    #[allow(clippy::useless_let_if_seq)]
     fn has_pending_interrupts(&mut self, memory: &Memory, hack: bool) -> Result<bool> {
         debug_assert!(self.interrupts_enabled || self.is_halted);
         let (mode, t_to_check) = (DecodeMode::Decode, 3);

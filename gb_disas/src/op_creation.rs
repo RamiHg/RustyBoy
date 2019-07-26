@@ -44,6 +44,7 @@ impl Op {
     }
 }
 
+#[allow(clippy::wrong_self_convention)] // TODO: Fix this eventually.
 impl Arg {
     pub fn from_i8(value: u8) -> Arg {
         Arg::Signed8bit(value as i8)

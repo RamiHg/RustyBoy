@@ -151,11 +151,13 @@ impl Memory {
     }
 }
 
-impl Memory {
-    pub fn new() -> Memory {
+impl Default for Memory {
+    fn default() -> Memory {
         Memory { mem: vec![0; 0x10000] }
     }
+}
 
+impl Memory {
     /// Temporary while the entire system moves away form direct memory access.
     pub fn read(&self, raw_address: i32) -> i32 {
         let address = Address::from_raw(raw_address).unwrap();

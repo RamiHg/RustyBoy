@@ -65,7 +65,7 @@ pub struct System {
 impl Default for System {
     fn default() -> System {
         use cpu::register::Register;
-        let mut cpu = cpu::Cpu::new();
+        let mut cpu = cpu::Cpu::default();
         // Set the initial register values.
         cpu.registers.set(Register::A, 0x01);
         cpu.registers.set(Register::F, 0xB0);
@@ -77,12 +77,10 @@ impl Default for System {
         cpu.registers.set(Register::L, 0x4D);
         cpu.registers.set(Register::SP, 0xFFFE);
 
-        let gpu = gpu::Gpu::new();
-
         System {
             cpu,
-            gpu,
-            memory: mmu::Memory::new(),
+            gpu: gpu::Gpu::default(),
+            memory: mmu::Memory::default(),
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
@@ -244,14 +242,13 @@ impl System {
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
         let is_dma =
             self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
-        let bus = mmu::MemoryBus {
+        mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
             read_latch: self.cpu.state.read_latch && !is_dma,
             write_latch: self.cpu.state.write_latch && !is_dma,
             t_state: self.cpu.t_state.get(),
-        };
-        bus
+        }
     }
 
     fn handle_dma(&mut self) -> Result<()> {

@@ -115,6 +115,9 @@ impl System {
         self.cart = Some(cart);
     }
 
+    pub fn cpu(&self) -> &cpu::Cpu {
+        &self.cpu
+    }
     pub fn gpu(&self) -> &gpu::Gpu {
         &self.gpu
     }

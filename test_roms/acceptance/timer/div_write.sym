@@ -1,0 +1,53 @@
+; this file was created with wlalink by ville helin <vhelin@iki.fi>.
+; wla symbolic information for "acceptance/timer/div_write.gb".
+
+[labels]
+01:481f clear_vram
+01:4804 disable_lcd_safe
+01:480a _wait_ly_0
+01:4829 memcpy
+01:4832 memset
+01:4842 print_inline_string
+01:4813 print_load_font
+01:483b print_string
+01:47f0 reset_screen
+01:4000 font
+00:0150 test
+00:0183 _wait_ly_5
+00:0189 _wait_ly_6
+00:018f _wait_ly_7
+00:0195 _wait_ly_8
+00:01ab _print_results_halt_1
+00:01af _test_ok_cb_0
+00:01bd test_failure
+00:01d2 _wait_ly_9
+00:01d8 _wait_ly_10
+00:01de _wait_ly_11
+00:01e4 _wait_ly_12
+00:01fa _print_results_halt_2
+00:01fe _test_failure_cb_0
+
+[definitions]
+0000000a _sizeof_clear_vram
+00000006 _sizeof_disable_lcd_safe
+00000009 _sizeof__wait_ly_0
+00000009 _sizeof_memcpy
+00000009 _sizeof_memset
+00000006 _sizeof_print_inline_string
+0000000c _sizeof_print_load_font
+00000007 _sizeof_print_string
+00000014 _sizeof_reset_screen
+000007f0 _sizeof_font
+00000033 _sizeof_test
+00000006 _sizeof__wait_ly_5
+00000006 _sizeof__wait_ly_6
+00000006 _sizeof__wait_ly_7
+00000016 _sizeof__wait_ly_8
+00000004 _sizeof__print_results_halt_1
+0000000e _sizeof__test_ok_cb_0
+00000015 _sizeof_test_failure
+00000006 _sizeof__wait_ly_9
+00000006 _sizeof__wait_ly_10
+00000006 _sizeof__wait_ly_11
+00000016 _sizeof__wait_ly_12
+00000004 _sizeof__print_results_halt_2

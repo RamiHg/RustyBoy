@@ -35,5 +35,3 @@ incremental = true
 overflow-checks = true
 debug-assertions = true
 incremental = true
-# codegen-units = 1
-# lto = "fat"

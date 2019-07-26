@@ -14,6 +14,7 @@ mod util;
 
 // TODO: Fix the public API. Don't expose so many internals.
 pub mod cart;
+pub mod cpu;
 pub mod error;
 pub mod gpu;
 pub mod joypad;
@@ -23,7 +24,6 @@ pub mod system;
 #[cfg(feature = "audio")]
 mod apu;
 
-mod cpu;
 mod dma;
 mod mmu;
 mod serial;

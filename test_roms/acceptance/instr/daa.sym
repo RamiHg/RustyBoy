@@ -1,0 +1,57 @@
+; this file was created with wlalink by ville helin <vhelin@iki.fi>.
+; wla symbolic information for "acceptance/instr/daa.gb".
+
+[labels]
+01:6869 clear_vram
+01:6837 disable_lcd_safe
+01:683d _wait_ly_0
+01:687d memcpy
+01:6886 memset
+01:67f0 print_bin4
+01:6846 print_hex4
+01:6873 print_hex8
+01:6896 print_inline_string
+01:6852 print_load_font
+01:685e print_newline
+01:688f print_string
+01:6823 reset_screen
+01:6000 font
+00:0171 _wait_ly_5
+00:0177 _wait_ly_6
+00:017d _wait_ly_7
+00:0183 _wait_ly_8
+00:0199 _print_results_halt_1
+00:019d _test_ok_cb_0
+00:01ab run_tests
+00:01e0 fail
+00:02ab _wait_ly_9
+00:02b1 _wait_ly_10
+00:02bb testcases1
+01:4000 testcases2
+
+[definitions]
+0000000a _sizeof_clear_vram
+00000006 _sizeof_disable_lcd_safe
+00000009 _sizeof__wait_ly_0
+00000009 _sizeof_memcpy
+00000009 _sizeof_memset
+00000033 _sizeof_print_bin4
+0000000c _sizeof_print_hex4
+0000000a _sizeof_print_hex8
+00000006 _sizeof_print_inline_string
+0000000c _sizeof_print_load_font
+0000000b _sizeof_print_newline
+00000007 _sizeof_print_string
+00000014 _sizeof_reset_screen
+000007f0 _sizeof_font
+00002000 _sizeof_testcases1
+00002000 _sizeof_testcases2
+00000006 _sizeof__wait_ly_5
+00000006 _sizeof__wait_ly_6
+00000006 _sizeof__wait_ly_7
+00000016 _sizeof__wait_ly_8
+00000004 _sizeof__print_results_halt_1
+0000000e _sizeof__test_ok_cb_0
+00000035 _sizeof_run_tests
+000000cb _sizeof_fail
+00000006 _sizeof__wait_ly_9

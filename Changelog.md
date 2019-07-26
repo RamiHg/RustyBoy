@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - Current
+
+### Added
+
+- Integration tests are now runnable. Added compiled mooneye-gb ROMs, and source/compiled wilbert
+  ROMs.
+
+### Changed
+
+- Switched audio to (custom) implementation of libsoundio. No more Portaudio dependency! Quite a bit
+  of work since libsoundio is much lower level, and has no complete high-level Rust libraries.
+
 ## [1.1.0] - 2019-07-12
 
 ### Added

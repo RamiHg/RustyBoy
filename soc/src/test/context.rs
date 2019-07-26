@@ -37,12 +37,14 @@ pub use instructions::*;
 /// Stores information about what was done at each step of each
 /// test. This is then later used to be able to export the tests
 /// to aid in hardware verification.
+#[allow(dead_code)]
 enum Assertion {
     RegEq(Register, i32),
     MemRange { base: i32, values: Vec<u8> },
     MCycles(i32),
 }
 
+#[cfg(feature = "serialize_tests")]
 impl Assertion {
     fn serialize(&self) -> String {
         use Assertion::*;
@@ -58,6 +60,7 @@ impl Assertion {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Default)]
 struct TestDescriptor {
     name: String,
@@ -68,6 +71,7 @@ struct TestDescriptor {
     assertions: Vec<Assertion>,
 }
 
+#[cfg(feature = "serialize_tests")]
 impl TestDescriptor {
     fn add_mem_range(&mut self, base: i32, values: &[u8]) {
         for (i, &value) in values.iter().enumerate() {
@@ -75,7 +79,7 @@ impl TestDescriptor {
         }
     }
 
-    fn serialize(&self) -> String {
+    fn serialize_to(&self, location: &str) {
         let mut s = String::new();
         // Start off by printing the test name.
         s.push_str(&format!("test_name {}\n", self.name));
@@ -97,8 +101,17 @@ impl TestDescriptor {
         s.push_str(&format!("execute {}\n", self.num_instructions));
         // Serialize assertions.
         self.assertions.iter().for_each(|x| s.push_str(&x.serialize()));
-        s
+        // Output to file.
+        use std::{fs::OpenOptions, io::prelude::*};
+        let mut file = OpenOptions::new().create(true).append(true).open(location).unwrap();
+        file.write_all(s.as_bytes()).unwrap();
     }
+}
+
+#[cfg(not(feature = "serialize_tests"))]
+impl TestDescriptor {
+    fn add_mem_range(&mut self, _: i32, _: &[u8]) {}
+    fn serialize_to(&self, _: &str) {}
 }
 
 pub struct TestContext {
@@ -117,16 +130,16 @@ pub fn with_dynamic_cart() -> TestContext {
 impl TestContext {
     fn with_default(cart: Box<dyn cart::Cart>) -> TestContext {
         // Figure out the test name.
-        // let bt = backtrace::Backtrace::new();
-        // let first_non_setup = bt.frames()[2..]
-        //     .iter()
-        //     .flat_map(|x| x.symbols()[0].name().and_then(|y| y.as_str()))
-        //     .filter(|y| !y.contains("::setup"))
-        //     .nth(0)
-        //     .unwrap();
-        // let name = first_non_setup.to_string();
+        let name = "".to_string();
+        #[cfg(feature = "serialize_tests")]
+        let name = backtrace::Backtrace::new().frames()[2..]
+            .iter()
+            .flat_map(|x| x.symbols()[0].name().map(|y| format!("{}", y)))
+            .filter(|y| !y.contains("::context"))
+            .nth(0)
+            .unwrap()
+            .to_string();
         static INIT: std::sync::Once = std::sync::ONCE_INIT;
-        let name = "ignoreme".to_string();
         INIT.call_once(|| {
             crate::log::setup_logging(crate::log::LogSettings { ..Default::default() }).unwrap();
         });
@@ -246,10 +259,7 @@ impl TestContext {
         self.desc.assertions.push(Assertion::MCycles(cycles));
         assert_eq!(self.cycles, cycles.into());
         // Serialize the nuggets! (TODO: Kinda hacky. Make test trait that just prints)
-        let data = self.desc.serialize();
-        use std::{fs::OpenOptions, io::prelude::*};
-        let mut file = OpenOptions::new().create(true).append(true).open("test_data.txt").unwrap();
-        file.write_all(data.as_bytes()).unwrap();
+        self.desc.serialize_to("test_data.txt");
         self
     }
 

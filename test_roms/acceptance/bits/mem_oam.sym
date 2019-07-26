@@ -1,0 +1,67 @@
+; this file was created with wlalink by ville helin <vhelin@iki.fi>.
+; wla symbolic information for "acceptance/bits/mem_oam.gb".
+
+[labels]
+01:481f clear_vram
+01:4804 disable_lcd_safe
+01:480a _wait_ly_0
+01:4829 memcpy
+01:4832 memset
+01:4842 print_inline_string
+01:4813 print_load_font
+01:483b print_string
+01:47f0 reset_screen
+01:4000 font
+00:016f test_finish
+00:0184 _wait_ly_5
+00:018a _wait_ly_6
+00:0190 _wait_ly_7
+00:0196 _wait_ly_8
+00:01ac _print_results_halt_1
+00:01b0 _test_ok_cb_0
+00:01be fail_1
+00:01d3 _wait_ly_9
+00:01d9 _wait_ly_10
+00:01df _wait_ly_11
+00:01e5 _wait_ly_12
+00:01fb _print_results_halt_2
+00:01ff _test_failure_cb_0
+00:0212 fail_0
+00:0227 _wait_ly_13
+00:022d _wait_ly_14
+00:0233 _wait_ly_15
+00:0239 _wait_ly_16
+00:024f _print_results_halt_3
+00:0253 _test_failure_cb_1
+
+[definitions]
+0000000a _sizeof_clear_vram
+00000006 _sizeof_disable_lcd_safe
+00000009 _sizeof__wait_ly_0
+00000009 _sizeof_memcpy
+00000009 _sizeof_memset
+00000006 _sizeof_print_inline_string
+0000000c _sizeof_print_load_font
+00000007 _sizeof_print_string
+00000014 _sizeof_reset_screen
+000007f0 _sizeof_font
+00000015 _sizeof_test_finish
+00000006 _sizeof__wait_ly_5
+00000006 _sizeof__wait_ly_6
+00000006 _sizeof__wait_ly_7
+00000016 _sizeof__wait_ly_8
+00000004 _sizeof__print_results_halt_1
+0000000e _sizeof__test_ok_cb_0
+00000015 _sizeof_fail_1
+00000006 _sizeof__wait_ly_9
+00000006 _sizeof__wait_ly_10
+00000006 _sizeof__wait_ly_11
+00000016 _sizeof__wait_ly_12
+00000004 _sizeof__print_results_halt_2
+00000013 _sizeof__test_failure_cb_0
+00000015 _sizeof_fail_0
+00000006 _sizeof__wait_ly_13
+00000006 _sizeof__wait_ly_14
+00000006 _sizeof__wait_ly_15
+00000016 _sizeof__wait_ly_16
+00000004 _sizeof__print_results_halt_3

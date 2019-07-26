@@ -4,11 +4,11 @@ use super::base_path_to;
 use crate::gpu::{self, LCD_HEIGHT, LCD_WIDTH};
 use crate::system::System;
 
-impl From<bmp::Pixel> for gpu::Pixel {
-    fn from(pixel: bmp::Pixel) -> gpu::Pixel {
-        gpu::Pixel { r: pixel.r, g: pixel.g, b: pixel.b, a: 255 }
-    }
-}
+// impl From<bmp::Pixel> for gpu::Pixel {
+//     fn from(pixel: bmp::Pixel) -> gpu::Pixel {
+//         gpu::Pixel { r: pixel.r, g: pixel.g, b: pixel.b, a: 255 }
+//     }
+// }
 
 impl Into<bmp::Pixel> for gpu::Pixel {
     fn into(self) -> bmp::Pixel {

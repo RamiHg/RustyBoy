@@ -9,7 +9,11 @@ default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error"]
 disas = ["gb_disas"]
+# Enable for strict asserts that check for conditions that, while valid, are considered "bad" (e.g.
+# writing to RAM when RAM is disabled, etc..).
 strict_assert = []
+# Use to log unit tests to a format that is shared with FPGA test environment.
+serialize_tests = []
 
 [dependencies]
 arraydeque = "0.4.5"
@@ -36,10 +40,8 @@ libsoundio-sys = { path = "../../soundio-rs/libsoundio-sys", optional = true }
 simple-error = { version = "0.2.1", optional = true }
 
 [dev-dependencies]
-backtrace = "0.3.32"
+backtrace = "0.3.33"
 bmp = "0.4.0"
-itertools = "0.8.0"
-threadpool = "1.7.1"
 
 [dependencies.num-traits]
 version = "0.2.8"

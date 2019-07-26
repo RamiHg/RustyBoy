@@ -1,0 +1,77 @@
+; this file was created with wlalink by ville helin <vhelin@iki.fi>.
+; wla symbolic information for "emulator-only/mbc1/rom_2Mb.gb".
+
+[labels]
+01:4837 clear_vram
+01:4805 disable_lcd_safe
+01:480b _wait_ly_0
+01:484b memcpy
+01:4854 memset
+01:4814 print_hex4
+01:4841 print_hex8
+01:4864 print_inline_string
+01:4820 print_load_font
+01:482c print_newline
+01:485d print_string
+01:47f1 reset_screen
+01:4001 font
+00:016b fail
+00:0180 _wait_ly_5
+00:0186 _wait_ly_6
+00:018c _wait_ly_7
+00:0192 _wait_ly_8
+00:01a8 _print_results_halt_1
+00:01ac _fail_cb
+00:0245 c000_functions_start
+00:0245 run_test_suite
+00:0270 _wait_ly_9
+00:0276 _wait_ly_10
+00:027c _wait_ly_11
+00:0282 _wait_ly_12
+00:0298 _print_results_halt_2
+00:029c _test_ok_cb_0
+00:02aa run_tests
+00:02b8 run_test_cases
+00:02c6 test_case
+00:02e3 restore_mbc1
+00:02ec switch_bank
+00:02fd fetch_expected_value
+00:031c c000_functions_end
+00:031c expected_banks
+
+[definitions]
+0000000a _sizeof_clear_vram
+00000006 _sizeof_disable_lcd_safe
+00000009 _sizeof__wait_ly_0
+00000009 _sizeof_memcpy
+00000009 _sizeof_memset
+0000000c _sizeof_print_hex4
+0000000a _sizeof_print_hex8
+00000006 _sizeof_print_inline_string
+0000000c _sizeof_print_load_font
+0000000b _sizeof_print_newline
+00000007 _sizeof_print_string
+00000014 _sizeof_reset_screen
+000007f0 _sizeof_font
+00000180 _sizeof_expected_banks
+00000015 _sizeof_fail
+00000006 _sizeof__wait_ly_5
+00000006 _sizeof__wait_ly_6
+00000006 _sizeof__wait_ly_7
+00000016 _sizeof__wait_ly_8
+00000004 _sizeof__print_results_halt_1
+00000099 _sizeof__fail_cb
+00000000 _sizeof_c000_functions_start
+0000002b _sizeof_run_test_suite
+00000006 _sizeof__wait_ly_9
+00000006 _sizeof__wait_ly_10
+00000006 _sizeof__wait_ly_11
+00000016 _sizeof__wait_ly_12
+00000004 _sizeof__print_results_halt_2
+0000000e _sizeof__test_ok_cb_0
+0000000e _sizeof_run_tests
+0000000e _sizeof_run_test_cases
+0000001d _sizeof_test_case
+00000009 _sizeof_restore_mbc1
+00000011 _sizeof_switch_bank
+0000001f _sizeof_fetch_expected_value

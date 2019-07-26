@@ -34,8 +34,7 @@ pub fn run_target_with_options(target: &str, cart: Box<cart::Cart>, options: gpu
         }
     }
 
-    let passes = system.cpu_mut().registers.get(cpu::register::Register::A) == 0;
-    passes
+    system.cpu_mut().registers.get(cpu::register::Register::A) == 0
 }
 
 pub fn run_target(target: &str) -> bool {

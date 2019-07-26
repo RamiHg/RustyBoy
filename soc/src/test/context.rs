@@ -1,9 +1,6 @@
-use crate::cpu::{alu::Flags, register::Register};
-
 use crate::cart;
-use crate::gpu;
+use crate::cpu::{alu::Flags, register::Register};
 use crate::io_registers;
-use crate::mmu;
 use crate::system;
 use crate::timer;
 
@@ -131,14 +128,7 @@ impl TestContext {
         static INIT: std::sync::Once = std::sync::ONCE_INIT;
         let name = "ignoreme".to_string();
         INIT.call_once(|| {
-            crate::log::setup_logging(crate::log::LogSettings {
-                interrupts: false,
-                disassembly: false,
-                timer: false,
-                dma: false,
-                gpu: false,
-            })
-            .unwrap();
+            crate::log::setup_logging(crate::log::LogSettings { ..Default::default() }).unwrap();
         });
 
         TestContext {
@@ -232,22 +222,6 @@ impl TestContext {
         self.execute_instructions_for_mcycles(instructions, -1)
     }
 
-    pub fn tick(&mut self) {
-        self.system.execute_machine_cycle().unwrap();
-    }
-
-    pub fn gpu_mode(&self) -> gpu::registers::LcdMode {
-        gpu::registers::LcdStatus(
-            self.system.memory_read(io_registers::Addresses::LcdStatus as i32),
-        )
-        .mode()
-    }
-
-    pub fn set_gpu_enabled(mut self) -> TestContext {
-        self.system.memory_write(io_registers::Addresses::LcdControl as i32, 0x91);
-        self
-    }
-
     pub fn wait_for_vsync(mut self) -> TestContext {
         self = self.set_mem_range(0xC000, &INF_LOOP);
         self.system.cpu_mut().registers.set(Register::PC, 0xC000);
@@ -299,7 +273,7 @@ impl TestContext {
 
     pub fn assert_mem_16bit_eq(mut self, address: i32, value: i32) -> TestContext {
         self.make_assert_mem_nugget(address, &[value as u8, (value >> 8) as u8]);
-        let mem_value = i32::from(self.system.memory_read_16(address));
+        let mem_value = self.system.memory_read_16(address);
         assert_eq!(mem_value, value, "{:X?} != {:X?}", mem_value, value);
         self
     }

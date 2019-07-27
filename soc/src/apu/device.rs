@@ -12,6 +12,8 @@ pub const DEVICE_RATE: f32 = 48_000.0;
 
 const WANTED_LATENCY: f64 = 1.0 / DEVICE_RATE as f64 * FRAMES_PER_BUFFER as f64;
 
+const IDEAL_SAMPLE_RATE: f32 = 128_000.0;
+
 pub use platform::*;
 
 mod platform {
@@ -24,7 +26,7 @@ mod platform {
     use super::*;
 
     #[cfg(target_os = "windows")]
-    pub const FRAMES_PER_BUFFER: usize = 256;
+    pub const FRAMES_PER_BUFFER: usize = 2048;
     #[cfg(not(target_os = "windows"))]
     pub const FRAMES_PER_BUFFER: usize = 32;
 
@@ -162,6 +164,7 @@ mod platform {
             // Request the (very low) latency rate that we want.
             out_stream.software_latency = WANTED_LATENCY;
             out_stream.write_callback = Device::write_callback;
+            out_stream.underflow_callback = Some(Device::underflow_callback);
             let err = unsafe { soundio_outstream_open(out_stream) };
             if err != 0 {
                 unsafe { soundio_outstream_destroy(out_stream) };
@@ -236,15 +239,30 @@ mod platform {
                 trace!(target: "audio", "soundio_outstream_end_write error: {}", err_as_str(err));
             }
         }
+
+        extern "C" fn underflow_callback(_stream: *mut SoundIoOutStream) {
+            eprintln!("Audio underflowed. Is machine overloaded? If not, please file a bug.");
+        }
     }
 }
 
+use ringbuf::{Consumer, Producer};
+
 struct AudioThread {
-    mixer: ChannelMixer,
+    // mixer: ChannelMixer,
     resampler: *mut SRC_STATE_tag,
     resample_src_scratch: Vec<StereoFrame>,
     resample_dst_scratch: Vec<StereoFrame>,
     sample_buffer: VecDeque<StereoFrame>,
+
+    sample_receiver: Consumer<StereoFrame>,
+    receiver_buffer: VecDeque<StereoFrame>,
+}
+
+struct AudioThread2 {
+    mixer: ChannelMixer,
+    producer: Producer<StereoFrame>,
+    scratch: Vec<StereoFrame>,
 }
 
 impl AudioThread {
@@ -255,13 +273,26 @@ impl AudioThread {
         let resampler = unsafe { src_new(SRC_SINC_FASTEST as i32, 2, &mut error) };
         assert_eq!(error, 0);
 
-        AudioThread {
-            mixer,
+        let (producer, consumer) = ringbuf::RingBuffer::<StereoFrame>::new(
+            (MIN_SAMPLE_RATE / DEVICE_RATE * FRAMES_PER_BUFFER as f32 * 2.0) as usize,
+        )
+        .split();
+
+        let mut audio_thread2 = AudioThread2 { mixer, producer, scratch: Vec::with_capacity(1024) };
+
+        let audio_thread = AudioThread {
+            // mixer,
             resampler,
             resample_src_scratch: vec![StereoFrame::default(); 44 * FRAMES_PER_BUFFER],
             resample_dst_scratch: vec![StereoFrame::default(); FRAMES_PER_BUFFER + 16],
             sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER + 1),
-        }
+
+            sample_receiver: consumer,
+            receiver_buffer: VecDeque::new(),
+        };
+
+        std::thread::spawn(move || audio_thread2.audio_loop());
+        audio_thread
     }
 
     pub fn stream_callback(&mut self, buffer: &mut [f32]) {
@@ -269,23 +300,37 @@ impl AudioThread {
         let buffer: &mut [StereoFrame] = sample::slice::to_frame_slice_mut(buffer)
             .expect("Couldn't convert output buffer to stereo.");
         let frames_per_buffer = buffer.len();
-        self.mixer.on_sample_begin();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
-        let mcycles_to_sample = (MIN_SAMPLE_RATE / DEVICE_RATE * buffer.len() as f32 + 1.0) as i32;
-        self.resample_src_scratch.clear();
-        for _ in 0..mcycles_to_sample {
-            // Skip every other sample (to downsample to 2MiHz).
-            self.mixer.next_sample();
-            let sample = self.mixer.next_sample();
-            self.resample_src_scratch.push(sample);
+        let mcycles_to_sample =
+            (MIN_SAMPLE_RATE / DEVICE_RATE * buffer.len() as f32 + 1.0) as usize;
+        let num_written =
+            self.sample_receiver.pop_slice(&mut self.resample_src_scratch[..mcycles_to_sample]);
+        if num_written.is_err() {
+            trace!(target: "audio", "Sample buffer underrun. Skipping frame.");
+        }
+        let num_written = num_written.unwrap_or_default();
+        for elem in &self.resample_src_scratch[..num_written] {
+            self.receiver_buffer.push_back(*elem);
+        }
+        if self.receiver_buffer.len() < mcycles_to_sample {
+            println!(
+                "Only have {} when needed {}. Gonna wait.",
+                self.receiver_buffer.len(),
+                mcycles_to_sample
+            );
+            buffer.iter_mut().for_each(|x| *x = [0.0; 2]);
+            return;
+        }
+        for (i, frame) in self.receiver_buffer.drain(..mcycles_to_sample).enumerate() {
+            self.resample_src_scratch[i] = frame;
         }
         // Resample the samples down to the device sample rate.
         let _resample_time = std::time::Instant::now();
         let mut data = SRC_DATA {
             data_in: self.resample_src_scratch.as_ptr() as *const _,
             data_out: self.resample_dst_scratch.as_mut_ptr() as *mut _,
-            input_frames: self.resample_src_scratch.len() as c_long,
+            input_frames: mcycles_to_sample as c_long,
             output_frames: self.resample_dst_scratch.len() as c_long,
             input_frames_used: 0,
             output_frames_gen: 0,
@@ -303,18 +348,13 @@ impl AudioThread {
         // TODO: Can probably remove this copy. Not that it matters.
         self.sample_buffer.extend(frames.iter());
         // Update any global state.
-        self.mixer.on_sample_end();
         // Finally, write out the samples to the buffer.
         for out_frame in buffer.iter_mut() {
             let sample = self.sample_buffer.pop_front();
             let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
-        // println!(
-        //     "Took {:#?} total. {:#?} in resampling",
-        //     _now.elapsed(),
-        //     _resample_time.elapsed(),
-        // );
+        //println!("Took {:#?} total. {:#?} in resampling", _now.elapsed(), _resample_time.elapsed(),);
     }
 }
 
@@ -322,6 +362,50 @@ impl Drop for AudioThread {
     fn drop(&mut self) {
         unsafe {
             src_delete(self.resampler);
+        }
+    }
+}
+
+impl AudioThread2 {
+    fn audio_loop(&mut self) {
+        use std::time::Instant;
+
+        const APU_SAMPLES_PER_NS: f32 = MIN_SAMPLE_RATE / 1e9;
+        let ideal_ns_per_wakeup =
+            std::time::Duration::from_nanos((1e9 / IDEAL_SAMPLE_RATE).ceil() as u64);
+
+        let mut now = Instant::now();
+        let mut frac_samples = 0.0;
+        loop {
+            let elapsed_ns = now.elapsed().as_nanos() as f32;
+            now = Instant::now();
+
+            let elapsed_samples: f32 = elapsed_ns * APU_SAMPLES_PER_NS;
+            frac_samples += elapsed_samples.fract();
+            debug_assert_le!(frac_samples.floor(), 1.0);
+            let num_to_sample = (elapsed_samples.floor() + frac_samples.floor()) as usize;
+            //println!("Elapsed {:#?}. Now need to sample {}", now.elapsed(), num_to_sample);
+            frac_samples = frac_samples.fract();
+
+            self.mixer.on_sample_begin();
+            self.scratch.clear();
+            for _ in 0..num_to_sample {
+                // Skip every other sample.
+                self.mixer.next_sample();
+                let sample = self.mixer.next_sample();
+                self.scratch.push(sample);
+            }
+            let num_written = loop {
+                let write_result = self.producer.push_slice(self.scratch.as_slice());
+                if let Err(ringbuf::PushSliceError::Full) = write_result {
+                    // Simply sleep and try again.
+                    std::thread::sleep(ideal_ns_per_wakeup);
+                } else {
+                    break write_result.unwrap();
+                }
+            };
+            self.mixer.on_sample_end();
+            std::thread::sleep(ideal_ns_per_wakeup);
         }
     }
 }

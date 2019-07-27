@@ -20,8 +20,8 @@ soc = { path = "soc" }
 
 # Uncomment for incremental release settings.
 [profile.release]
-overflow-checks = true
-debug-assertions = true
+#overflow-checks = true
+#debug-assertions = true
 incremental = true
 
 # Uncomment for fully optimized release settings.

@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
-audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error"]
+audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf"]
 disas = ["gb_disas"]
 # Enable for strict asserts that check for conditions that, while valid, are considered "bad" (e.g.
 # writing to RAM when RAM is disabled, etc..).
@@ -38,6 +38,7 @@ sample = { version = "0.10.0", optional = true }
 libsamplerate = {version = "0.1.0", optional = true }
 libsoundio-sys = { path = "../../soundio-rs/libsoundio-sys", optional = true }
 simple-error = { version = "0.2.1", optional = true }
+ringbuf = { version = "0.1.4", optional = true }
 
 [dev-dependencies]
 backtrace = "0.3.33"

@@ -387,7 +387,7 @@ impl System {
         let mut system = System::default();
         system.set_cart(cart);
         // Clear all registers.
-        system.cpu.registers = cpu::register::File::new();
+        system.cpu.registers = cpu::register::File::default();
         // Start with the GPU disabled.
         system.write_request(io_registers::Addresses::LcdControl as i32, 0).unwrap();
         // And the timer.

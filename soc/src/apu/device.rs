@@ -12,7 +12,7 @@ pub const DEVICE_RATE: f32 = 48_000.0;
 
 const WANTED_LATENCY: f64 = 1.0 / DEVICE_RATE as f64 * FRAMES_PER_BUFFER as f64;
 
-const IDEAL_SAMPLE_RATE: f32 = 128_000.0;
+const IDEAL_SAMPLE_RATE: f32 = 64_000.0;
 
 pub use platform::*;
 
@@ -28,7 +28,7 @@ mod platform {
     #[cfg(target_os = "windows")]
     pub const FRAMES_PER_BUFFER: usize = 2048;
     #[cfg(not(target_os = "windows"))]
-    pub const FRAMES_PER_BUFFER: usize = 32;
+    pub const FRAMES_PER_BUFFER: usize = 256;
 
     const SAMPLE_FORMAT: SoundIoFormat = SoundIoFormat::SoundIoFormatFloat32LE;
 
@@ -178,8 +178,8 @@ mod platform {
                 );
             }
             trace!(
-                target: "audio", "Created output stream with latency {}, sample rate {}.",
-                out_stream.software_latency, out_stream.sample_rate);
+                target: "audio", "Created output stream with latency {}ms, sample rate {}.",
+                out_stream.software_latency * 1000.0, out_stream.sample_rate);
             Ok(out_stream)
         }
 
@@ -198,7 +198,8 @@ mod platform {
             let audio_thread = maybe_audio_thread.as_mut().unwrap();
             // Begin writing.
             let mut sound_areas = std::ptr::null_mut();
-            let mut frame_count: c_int = FRAMES_PER_BUFFER as c_int;
+            let mut frame_count: c_int =
+                (FRAMES_PER_BUFFER as c_int).max(frame_count_min).min(frame_count_max);
             let err = unsafe {
                 soundio_outstream_begin_write(stream, &mut sound_areas, &mut frame_count)
             };
@@ -283,9 +284,9 @@ impl AudioThread {
         let audio_thread = AudioThread {
             // mixer,
             resampler,
-            resample_src_scratch: vec![StereoFrame::default(); 44 * FRAMES_PER_BUFFER],
-            resample_dst_scratch: vec![StereoFrame::default(); FRAMES_PER_BUFFER + 16],
-            sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER + 1),
+            resample_src_scratch: vec![StereoFrame::default(); 44 * FRAMES_PER_BUFFER * 2],
+            resample_dst_scratch: vec![StereoFrame::default(); FRAMES_PER_BUFFER * 2 + 16],
+            sample_buffer: VecDeque::with_capacity(FRAMES_PER_BUFFER * 2 + 1),
 
             sample_receiver: consumer,
             receiver_buffer: VecDeque::new(),
@@ -374,11 +375,16 @@ impl AudioThread2 {
         let ideal_ns_per_wakeup =
             std::time::Duration::from_nanos((1e9 / IDEAL_SAMPLE_RATE).ceil() as u64);
 
+        let mut tot = Instant::now();
+        let mut num = 0;
+        let mut loops = 0;
+
         let mut now = Instant::now();
         let mut frac_samples = 0.0;
         loop {
-            let elapsed_ns = now.elapsed().as_nanos() as f32;
-            now = Instant::now();
+            let elapsed_ns = now.elapsed();
+            now += elapsed_ns;
+            let elapsed_ns = elapsed_ns.as_nanos() as f32;
 
             let elapsed_samples: f32 = elapsed_ns * APU_SAMPLES_PER_NS;
             frac_samples += elapsed_samples.fract();
@@ -399,13 +405,35 @@ impl AudioThread2 {
                 let write_result = self.producer.push_slice(self.scratch.as_slice());
                 if let Err(ringbuf::PushSliceError::Full) = write_result {
                     // Simply sleep and try again.
+                    // println!("Full!");
                     std::thread::sleep(ideal_ns_per_wakeup);
+                //std::thread::yield_now();
                 } else {
                     break write_result.unwrap();
                 }
             };
             self.mixer.on_sample_end();
-            std::thread::sleep(ideal_ns_per_wakeup);
+            num += num_written;
+            loops += 1;
+            if num >= MIN_SAMPLE_RATE as usize {
+                println!(
+                    "Took {:#?} and {} loops to write {} samples. That's {}ms per loop.",
+                    tot.elapsed(),
+                    loops,
+                    num,
+                    tot.elapsed().as_nanos() as f32 * 1e-6 / loops as f32
+                );
+                tot = Instant::now();
+                num = 0;
+                loops = 0;
+            }
+
+            //println!("It took {:X?}", now.elapsed());
+            // if ideal_ns_per_wakeup > now.elapsed() {
+            std::thread::sleep(std::time::Duration::from_nanos(
+                ideal_ns_per_wakeup.as_nanos().saturating_sub(now.elapsed().as_nanos()) as u64,
+            ));
+            // }
         }
     }
 }

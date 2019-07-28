@@ -106,7 +106,7 @@ impl MemoryMapped for Memory {
         use Location::*;
         match location {
             Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
-                let flag = self.mem[raw as usize] as i32;
+                let flag = i32::from(self.mem[raw as usize]);
                 Some((flag & 0x1F) | 0xE0)
             }
             Registers

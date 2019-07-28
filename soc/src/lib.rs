@@ -1,5 +1,4 @@
 #![allow(unused_doc_comments)]
-#![allow(unused_variables)]
 #![warn(clippy::all)]
 // #![deny(warnings)]
 #![allow(clippy::cognitive_complexity)]

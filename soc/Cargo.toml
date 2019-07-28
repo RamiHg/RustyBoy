@@ -36,7 +36,7 @@ gb_disas = { path = "../gb_disas", optional = true}
 # Audio dependencies.
 sample = { version = "0.10.0", optional = true }
 libsamplerate = {version = "0.1.0", optional = true }
-libsoundio-sys = { path = "../../soundio-rs/libsoundio-sys", optional = true }
+libsoundio-sys = { git = "https://github.com/Timmmm/soundio-rs.git", rev = "8944aadd2fd722d609d2c115de1073d1a4b72f52", optional = true }
 simple-error = { version = "0.2.1", optional = true }
 ringbuf = { version = "0.1.4", optional = true }
 

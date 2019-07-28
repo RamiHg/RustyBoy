@@ -328,7 +328,7 @@ impl System {
     }
 
     pub fn execute_machine_cycle(&mut self) -> Result<()> {
-        for i in 0..4 {
+        for _ in 0..4 {
             self.execute_tcycle()?;
         }
         Ok(())

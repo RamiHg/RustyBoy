@@ -2,8 +2,7 @@ use arrayvec::ArrayVec;
 use bitflags::bitflags;
 use std::iter::Cycle;
 
-use crate::apu::components::{Envelope, Sweep};
-use crate::apu::registers::{NoiseConfig, SquareConfig, WaveConfig};
+use crate::apu::registers::{EnvelopeMode, NoiseConfig, SquareConfig, WaveConfig};
 use crate::util::{timer, Timer};
 
 const WAVE_DUTIES: [[u8; 8]; 4] = [
@@ -30,11 +29,64 @@ bitflags! {
     }
 }
 
+/// The trait that all sounds (square, wave, and noise) implement. Allows for a generic way of
+/// handling updates and sampling.
 pub trait Sound {
     fn update_from_reg(&mut self, reg: u64);
     fn update_to_reg(&self, reg: &mut u64);
     fn sample(&mut self, cycles: ComponentCycle) -> f32;
     fn is_done(&self) -> bool;
+}
+
+pub struct Envelope {
+    pub mode: EnvelopeMode,
+    pub timer: Cycle<Timer>,
+}
+
+impl Envelope {
+    pub fn new(mode: EnvelopeMode, time: i32) -> Envelope {
+        Envelope { mode, timer: timer(time * super::ENVELOPE_PERIOD).cycle() }
+    }
+
+    pub fn clock(&mut self, volume: u8) -> u8 {
+        if let Some(0) = self.timer.next() {
+            match self.mode {
+                EnvelopeMode::Attenuate => volume.saturating_sub(1),
+                EnvelopeMode::Amplify => (volume + 1).min(15),
+            }
+        } else {
+            volume
+        }
+    }
+}
+
+pub struct Sweep {
+    pub shift: i32,
+    pub negate: bool,
+    pub timer: Cycle<Timer>,
+}
+
+impl Sweep {
+    pub fn from_config(config: SquareConfig) -> Option<Sweep> {
+        if config.sweep_time() > 0 && config.sweep_shift() > 0 {
+            Some(Sweep {
+                shift: config.sweep_shift().into(),
+                negate: config.sweep_negate(),
+                timer: timer(super::SWEEP_PERIOD * i32::from(config.sweep_time())).cycle(),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn update(&mut self, frequency: u16) -> Option<u16> {
+        if let Some(0) = self.timer.next() {
+            let change = frequency >> self.shift;
+            Some(if self.negate { frequency.wrapping_sub(change) } else { frequency + change })
+        } else {
+            None
+        }
+    }
 }
 
 pub struct Square {
@@ -92,7 +144,6 @@ impl Sound for Square {
         }
         // Update the envelope (volume).
         self.config.set_volume(self.envelope.clock(self.config.volume()));
-
         // Update the sweep (frequency).
         if let Some(sweep) = &mut self.sweep {
             if let Some(freq) = sweep.update(self.config.freq()) {

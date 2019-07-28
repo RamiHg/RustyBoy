@@ -358,8 +358,6 @@ impl DecoderBuilder {
         let op_z = opcode & 0b0000_0111;
         let op_y = (opcode & 0b0011_1000) >> 3;
         let op_x = (opcode & 0b1100_0000) >> 6;
-        let op_q = op_y & 0b001;
-        let op_p = (op_y & 0b110) >> 1;
 
         let is_hl = op_z == 6;
 

@@ -163,7 +163,6 @@ pub struct ChannelMixer {
 
 impl ChannelMixer {
     pub fn new(global_regs: SharedAudioRegs) -> ChannelMixer {
-        let global_sound_status = global_regs.sound_status.clone();
         ChannelMixer {
             global_regs,
             cached_regs: Default::default(),

@@ -3,13 +3,13 @@ use spin::RwLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use crate::mmu;
-
-mod channels;
-mod components;
 mod device;
+mod mixer;
 mod registers;
 mod sound;
+
+use crate::mmu;
+use mixer::SharedAudioRegs;
 
 pub const TCYCLE_FREQ: i32 = 4_194_304;
 
@@ -24,12 +24,12 @@ pub struct Apu {
     #[allow(dead_code)]
     device: Option<device::Device>,
 
-    audio_regs: channels::SharedAudioRegs,
+    audio_regs: SharedAudioRegs,
 }
 
 impl Default for Apu {
     fn default() -> Self {
-        let audio_regs = channels::SharedAudioRegs::default();
+        let audio_regs = SharedAudioRegs::default();
         let maybe_device = device::Device::try_new(audio_regs.clone());
         if let Err(err) = &maybe_device {
             eprintln!("Could not initialize audio. Audio will be disabled. Error: {}", err);

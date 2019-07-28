@@ -397,7 +397,7 @@ impl Gpu {
         self.lcd_status().mode() == LcdMode::VBlank
     }
 
-    pub fn execute_tcycle_tick(&mut self, t_state: TState, bus: &mut mmu::MemoryBus) {
+    pub fn execute_tcycle_tick(&mut self, t_state: TState, _bus: &mut mmu::MemoryBus) {
         self.state.update_tick(t_state);
     }
 
@@ -535,11 +535,8 @@ impl Gpu {
                     // work.
                     if self.fifo.enough_for_sprite() && self.fifo.is_good_pixel() {
                         self.fifo.is_suspended = true;
-                        self.fetcher = self.fetcher.start_new_sprite(
-                            &self,
-                            sprite_index as i32,
-                            self.get_sprite(sprite_index),
-                        );
+                        self.fetcher =
+                            self.fetcher.start_new_sprite(&self, self.get_sprite(sprite_index));
                         self.drawing_mode = DrawingMode::FetchingSprite;
                     }
                 } else {

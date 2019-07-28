@@ -2,7 +2,7 @@ use libsamplerate::{src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, S
 use std::collections::VecDeque;
 use std::os::raw::c_long;
 
-use super::channels::{ChannelMixer, SharedAudioRegs, StereoFrame};
+use super::mixer::{ChannelMixer, SharedAudioRegs, StereoFrame};
 
 /// The Nyquist rate of the audio system. I.e., twice the maximum theoretical frequency, which is
 /// 1MiHz.
@@ -300,7 +300,6 @@ impl AudioThread {
         let _now = std::time::Instant::now();
         let buffer: &mut [StereoFrame] = sample::slice::to_frame_slice_mut(buffer)
             .expect("Couldn't convert output buffer to stereo.");
-        let frames_per_buffer = buffer.len();
         // Clear the scratch buffer and sample the amount of sampled needed to get an amortized
         // FRAMES_PER_BUFFER samples per callback.
         let mcycles_to_sample =

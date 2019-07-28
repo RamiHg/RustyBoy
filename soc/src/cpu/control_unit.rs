@@ -84,7 +84,7 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
 
 /// Incrementer module.
 
-fn incrementer_logic(code: &MicroCode, cpu: &Cpu, current_regs: &register::File) -> i32 {
+fn incrementer_logic(code: &MicroCode, cpu: &Cpu, _current_regs: &register::File) -> i32 {
     let source_value = cpu.state.address_latch;
     match code.inc_op {
         IncOp::Mov => source_value,

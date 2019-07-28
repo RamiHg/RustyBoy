@@ -69,7 +69,7 @@ impl Op {
 
         let last_bitter = |x| x & 0x80;
         let first_bitter = |x| x & 0x01;
-        let zeroer = |x| 0;
+        let zeroer = |_| 0;
 
         use Op::*;
         match self {

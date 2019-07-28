@@ -275,7 +275,7 @@ fn compile_di(op: &Op) -> MicroCode {
     MicroCode { disable_interrupts: true, ..Default::default() }
 }
 
-fn compile_nop(op: &Op) -> MicroCode {
+fn compile_nop(_: &Op) -> MicroCode {
     MicroCode::default()
 }
 

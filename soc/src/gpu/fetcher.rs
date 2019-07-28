@@ -58,12 +58,7 @@ impl PixelFetcher {
         }
     }
 
-    pub fn start_new_sprite(
-        self,
-        gpu: &Gpu,
-        sprite_index: i32,
-        sprite: SpriteEntry,
-    ) -> PixelFetcher {
+    pub fn start_new_sprite(self, gpu: &Gpu, sprite: SpriteEntry) -> PixelFetcher {
         let mut y_within_tile = (gpu.current_y() - sprite.top()) % 16;
         if sprite.flip_y() {
             y_within_tile = if gpu.lcd_control().large_sprites() { 15 } else { 7 } - y_within_tile;

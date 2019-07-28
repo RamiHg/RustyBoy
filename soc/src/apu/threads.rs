@@ -1,5 +1,6 @@
 use libsamplerate::{src_delete, src_new, src_process, SRC_STATE_tag, SRC_DATA, SRC_SINC_FASTEST};
 use ringbuf::{Consumer, Producer};
+use slice_deque::SliceDeque;
 use std::collections::VecDeque;
 use std::os::raw::c_long;
 use std::sync::atomic::AtomicBool;
@@ -8,8 +9,6 @@ use std::thread;
 
 use super::device::{DEVICE_RATE, FRAMES_PER_BUFFER};
 use super::mixer::{ChannelMixer, SharedAudioRegs, StereoFrame};
-
-use slice_deque::SliceDeque;
 
 /// The Nyquist rate of the audio system. I.e., twice the maximum theoretical frequency, which is
 /// 1MiHz.
@@ -157,6 +156,11 @@ impl SamplerThread {
 
         let mut timer = Instant::now();
         loop {
+            // Check for the kill signal. If set, end the loop.
+            if self.kill_signal.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
+
             let elapsed_ns = timer.elapsed();
             timer += elapsed_ns;
             let elapsed_ns = elapsed_ns.as_nanos() as f32;

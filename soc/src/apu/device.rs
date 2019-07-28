@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use super::mixer::{SharedAudioRegs, StereoFrame};
+use super::mixer::SharedAudioRegs;
 use super::threads::{self, Resampler};
 
 /// The sampling rate chosen for the device.
@@ -43,7 +43,7 @@ mod soundio_backend {
         ctx: *mut SoundIo,
         device: *mut SoundIoDevice,
         out_stream: *mut SoundIoOutStream,
-        resampler: Box<Resampler>,
+        _resampler: Box<Resampler>,
         sampler_thread_kill: Arc<AtomicBool>,
     }
 
@@ -51,11 +51,11 @@ mod soundio_backend {
         fn drop(&mut self) {
             // Disable the stream.
             unsafe { soundio_outstream_destroy(self.out_stream) };
-            // Finally, destroy the device and context.
+            // Turn off the sampler thread.
+            self.sampler_thread_kill.store(true, std::sync::atomic::Ordering::Relaxed);
+            // Destroy the device and context.
             unsafe {
                 soundio_device_unref(self.device);
-            }
-            unsafe {
                 soundio_destroy(self.ctx);
             }
         }
@@ -106,7 +106,7 @@ mod soundio_backend {
             if err != 0 {
                 bail!("Could not start output stream: {}", err_as_str(err));
             }
-            Ok(Device { ctx, device, out_stream, resampler, sampler_thread_kill })
+            Ok(Device { ctx, device, out_stream, _resampler: resampler, sampler_thread_kill })
         }
 
         fn get_device_if_supported(ctx: *mut SoundIo, idx: i32) -> Option<*mut SoundIoDevice> {
@@ -139,7 +139,7 @@ mod soundio_backend {
                 bail!("Could not allocate memory for SoundIoOutStream.");
             }
             let mut out_stream = unsafe { &mut *out_stream };
-            // Set the user data as the shared state.
+            // Set the resampler as the shared state.
             out_stream.userdata = resampler as *mut _ as *mut _;
             // Set the stream properties that we want.
             out_stream.format = SAMPLE_FORMAT;

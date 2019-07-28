@@ -220,3 +220,23 @@ mod soundio_backend {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    /// Make sure we're properly cleaning up after destroying the devices.
+    #[test]
+    fn stress_test_device_create_destroy() {
+        for _ in 0..10 {
+            let audio_regs = SharedAudioRegs::default();
+            let device = Device::try_new(audio_regs).unwrap();
+        }
+        // Do it while sleeping in between.
+        for _ in 0..10 {
+            let audio_regs = SharedAudioRegs::default();
+            let device = Device::try_new(audio_regs).unwrap();
+            // Sleep for a bit.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+}

@@ -14,6 +14,9 @@ use super::mixer::{ChannelMixer, SharedAudioRegs, StereoFrame};
 /// 1MiHz.
 const MIN_SAMPLE_RATE: f32 = 4_194_304.0 / 2.0;
 
+/// How far behind we're willing to let the sampler thread go. This number can probably be much
+/// smaller to allow for quick skips into current audio state.
+const MAX_SAMPLE_BACKUP: usize = SHARED_RINGBUFFER_SIZE / 2;
 const IDEAL_SAMPLE_RATE: f32 = 64_000.0;
 
 const SHARED_RINGBUFFER_SIZE: usize =
@@ -109,7 +112,6 @@ impl Resampler {
             let sample = sample.unwrap_or_default();
             *out_frame = sample;
         }
-        // println!("Took {:#?} total. {:#?} in resampling", _now.elapsed(), _resample_time.elapsed(),);
     }
 }
 
@@ -141,18 +143,21 @@ impl SamplerThread {
             kill_signal: Arc::clone(&kill_signal),
             mixer: ChannelMixer::new(audio_regs),
             sample_producer,
-            scratch: Vec::new(),
+            scratch: Vec::with_capacity(MAX_SAMPLE_BACKUP),
         };
         thread::spawn(move || sampler.audio_loop());
         kill_signal
     }
 
     fn audio_loop(&mut self) {
-        use std::time::Instant;
+        use std::time::{Duration, Instant};
 
         const APU_SAMPLES_PER_NS: f32 = MIN_SAMPLE_RATE / 1e9;
-        let ideal_ns_per_wakeup =
-            std::time::Duration::from_nanos((1e9 / IDEAL_SAMPLE_RATE).ceil() as u64);
+        let ideal_ns_per_wakeup = Duration::from_nanos((1e9 / IDEAL_SAMPLE_RATE).ceil() as u64);
+
+        let mut _debug_timer = Instant::now();
+        let mut _debug_samples_written = 0;
+        let mut _debug_samples_dropped = 0;
 
         let mut timer = Instant::now();
         loop {
@@ -172,21 +177,56 @@ impl SamplerThread {
             for _ in 0..num_to_sample {
                 // Skip every other sample to downsample from 4MiHz to 2MiHz.
                 self.mixer.next_sample();
-                self.scratch.push(self.mixer.next_sample());
-            }
-            let num_written = loop {
-                let write_result = self.sample_producer.push_slice(self.scratch.as_slice());
-                if let Err(ringbuf::PushSliceError::Full) = write_result {
-                    // Simply sleep and try again.
-                    std::thread::sleep(ideal_ns_per_wakeup);
+                let sample = self.mixer.next_sample();
+                if self.scratch.len() < MAX_SAMPLE_BACKUP {
+                    self.scratch.push(sample);
                 } else {
-                    break write_result.unwrap();
+                    _debug_samples_dropped += 1;
                 }
-            };
-            debug_assert_eq!(num_written, self.scratch.len());
+            }
+            // It is very likely that the ring buffer will be partially full. So we keep pushing
+            // samples until we're done!
+            let mut total_written = 0;
+            let mut remainder = self.scratch.len();
+            while remainder > 0 {
+                let num_written = self
+                    .sample_producer
+                    .push_slice(&self.scratch[total_written..])
+                    .unwrap_or_default();
+                total_written += num_written;
+                remainder = remainder.checked_sub(num_written).unwrap();
+                if remainder > 0 {
+                    // Sleep for however long we think it will take for the resampler to use up the
+                    // number of samples we need to push.
+                    // println!(
+                    //     "Gonna sleep for {:X?}. Remainder {}. Written {}. Total written {}",
+                    //     Duration::from_millis((remainder as f32 * 1000.0 / MIN_SAMPLE_RATE) as u64),
+                    //     remainder,
+                    //     num_written,
+                    //     total_written
+                    // );
+                    thread::sleep(Duration::from_millis(
+                        (remainder as f32 * 1000.0 / MIN_SAMPLE_RATE) as u64,
+                    ));
+                }
+            }
             self.mixer.on_sample_end();
+
+            // _debug_samples_written += self.scratch.len();
+            // if _debug_samples_written >= MIN_SAMPLE_RATE as usize {
+            //     println!(
+            //         "Took {:X?} to write {} samples. Dropped {} samples.",
+            //         _debug_timer.elapsed(),
+            //         _debug_samples_written,
+            //         _debug_samples_dropped
+            //     );
+            //     _debug_timer = Instant::now();
+            //     _debug_samples_written = 0;
+            //     _debug_samples_dropped = 0;
+            // }
+
             if let Some(time_to_sleep) = ideal_ns_per_wakeup.checked_sub(timer.elapsed()) {
-                std::thread::sleep(time_to_sleep);
+                thread::sleep(time_to_sleep);
             }
         }
     }

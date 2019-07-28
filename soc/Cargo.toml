@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
-audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf"]
+audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque"]
 disas = ["gb_disas"]
 # Enable for strict asserts that check for conditions that, while valid, are considered "bad" (e.g.
 # writing to RAM when RAM is disabled, etc..).
@@ -23,15 +23,13 @@ bitfield = "0.13.2"
 csv = "1.1.1"
 fern = "0.5.8"
 lazy_static = "1.3.0"
-log = {version = "0.4.7", features = ["max_level_trace", "release_max_level_trace"]}
+log = {version = "0.4.7", features = ["max_level_trace", "release_max_level_error"]}
 more-asserts = "0.2.1"
 num-derive = "0.2.5"
-serde = {version = "1.0.94", features = ["derive", "rc"]}
+serde = {version = "1.0.98", features = ["derive", "rc"]}
 serde_bytes = "0.11.1"
 spin = "0.5.0"
 typetag = "0.1.3"
-
-slice-deque = "0.2.4"
 
 gb_disas = { path = "../gb_disas", optional = true}
 
@@ -41,6 +39,7 @@ libsamplerate = {version = "0.1.0", optional = true }
 libsoundio-sys = { git = "https://github.com/Timmmm/soundio-rs.git", rev = "8944aadd2fd722d609d2c115de1073d1a4b72f52", optional = true }
 simple-error = { version = "0.2.1", optional = true }
 ringbuf = { version = "0.1.4", optional = true }
+slice-deque = { version = "0.2.4", optional = true }
 
 [dev-dependencies]
 backtrace = "0.3.33"

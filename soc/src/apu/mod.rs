@@ -7,6 +7,7 @@ mod device;
 mod mixer;
 mod registers;
 mod sound;
+mod threads;
 
 use crate::mmu;
 use mixer::SharedAudioRegs;

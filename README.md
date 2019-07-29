@@ -1,10 +1,34 @@
 # RustyBoy
 
-RustyBoy is a cycle-accurate Gameboy emulator. It is designed to be a design guide and verification
-tool in the development of a complete Gameboy system in an FPGA.
+RustyBoy is a cycle-accurate Gameboy emulator written to be as close to the real hardware as possible.
 
-The emulator is designed to mimic the environment of FPGA development. It's not written for speed or
-efficiency.
+While it does not yet have all the bells and whistles of a user-friendly emulator, it has enough features to 
+
+The emulator is designed to mimic the environment of FPGA development. It is therefore not written for speed or
+efficiency (but still runs pretty fast).
+
+## Getting Started
+
+RustyBoy works on any target supported by Rust. The audio backend works on Linux, Mac OS X, and Windows.
+
+### Prerequisites
+
+cmake is required in all platforms to build the 3rd-party audio backend (libsoundio). Install using your favorite package manager: `sudo apt/brew/scoop install cmake`.
+
+#### Linux
+
+pkg-config and PulseAudio are required for audio playback on Linux. To install
+(on Debian-based systems):
+
+```sh
+sudo apt install pkg-config pulseaudio
+```
+
+### Usage
+
+```bash
+cargo run --release -- path_to_rom.gb
+```
 
 ## [1.1.0] What's New
 
@@ -19,11 +43,7 @@ the default feature set in soc/Cargo.toml.
 
 Fixed a pretty gnarly bug regarding interrupt servicing.
 
-## Usage
 
-```bash
-cargo run --release -- path_to_rom.gb
-```
 
 RustyBoy currently only supports MBC1 and MBC3 cartridges.
 

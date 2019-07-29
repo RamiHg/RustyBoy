@@ -63,11 +63,16 @@ impl PixelFetcher {
         if sprite.flip_y() {
             y_within_tile = if gpu.lcd_control().large_sprites() { 15 } else { 7 } - y_within_tile;
         }
+        let tile_index = if gpu.lcd_control().large_sprites() {
+            sprite.tile_index() & !0x1
+        } else {
+            sprite.tile_index()
+        };
         PixelFetcher {
             mode: Mode::ReadTileIndex,
             tock: false,
             sprite_mode: true,
-            tile_index: sprite.tile_index(),
+            tile_index,
             // Compute the y-offset now while we still have the sprite.
             y_within_tile,
             ..self

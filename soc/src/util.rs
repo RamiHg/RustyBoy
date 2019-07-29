@@ -39,12 +39,12 @@ pub fn upper_5_bits(value: i32) -> i32 {
     (value & 0xF8) >> 3
 }
 
-pub fn reverse_16bits(mut value: i32) -> i32 {
+pub fn reverse_16bits_every_2bits(mut value: i32) -> i32 {
     let mut result = 0;
-    for _ in 0..16 {
-        result >>= 1;
-        result |= value & 0x8000;
-        value <<= 1;
+    for _ in 0..8 {
+        result >>= 2;
+        result |= value & 0xC000;
+        value <<= 2;
     }
     result
 }

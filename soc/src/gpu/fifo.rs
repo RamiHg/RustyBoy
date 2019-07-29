@@ -41,7 +41,7 @@ impl FifoEntry {
         is_window: bool,
     ) -> impl Iterator<Item = FifoEntry> {
         if flip_x {
-            row = util::reverse_16bits(row.into()) as u16;
+            row = util::reverse_16bits_every_2bits(row.into()) as u16;
         }
 
         std::iter::from_fn(move || {

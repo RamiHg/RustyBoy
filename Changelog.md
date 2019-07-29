@@ -17,6 +17,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Switched audio to (custom) implementation of libsoundio. No more Portaudio dependency! Quite a bit
   of work since libsoundio is much lower level, and has no complete high-level Rust libraries.
 
+### Fixed
+
+- Fixed bug when sprites are disabled mid-sprite render.
+- Fixed bug with sprite x-flip.
+
 ## [1.1.0] - 2019-07-12
 
 ### Added

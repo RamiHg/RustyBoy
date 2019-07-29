@@ -466,9 +466,7 @@ impl Gpu {
         self.handle_window();
 
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
-        if self.lcd_control().enable_sprites() {
-            self.handle_sprites();
-        }
+        self.handle_sprites();
 
         if self.fifo.has_room() && self.fetcher.has_data() {
             let row = self.fetcher.get_row();
@@ -480,7 +478,9 @@ impl Gpu {
             if self.fifo.is_good_pixel() {
                 // Push a pixel into the screen.
                 let entry = self.fifo.peek();
-                if (entry.is_sprite() || self.lcd_control().enable_bg())
+                if (entry.is_sprite()
+                    || self.lcd_control().enable_bg()
+                    || self.lcd_control().enable_window())
                     && self.current_y() < LCD_HEIGHT as i32
                 {
                     debug_assert_ge!(self.state.hblank_delay_tcycles, 7);
@@ -528,8 +528,7 @@ impl Gpu {
         };
         match self.drawing_mode {
             DrawingMode::Bg => {
-                if has_visible_sprite {
-                    debug_assert!(self.lcd_control().enable_sprites());
+                if has_visible_sprite && self.lcd_control().enable_sprites() {
                     // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
                     // the first place! Also, if we need to fine x-scroll, do it before any sprite
                     // work.
@@ -544,10 +543,12 @@ impl Gpu {
                 }
             }
             DrawingMode::FetchingSprite => {
-                let sprite_array_index = maybe_visible_sprite_array_index.unwrap();
-                debug_assert!(self.lcd_control().enable_sprites());
+                let sprite_array_index = maybe_visible_sprite_array_index.expect(
+                    "Was fetching sprite, but found no visible sprite in visible sprite array!",
+                );
                 debug_assert!(has_visible_sprite);
                 debug_assert!(!self.fetched_sprites[sprite_array_index]);
+
                 // Check if the fetcher is ready.
                 if self.fetcher.has_data() {
                     debug_assert!(self.fifo.enough_for_sprite());

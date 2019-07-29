@@ -17,13 +17,10 @@ pub struct Dma {
 
 impl Dma {
     pub fn new() -> Dma {
-        Dma {
-            control: Control(0),
-            byte_index: 0,
-        }
+        Dma { control: Control(0), byte_index: 0 }
     }
 
-    pub fn is_active(&self) -> bool {
+    pub fn is_active(self) -> bool {
         self.byte_index > 0 && self.byte_index <= 160
     }
 

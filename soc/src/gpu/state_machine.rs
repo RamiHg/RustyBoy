@@ -20,7 +20,11 @@ impl InternalState {
     /// Loosely based on Metroboy's mode change logic.
     pub fn update_mode(&mut self) {
         if self.counter == 0 {
-            debug_assert_ne!(self.mode, LcdMode::TransferringToLcd);
+            debug_assert_ne!(
+                self.mode,
+                LcdMode::TransferringToLcd,
+                "A line took too long to render. Possible hang in GPU."
+            );
             self.mode = LcdMode::HBlank;
         }
         if self.counter == 4 && (!self.is_first_frame || self.current_y != 0) {

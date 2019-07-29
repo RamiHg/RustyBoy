@@ -46,10 +46,7 @@ impl Address {
             (0xFF00..=0xFF4B) | 0xFFFF => Ok(Address(Registers, raw)),
             0xFF4C..=0xFF7F => Ok(Address(UnknownRegisters, raw)),
             0xFF80..=0xFFFE => Ok(Address(HighRam, raw)),
-            _ => Err(error::Type::InvalidOperation(format!(
-                "Address {:X?} is invalid.",
-                raw
-            ))),
+            _ => Err(error::Type::InvalidOperation(format!("Address {:X?} is invalid.", raw))),
         }
     }
 }
@@ -109,7 +106,7 @@ impl MemoryMapped for Memory {
         use Location::*;
         match location {
             Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
-                let flag = self.mem[raw as usize] as i32;
+                let flag = i32::from(self.mem[raw as usize]);
                 Some((flag & 0x1F) | 0xE0)
             }
             Registers
@@ -154,13 +151,13 @@ impl Memory {
     }
 }
 
-impl Memory {
-    pub fn new() -> Memory {
-        Memory {
-            mem: vec![0; 0x10000],
-        }
+impl Default for Memory {
+    fn default() -> Memory {
+        Memory { mem: vec![0; 0x10000] }
     }
+}
 
+impl Memory {
     /// Temporary while the entire system moves away form direct memory access.
     pub fn read(&self, raw_address: i32) -> i32 {
         let address = Address::from_raw(raw_address).unwrap();

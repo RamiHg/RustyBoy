@@ -41,7 +41,7 @@ impl FifoEntry {
         is_window: bool,
     ) -> impl Iterator<Item = FifoEntry> {
         if flip_x {
-            row = util::reverse_16bits(row.into()) as u16;
+            row = util::reverse_16bits_every_2bits(row.into()) as u16;
         }
 
         std::iter::from_fn(move || {
@@ -79,11 +79,7 @@ impl PixelFifo {
         for _ in 0..8 {
             fifo.push(FifoEntry(0));
         }
-        PixelFifo {
-            pixels_to_scroll,
-            fifo,
-            ..PixelFifo::new()
-        }
+        PixelFifo { pixels_to_scroll, fifo, ..PixelFifo::new() }
     }
 
     pub fn enough_for_sprite(&self) -> bool {

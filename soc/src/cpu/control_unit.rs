@@ -19,22 +19,15 @@ fn fetch_t1() -> MicroCode {
 }
 
 fn fetch_t2() -> MicroCode {
-    MicroCode {
-        ..Default::default()
-    }
+    MicroCode { ..Default::default() }
 }
 
 fn true_nop() -> MicroCode {
-    MicroCode {
-        ..Default::default()
-    }
+    MicroCode { ..Default::default() }
 }
 
 fn nop_end() -> MicroCode {
-    MicroCode {
-        is_end: true,
-        ..Default::default()
-    }
+    MicroCode { is_end: true, ..Default::default() }
 }
 
 pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
@@ -58,17 +51,11 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
-                (
-                    cpu.micro_code_stack.pop_front().unwrap(),
-                    DecodeMode::Execute,
-                )
+                (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute)
             }
             _ => panic!("Invalid decode t-state"),
         },
-        DecodeMode::Execute => (
-            cpu.micro_code_stack.pop_front().unwrap(),
-            DecodeMode::Execute,
-        ),
+        DecodeMode::Execute => (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute),
     };
     // Execute the micro-code.
     let mut next_state = execute(&micro_code, cpu);
@@ -97,7 +84,7 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
 
 /// Incrementer module.
 
-fn incrementer_logic(code: &MicroCode, cpu: &Cpu, current_regs: &register::File) -> i32 {
+fn incrementer_logic(code: &MicroCode, cpu: &Cpu, _current_regs: &register::File) -> i32 {
     let source_value = cpu.state.address_latch;
     match code.inc_op {
         IncOp::Mov => source_value,
@@ -121,17 +108,17 @@ fn alu_logic(
     current_regs: &register::File,
     new_regs: &mut register::File,
 ) -> i32 {
-    let mut act = current_regs.get(Register::ACT);
-    if code.alu_mem_as_act {
+    let act = if code.alu_mem_as_act {
         debug_assert!(util::is_8bit(data_bus));
-        act = data_bus;
-    }
+        data_bus
+    } else {
+        current_regs.get(Register::ACT)
+    };
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
         alu::Op::Bit | alu::Op::Res | alu::Op::Set => {
-            code.alu_op
-                .execute(act, i32::from(code.alu_bit_select), current_flags)
+            code.alu_op.execute(act, i32::from(code.alu_bit_select), current_flags)
         }
         _ => code.alu_op.execute(act, tmp, current_flags),
     };
@@ -231,11 +218,8 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         cpu.state.data_latch
     };
 
-    let addr_bus_value = if code.inc_to_addr_bus {
-        incrementer_logic(code, cpu, &current_regs)
-    } else {
-        -1
-    };
+    let addr_bus_value =
+        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
 
     if code.addr_write_enable {
         new_regs.set(code.addr_select, addr_bus_value);

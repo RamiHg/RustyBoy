@@ -1,5 +1,4 @@
 #![allow(unused_doc_comments)]
-#![allow(unused_variables)]
 #![warn(clippy::all)]
 // #![deny(warnings)]
 #![allow(clippy::cognitive_complexity)]
@@ -14,6 +13,7 @@ mod util;
 
 // TODO: Fix the public API. Don't expose so many internals.
 pub mod cart;
+pub mod cpu;
 pub mod error;
 pub mod gpu;
 pub mod joypad;
@@ -23,7 +23,6 @@ pub mod system;
 #[cfg(feature = "audio")]
 mod apu;
 
-mod cpu;
 mod dma;
 mod mmu;
 mod serial;

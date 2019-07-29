@@ -2,7 +2,6 @@ use crate::gpu::Color;
 
 use super::*;
 
-
 use num_traits::FromPrimitive as _;
 
 fn simple_checkerboard() -> ImageFn {

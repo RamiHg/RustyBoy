@@ -1,15 +1,4 @@
+.DS_STORE
+
 target
 Cargo.lock
-test_data.txt
-test_roms/
-*.gb
-.DS_STORE
-failed_tests/
-succeeded_tests/
-test_golden/
-dumps/
-wilbert_golden/
-serialized.*
-
-# VSCode stuff.
-.vscode/launch.json

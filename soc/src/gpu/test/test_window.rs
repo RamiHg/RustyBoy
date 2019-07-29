@@ -1,6 +1,5 @@
 use super::*;
 
-
 fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     i /= 8;
     j /= 8;

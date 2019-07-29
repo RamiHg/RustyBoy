@@ -31,15 +31,9 @@ impl MCycleList {
             .map(|x| vec![&x.t1.0, &x.t2.0, &x.t3.0, &x.t4.0])
             .flatten()
             // Replace all empty t-cycles with NOPs.
-            .map(|x| {
-                if x.is_empty() {
-                    Op::nop().iter()
-                } else {
-                    x.iter()
-                }
-            })
+            .map(|x| if x.is_empty() { Op::nop().iter() } else { x.iter() })
             // Compile each TCycle.
-            .map(|x| compiler::compile_op_list(x))
+            .map(compiler::compile_op_list)
             // Skip the first 2 nop tcycles.
             .skip(2)
             .collect()
@@ -50,10 +44,10 @@ impl MCycleList {
             if let Some(Arg::Lhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
             } else if let Some(Arg::LhsLow) = x.0 {
-                let (high, low) = with.decompose_pair();
+                let (_, low) = with.decompose_pair();
                 MaybeArg(Some(Arg::Register(low)))
             } else if let Some(Arg::LhsHigh) = x.0 {
-                let (high, low) = with.decompose_pair();
+                let (high, _) = with.decompose_pair();
                 MaybeArg(Some(Arg::Register(high)))
             } else {
                 x.clone()
@@ -66,10 +60,10 @@ impl MCycleList {
             if let Some(Arg::Rhs) = x.0 {
                 MaybeArg(Some(Arg::Register(with)))
             } else if let Some(Arg::RhsLow) = x.0 {
-                let (high, low) = with.decompose_pair();
+                let (_, low) = with.decompose_pair();
                 MaybeArg(Some(Arg::Register(low)))
             } else if let Some(Arg::RhsHigh) = x.0 {
-                let (high, low) = with.decompose_pair();
+                let (high, _) = with.decompose_pair();
                 MaybeArg(Some(Arg::Register(high)))
             } else {
                 x.clone()

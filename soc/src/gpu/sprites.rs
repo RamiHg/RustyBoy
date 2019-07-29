@@ -88,7 +88,7 @@ pub fn get_visible_sprite(
     None
 }
 
-pub fn pixels_behind(x: i32, sprite: &SpriteEntry) -> usize {
+pub fn pixels_behind(x: i32, sprite: SpriteEntry) -> usize {
     if sprite.left() < x {
         (x - sprite.left()) as usize
     } else {

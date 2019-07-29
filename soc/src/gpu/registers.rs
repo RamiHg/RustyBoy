@@ -90,9 +90,9 @@ pub enum LcdMode {
 #[derive(Clone, Copy)]
 pub enum InterruptType {
     HBlank = 0b1000,
-    VBlank = 0b10000,
-    Oam = 0b100000,
-    LyIsLyc = 0b1000000,
+    VBlank = 0b1_0000,
+    Oam = 0b10_0000,
+    LyIsLyc = 0b100_0000,
 }
 
 bitflags! {

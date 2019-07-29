@@ -73,9 +73,7 @@ fn test_if_register() {
         LD_FF_A, 0x0F,
         LD_A_FF, 0x0F
     ];
-    with_dynamic_cart()
-        .execute_instructions(ops)
-        .assert_reg_eq(A, 0xE0);
+    with_dynamic_cart().execute_instructions(ops).assert_reg_eq(A, 0xE0);
 }
 
 #[test]

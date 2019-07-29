@@ -14,26 +14,28 @@ edition = "2018"
 gl = "0.13.0"
 glutin = "0.21.0"
 bincode = "1.1.4"
-structopt = "0.2.18"
+structopt = {version = "0.2.18", default-features = false}
 # Workspace dependencies.
 soc = { path = "soc" }
 
-# Uncomment for incremental release settings.
+# Since the system is unusable in debug, debug defaults to fairly optimized settings, but with
+# options for faster building. If you want a true debug build, uncomment the section below.
+[profile.dev]
+opt-level = 3
+debug = false
+# Similar settings for test profile.
+[profile.test]
+opt-level = 3
+debug = false
+
+# Release settings are left for fully optimized builds.
 [profile.release]
-overflow-checks = true
-debug-assertions = true
-incremental = true
+codegen-units = 1
+lto = true
+debug = true
 
-# Uncomment for fully optimized release settings.
-# [profile.release]
-# codegen-units = 1
-# lto = "fat"
-# debug = true
-
-# I use cargo test --release quite a bit.
+# Keep overflow checks and debug assertions on for test --release.
 [profile.bench]
 overflow-checks = true
 debug-assertions = true
 incremental = true
-# codegen-units = 1
-# lto = "fat"

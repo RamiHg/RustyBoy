@@ -2,19 +2,11 @@ use super::{Arg, Command, Op};
 
 impl Op {
     pub fn new(name: &'static str) -> Op {
-        Op {
-            command: Command { name },
-            lhs: None,
-            rhs: None,
-            byte_size: 1,
-        }
+        Op { command: Command { name }, lhs: None, rhs: None, byte_size: 1 }
     }
 
     pub fn new_sized(name: &'static str, size: u8) -> Op {
-        Op {
-            byte_size: size,
-            ..Op::new(name)
-        }
+        Op { byte_size: size, ..Op::new(name) }
     }
 
     pub fn new_alu_op(value: u8, arg: Arg) -> Op {
@@ -36,12 +28,7 @@ impl Op {
         } else {
             (Some(arg), None)
         };
-        Op {
-            command,
-            lhs,
-            rhs,
-            byte_size: 1,
-        }
+        Op { command, lhs, rhs, byte_size: 1 }
     }
 
     pub fn with_size(self, byte_size: u8) -> Op {
@@ -49,20 +36,15 @@ impl Op {
     }
 
     pub fn with_lhs(self, arg: Arg) -> Op {
-        Op {
-            lhs: Some(arg),
-            ..self
-        }
+        Op { lhs: Some(arg), ..self }
     }
 
     pub fn with_rhs(self, arg: Arg) -> Op {
-        Op {
-            rhs: Some(arg),
-            ..self
-        }
+        Op { rhs: Some(arg), ..self }
     }
 }
 
+#[allow(clippy::wrong_self_convention)] // TODO: Fix this eventually.
 impl Arg {
     pub fn from_i8(value: u8) -> Arg {
         Arg::Signed8bit(value as i8)

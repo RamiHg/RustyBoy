@@ -143,14 +143,13 @@ impl From<SingleTable> for Register {
         }
     }
 }
+impl Default for File {
+    fn default() -> File {
+        File { 0: [0; Register::NumRegisters as usize] }
+    }
+}
 
 impl File {
-    pub fn new() -> File {
-        File {
-            0: [0; Register::NumRegisters as usize],
-        }
-    }
-
     pub fn get(&self, any: Register) -> i32 {
         let combine_any = |a, b| (self.get(a) << 8) | self.get(b);
         use Register::*;
@@ -212,7 +211,7 @@ impl File {
 
 impl core::fmt::Debug for File {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "\n")?;
+        writeln!(f)?;
         for i in 0..=(Register::ALU_TMP as i32) {
             writeln!(
                 f,

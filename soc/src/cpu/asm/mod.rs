@@ -65,11 +65,7 @@ pub struct Op {
 
 impl Op {
     pub fn nop() -> &'static [Op] {
-        static NOP: [Op; 1] = [Op {
-            cmd: Command::NOP,
-            lhs: MaybeArg(None),
-            rhs: MaybeArg(None),
-        }];
+        static NOP: [Op; 1] = [Op { cmd: Command::NOP, lhs: MaybeArg(None), rhs: MaybeArg(None) }];
         &NOP
     }
 }

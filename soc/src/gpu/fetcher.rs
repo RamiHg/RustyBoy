@@ -58,25 +58,21 @@ impl PixelFetcher {
         }
     }
 
-    pub fn start_new_sprite(
-        self,
-        gpu: &Gpu,
-        sprite_index: i32,
-        sprite: &SpriteEntry,
-    ) -> PixelFetcher {
+    pub fn start_new_sprite(self, gpu: &Gpu, sprite: SpriteEntry) -> PixelFetcher {
         let mut y_within_tile = (gpu.current_y() - sprite.top()) % 16;
         if sprite.flip_y() {
-            y_within_tile = if gpu.lcd_control().large_sprites() {
-                15
-            } else {
-                7
-            } - y_within_tile;
+            y_within_tile = if gpu.lcd_control().large_sprites() { 15 } else { 7 } - y_within_tile;
         }
+        let tile_index = if gpu.lcd_control().large_sprites() {
+            sprite.tile_index() & !0x1
+        } else {
+            sprite.tile_index()
+        };
         PixelFetcher {
             mode: Mode::ReadTileIndex,
             tock: false,
             sprite_mode: true,
-            tile_index: sprite.tile_index(),
+            tile_index,
             // Compute the y-offset now while we still have the sprite.
             y_within_tile,
             ..self
@@ -85,12 +81,7 @@ impl PixelFetcher {
 
     pub fn continue_scanline(self) -> PixelFetcher {
         debug_assert!(self.sprite_mode);
-        PixelFetcher {
-            mode: Mode::ReadTileIndex,
-            tock: false,
-            sprite_mode: false,
-            ..self
-        }
+        PixelFetcher { mode: Mode::ReadTileIndex, tock: false, sprite_mode: false, ..self }
     }
 
     pub fn start_window_mode(&mut self) {
@@ -202,11 +193,7 @@ impl PixelFetcher {
     }
 
     fn read_tile_data(&self, gpu: &Gpu, byte: i32) -> u8 {
-        let tileset_id = if self.sprite_mode {
-            1
-        } else {
-            gpu.lcd_control().bg_set_id() as i32
-        };
+        let tileset_id = if self.sprite_mode { 1 } else { gpu.lcd_control().bg_set_id() as i32 };
         let address =
             PixelFetcher::tileset_address(tileset_id, self.tile_index) + self.y_within_tile * 2;
         gpu.vram(address + byte)

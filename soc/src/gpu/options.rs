@@ -1,3 +1,5 @@
+// TODO: Delete this whole file.
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Options {
     pub use_fetcher_initial_fetch: bool,
@@ -11,8 +13,8 @@ pub struct Options {
     pub transfer_start_tcycle: i32,
 }
 
-impl Options {
-    pub fn new() -> Options {
+impl Default for Options {
+    fn default() -> Options {
         Options {
             use_fetcher_initial_fetch: false,
 

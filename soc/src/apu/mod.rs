@@ -3,12 +3,14 @@ use spin::RwLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use crate::mmu;
-
-mod channels;
 mod device;
+mod mixer;
 mod registers;
 mod sound;
+mod threads;
+
+use crate::mmu;
+use mixer::SharedAudioRegs;
 
 pub const TCYCLE_FREQ: i32 = 4_194_304;
 
@@ -23,23 +25,17 @@ pub struct Apu {
     #[allow(dead_code)]
     device: Option<device::Device>,
 
-    audio_regs: channels::SharedAudioRegs,
+    audio_regs: SharedAudioRegs,
 }
 
 impl Default for Apu {
     fn default() -> Self {
-        let audio_regs = channels::SharedAudioRegs::default();
+        let audio_regs = SharedAudioRegs::default();
         let maybe_device = device::Device::try_new(audio_regs.clone());
-        if let Err(err) = maybe_device {
-            println!(
-                "Audio device is not available. Audio will be disabled. Error: {}",
-                err
-            );
+        if let Err(err) = &maybe_device {
+            eprintln!("Could not initialize audio. Audio will be disabled. Error: {}", err);
         }
-        Apu {
-            device: maybe_device.ok(),
-            audio_regs,
-        }
+        Apu { device: maybe_device.ok(), audio_regs }
     }
 }
 
@@ -88,25 +84,21 @@ impl mmu::MemoryMapped for Apu {
                 Some(i32::from(self.audio_regs.sound_status.load(Acquire) | 0x70))
             }
             // Square 1
-            0xFF10..=0xFF14 => Some(get_byte(
-                self.audio_regs.square_1_config.load(Acquire),
-                raw - 0xFF10,
-            )),
+            0xFF10..=0xFF14 => {
+                Some(get_byte(self.audio_regs.square_1_config.load(Acquire), raw - 0xFF10))
+            }
             // Square 2
-            0xFF16..=0xFF19 => Some(get_byte(
-                self.audio_regs.square_2_config.load(Acquire),
-                raw - 0xFF15,
-            )),
+            0xFF16..=0xFF19 => {
+                Some(get_byte(self.audio_regs.square_2_config.load(Acquire), raw - 0xFF15))
+            }
             // Wave
-            0xFF1A..=0xFF1E => Some(get_byte(
-                self.audio_regs.wave_config.load(Acquire),
-                raw - 0xFF1A,
-            )),
+            0xFF1A..=0xFF1E => {
+                Some(get_byte(self.audio_regs.wave_config.load(Acquire), raw - 0xFF1A))
+            }
             // Noise
-            0xFF20..=0xFF23 => Some(get_byte(
-                self.audio_regs.noise_config.load(Acquire),
-                raw - 0xFF1F,
-            )),
+            0xFF20..=0xFF23 => {
+                Some(get_byte(self.audio_regs.noise_config.load(Acquire), raw - 0xFF1F))
+            }
             // Wave table
             0xFF30..=0xFF3F => Some(get_byte(*self.audio_regs.wave_table.read(), raw - 0xFF30)),
             _ => None,
@@ -120,31 +112,22 @@ impl mmu::MemoryMapped for Apu {
         let mmu::Address(_, raw) = address;
         match raw {
             // Volume control
-            0xFF24 => Some(
-                self.audio_regs
-                    .volume_control
-                    .store(value as u8, Ordering::Release),
-            ),
+            0xFF24 => Some(self.audio_regs.volume_control.store(value as u8, Ordering::Release)),
             // Channel R/ L mix
             0xFF25 => Some({
-                self.audio_regs
-                    .sound_mix
-                    .store(value as u8, Ordering::Release);
+                self.audio_regs.sound_mix.store(value as u8, Ordering::Release);
             }),
             // Sound status (NR52)
             0xFF26 => Some({
-                self.audio_regs
-                    .sound_status
-                    .weak_update_with(Ordering::Release, |x: u8| {
-                        (x & !0x80) | (value as u8 & 0x80)
-                    });
+                self.audio_regs.sound_status.weak_update_with(Ordering::Release, |x: u8| {
+                    (x & !0x80) | (value as u8 & 0x80)
+                });
             }),
             // Square 1
-            0xFF10..=0xFF14 => Some(atomic_set_byte(
-                &self.audio_regs.square_1_config,
-                raw - 0xFF10,
-                value,
-            )),
+            0xFF10..=0xFF14 => {
+                atomic_set_byte(&self.audio_regs.square_1_config, raw - 0xFF10, value);
+                Some(())
+            }
             // Square 2
             0xFF16..=0xFF19 => Some({
                 atomic_set_byte(&self.audio_regs.square_2_config, raw - 0xFF15, value);

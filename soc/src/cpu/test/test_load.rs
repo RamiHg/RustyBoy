@@ -32,15 +32,8 @@ fn test_ld_a_hli_hld() {
 
 #[test]
 fn test_ld_reg_hl() {
-    for &(op, reg) in &[
-        (0x46, B),
-        (0x4e, C),
-        (0x56, D),
-        (0x5e, E),
-        (0x66, H),
-        (0x6e, L),
-        (0x7e, A),
-    ] {
+    for &(op, reg) in &[(0x46, B), (0x4e, C), (0x56, D), (0x5e, E), (0x66, H), (0x6e, L), (0x7e, A)]
+    {
         with_default()
             .set_mem_8bit(0xD000, 0xEA)
             .set_reg(HL, 0xD000)
@@ -52,10 +45,7 @@ fn test_ld_reg_hl() {
 
 #[test]
 fn test_ld_reg_i8() {
-    for (reg, &op) in [0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E, 0x3E]
-        .iter()
-        .enumerate()
-    {
+    for (reg, &op) in [0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E, 0x3E].iter().enumerate() {
         with_default()
             .execute_instructions(&[op, 0xEA])
             .assert_reg_eq(Register::from_usize(reg).unwrap(), 0xEA)

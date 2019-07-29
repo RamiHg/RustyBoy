@@ -219,8 +219,7 @@ impl InternalState {
         }
         if let TState::T1 | TState::T3 = t_state {
             self.lcd_status.set_mode(self.mode as u8);
-            self.lcd_status
-                .set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
+            self.lcd_status.set_ly_is_lyc(self.lyc == self.required_lyc_for_interrupt());
         }
         let stat_asserted = (self.interrupts.bits() & self.lcd_status.0) != 0;
         self.fire_interrupt = stat_asserted && !self.old_stat_asserted;
@@ -244,8 +243,7 @@ impl InternalState {
     }
 
     pub fn update_interrupts(&mut self, t_state: TState) {
-        self.interrupts
-            .remove(Interrupts::HBLANK | Interrupts::VBLANK | Interrupts::LYC);
+        self.interrupts.remove(Interrupts::HBLANK | Interrupts::VBLANK | Interrupts::LYC);
         if self.hblank_delay_tcycles < 7 {
             self.interrupts |= Interrupts::HBLANK;
         }
@@ -269,9 +267,7 @@ impl InternalState {
     /// Sets the LY register that is visible from outside the PPU.
     /// Prerequisites: Only called on a PPU cycle (i.e. T1 and T3).
     fn update_external_y(&mut self) {
-        self.external_y.0 = if self.current_y == 0 {
-            0
-        } else if self.current_y == 153 && self.counter >= 4 {
+        self.external_y.0 = if self.current_y == 0 || (self.current_y == 153 && self.counter >= 4) {
             0
         } else {
             self.current_y
@@ -307,11 +303,7 @@ impl InternalState {
         bus.maybe_read(self.external_y);
         bus.maybe_read(self.lyc);
         if bus.reads_from(self.lcd_status) {
-            let enable_mask = if self.lcd_control.enable_display() {
-                0xFF
-            } else {
-                !0b111
-            };
+            let enable_mask = if self.lcd_control.enable_display() { 0xFF } else { !0b111 };
             bus.data_latch = (self.lcd_status.0 & enable_mask) | 0x80;
         }
     }
@@ -338,11 +330,10 @@ impl InternalState {
     }
 }
 
-impl Gpu {
-    pub fn new() -> Gpu {
+impl Default for Gpu {
+    fn default() -> Gpu {
         // This is the state of the GPU after the bootrom completes. The GPU is in the 4th cycle of
         // the vblank mode on line 153 (or 0 during cycle 0).
-
         Gpu {
             bg_palette: 0xFC,
             sprite_palette_0: 0xFF,
@@ -359,16 +350,17 @@ impl Gpu {
             visible_sprites: ArrayVec::new(),
             fetched_sprites: [false; 10],
 
-            // Store OAM with Vram in order to reduce amount of copying.
             vram: vec![0; 8192],
             oam: vec![0; 160],
 
-            options: Options::new(),
+            options: Options::default(),
 
-            state: InternalState::with_options(&Options::new()),
+            state: InternalState::with_options(&Options::default()),
         }
     }
+}
 
+impl Gpu {
     pub fn hack(&self) -> bool {
         self.state.fire_interrupt_oam_hack
     }
@@ -405,7 +397,7 @@ impl Gpu {
         self.lcd_status().mode() == LcdMode::VBlank
     }
 
-    pub fn execute_tcycle_tick(&mut self, t_state: TState, bus: &mut mmu::MemoryBus) {
+    pub fn execute_tcycle_tick(&mut self, t_state: TState, _bus: &mut mmu::MemoryBus) {
         self.state.update_tick(t_state);
     }
 
@@ -474,14 +466,11 @@ impl Gpu {
         self.handle_window();
 
         // Handle sprites now. State will be valid regardless of what state sprite-handling is in.
-        if self.lcd_control().enable_sprites() {
-            self.handle_sprites();
-        }
+        self.handle_sprites();
 
         if self.fifo.has_room() && self.fetcher.has_data() {
             let row = self.fetcher.get_row();
-            self.fifo
-                .push(FifoEntry::from_row(row, self.fetcher.window_mode));
+            self.fifo.push(FifoEntry::from_row(row, self.fetcher.window_mode));
             self.fetcher = self.fetcher.next();
         }
 
@@ -489,7 +478,9 @@ impl Gpu {
             if self.fifo.is_good_pixel() {
                 // Push a pixel into the screen.
                 let entry = self.fifo.peek();
-                if (entry.is_sprite() || self.lcd_control().enable_bg())
+                if (entry.is_sprite()
+                    || self.lcd_control().enable_bg()
+                    || self.lcd_control().enable_window())
                     && self.current_y() < LCD_HEIGHT as i32
                 {
                     debug_assert_ge!(self.state.hblank_delay_tcycles, 7);
@@ -537,18 +528,14 @@ impl Gpu {
         };
         match self.drawing_mode {
             DrawingMode::Bg => {
-                if has_visible_sprite {
-                    debug_assert!(self.lcd_control().enable_sprites());
+                if has_visible_sprite && self.lcd_control().enable_sprites() {
                     // Suspend the fifo and fetch the sprite, but only if we have enough pixels in
                     // the first place! Also, if we need to fine x-scroll, do it before any sprite
                     // work.
                     if self.fifo.enough_for_sprite() && self.fifo.is_good_pixel() {
                         self.fifo.is_suspended = true;
-                        self.fetcher = self.fetcher.start_new_sprite(
-                            &self,
-                            sprite_index as i32,
-                            &self.get_sprite(sprite_index),
-                        );
+                        self.fetcher =
+                            self.fetcher.start_new_sprite(&self, self.get_sprite(sprite_index));
                         self.drawing_mode = DrawingMode::FetchingSprite;
                     }
                 } else {
@@ -556,10 +543,12 @@ impl Gpu {
                 }
             }
             DrawingMode::FetchingSprite => {
-                let sprite_array_index = maybe_visible_sprite_array_index.unwrap();
-                debug_assert!(self.lcd_control().enable_sprites());
+                let sprite_array_index = maybe_visible_sprite_array_index.expect(
+                    "Was fetching sprite, but found no visible sprite in visible sprite array!",
+                );
                 debug_assert!(has_visible_sprite);
                 debug_assert!(!self.fetched_sprites[sprite_array_index]);
+
                 // Check if the fetcher is ready.
                 if self.fetcher.has_data() {
                     debug_assert!(self.fifo.enough_for_sprite());
@@ -572,7 +561,7 @@ impl Gpu {
                         sprite.flip_x(),
                     )
                     .take(8)
-                    .skip(sprites::pixels_behind(self.pixels_pushed(), &sprite));
+                    .skip(sprites::pixels_behind(self.pixels_pushed(), sprite));
                     // Only keep enough pixels to
                     self.fetcher = self.fetcher.continue_scanline();
                     self.fifo = self.fifo.clone().combined_with_sprite(row);

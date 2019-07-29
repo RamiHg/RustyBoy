@@ -65,7 +65,7 @@ pub struct System {
 impl Default for System {
     fn default() -> System {
         use cpu::register::Register;
-        let mut cpu = cpu::Cpu::new();
+        let mut cpu = cpu::Cpu::default();
         // Set the initial register values.
         cpu.registers.set(Register::A, 0x01);
         cpu.registers.set(Register::F, 0xB0);
@@ -77,12 +77,10 @@ impl Default for System {
         cpu.registers.set(Register::L, 0x4D);
         cpu.registers.set(Register::SP, 0xFFFE);
 
-        let gpu = gpu::Gpu::new();
-
         System {
             cpu,
-            gpu,
-            memory: mmu::Memory::new(),
+            gpu: gpu::Gpu::default(),
+            memory: mmu::Memory::default(),
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
@@ -109,12 +107,18 @@ impl System {
 
     pub fn restore_from_deserialize(&mut self) {
         self.screen = vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize];
-        self.apu = Some(Default::default());
+        #[cfg(feature = "audio")]
+        {
+            self.apu = Some(Default::default());
+        }
     }
     pub fn set_cart(&mut self, cart: Box<dyn Cart>) {
         self.cart = Some(cart);
     }
 
+    pub fn cpu(&self) -> &cpu::Cpu {
+        &self.cpu
+    }
     pub fn gpu(&self) -> &gpu::Gpu {
         &self.gpu
     }
@@ -159,9 +163,7 @@ impl System {
             Some(&mut self.dma),
             Some(&mut self.joypad),
             #[cfg(feature = "audio")]
-            self.apu
-                .as_mut()
-                .map(|x| -> &mut dyn mmu::MemoryMapped { x }),
+            self.apu.as_mut().map(|x| -> &mut dyn mmu::MemoryMapped { x }),
             Some(&mut self.memory),
         ];
         let address = mmu::Address::from_raw(raw_address)?;
@@ -235,25 +237,21 @@ impl System {
     }
 
     fn maybe_fire_interrupt(&mut self, maybe_fire: Interrupts) {
-        let mut current_if = self
-            .memory
-            .read(io_registers::Addresses::InterruptFired as i32);
+        let mut current_if = self.memory.read(io_registers::Addresses::InterruptFired as i32);
         current_if |= maybe_fire.bits();
-        self.memory
-            .store(io_registers::Addresses::InterruptFired as i32, current_if);
+        self.memory.store(io_registers::Addresses::InterruptFired as i32, current_if);
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {
         let is_dma =
             self.dma.is_active() && System::is_invalid_source_address(self.cpu.state.address_latch);
-        let bus = mmu::MemoryBus {
+        mmu::MemoryBus {
             address_latch: self.cpu.state.address_latch,
             data_latch: self.cpu.state.data_latch,
             read_latch: self.cpu.state.read_latch && !is_dma,
             write_latch: self.cpu.state.write_latch && !is_dma,
             t_state: self.cpu.t_state.get(),
-        };
-        bus
+        }
     }
 
     fn handle_dma(&mut self) -> Result<()> {
@@ -290,8 +288,7 @@ impl System {
 
     fn handle_gpu(&mut self) {
         let mut bus = self.temp_hack_get_bus();
-        self.gpu
-            .execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
+        self.gpu.execute_tcycle_tick(self.cpu.t_state.get_as_tstate(), &mut bus);
         let should_interrupt = self.gpu.execute_tcycle_tock(
             self.cpu.t_state.get_as_tstate(),
             &mut bus,
@@ -315,8 +312,7 @@ impl System {
         // Do all the rising edge sampling operations.
         self.handle_cpu_memory_reads()?;
         self.handle_gpu();
-        self.cpu
-            .execute_t_cycle(&mut self.memory, self.gpu.hack())?;
+        self.cpu.execute_t_cycle(&mut self.memory, self.gpu.hack())?;
         self.handle_timer()?;
         let new_serial = self.handle_serial();
 
@@ -332,7 +328,7 @@ impl System {
     }
 
     pub fn execute_machine_cycle(&mut self) -> Result<()> {
-        for i in 0..4 {
+        for _ in 0..4 {
             self.execute_tcycle()?;
         }
         Ok(())
@@ -391,11 +387,9 @@ impl System {
         let mut system = System::default();
         system.set_cart(cart);
         // Clear all registers.
-        system.cpu.registers = cpu::register::File::new();
+        system.cpu.registers = cpu::register::File::default();
         // Start with the GPU disabled.
-        system
-            .write_request(io_registers::Addresses::LcdControl as i32, 0)
-            .unwrap();
+        system.write_request(io_registers::Addresses::LcdControl as i32, 0).unwrap();
         // And the timer.
         system.memory_write(io_registers::Addresses::TimerControl as i32, 0);
         system

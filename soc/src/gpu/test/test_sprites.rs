@@ -1,25 +1,6 @@
 use crate::gpu::Color;
 
-
 use super::*;
-
-
-use num_traits::FromPrimitive as _;
-
-
-fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
-    i /= 8;
-    j /= 8;
-
-    let mut color = (((i + j) % 2) == 0) as usize;
-    if i == j {
-        color += 1;
-    }
-    if color > 0 && (j % 2) == 0 {
-        color += 1;
-    }
-    Color::from_usize(color).unwrap()
-}
 
 fn composite_sprite(img_i: usize, img_j: usize, color: &mut Color, builder: SpriteBuilder) {
     let i = img_i as i32;
@@ -197,28 +178,14 @@ fn test_sprite_overlapping_same_pixel_at(x: i32, y: i32) {
 
     use Color::*;
     let sprites = [
-        SpriteBuilder::with_pos(x, y)
-            .color(LightGray)
-            .mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
-        SpriteBuilder::with_pos(x, y)
-            .color(White)
-            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(LightGray)
-            .mask_row(0, [0, 1, 0, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(Black)
-            .mask_row(0, [0, 0, 0, 1, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(DarkGray)
-            .mask_row(0, [0, 0, 1, 0, 0, 0, 0, 0]),
-        SpriteBuilder::with_pos(x, y)
-            .color(DarkGray)
-            .mask_row(0, [0, 0, 0, 0, 0, 0, 1, 0]),
+        SpriteBuilder::with_pos(x, y).color(LightGray).mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
+        SpriteBuilder::with_pos(x, y).color(White).mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(LightGray).mask_row(0, [0, 1, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(Black).mask_row(0, [0, 0, 0, 1, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(DarkGray).mask_row(0, [0, 0, 1, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(DarkGray).mask_row(0, [0, 0, 0, 0, 0, 0, 1, 0]),
         SpriteBuilder::with_pos(x, y).mask_row(0, [0, 0, 0, 0, 0, 0, 0, 1]),
-        SpriteBuilder::with_pos(x, y)
-            .color(Black)
-            .mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
+        SpriteBuilder::with_pos(x, y).color(Black).mask_row(0, [1, 0, 0, 0, 0, 0, 0, 0]),
     ];
 
     ImageBuilder::new()

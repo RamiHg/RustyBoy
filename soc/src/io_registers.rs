@@ -64,7 +64,7 @@ pub trait Register: Copy {
     }
 
     fn or_bus(&self, bus: &MemoryBus) -> i32 {
-        bus.writes_to(self.address()).unwrap_or(self.value())
+        bus.writes_to(self.address()).unwrap_or_else(|| self.value())
     }
 
     fn set_from_bus(&mut self, bus: &MemoryBus) {
@@ -254,11 +254,7 @@ macro_rules! from_u8 {
         impl core::convert::From<u8> for $x {
             fn from(flag: u8) -> $x {
                 num_traits::FromPrimitive::from_u8(flag).unwrap_or_else(|| {
-                    panic!(
-                        "Tried to create {} from invalid u8: {}",
-                        stringify!($x),
-                        flag
-                    )
+                    panic!("Tried to create {} from invalid u8: {}", stringify!($x), flag)
                 })
             }
         }

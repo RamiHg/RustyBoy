@@ -13,7 +13,8 @@ bitfield! {
     nametable_number, set_nametable_number: 10, 10;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Mode {
     Invalid,
     ReadTileIndex,
@@ -28,7 +29,8 @@ impl Default for Mode {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct PixelFetcher {
     pub mode: Mode,
     pub tock: bool,

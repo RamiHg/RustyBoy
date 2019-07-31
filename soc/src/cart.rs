@@ -8,7 +8,7 @@ mod mbc3;
 pub const ROM_BANK_SIZE: i32 = 16 * 1024;
 pub const RAM_BANK_SIZE: i32 = 8 * 1024;
 
-#[typetag::serde(tag = "type")]
+#[cfg_attr(feature = "serialize", typetag::serde(tag = "type"))]
 pub trait Cart:
     mmu::MemoryMapped + AsRef<dyn mmu::MemoryMapped> + AsMut<dyn mmu::MemoryMapped>
 {
@@ -89,9 +89,9 @@ pub fn from_file_contents(file_contents: &[u8]) -> Box<dyn Cart> {
 mod none {
     use crate::mmu;
 
-    #[derive(Serialize, Deserialize)]
+    #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
     pub struct Cart {
-        #[serde(with = "serde_bytes")]
+        #[cfg_attr(feature = "serialize", serde(with = "serde_bytes"))]
         mem: Vec<u8>,
     }
 
@@ -120,7 +120,7 @@ mod none {
         }
     }
 
-    #[typetag::serde(name = "none")]
+    #[cfg_attr(feature = "serialize", typetag::serde(name = "none"))]
     impl super::Cart for Cart {}
 
     impl AsRef<dyn mmu::MemoryMapped> for Cart {
@@ -139,7 +139,7 @@ mod none {
 pub mod test {
     use crate::mmu;
 
-    #[derive(Serialize, Deserialize)]
+    #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
     pub struct DynamicCart {
         mem: Vec<u8>,
     }
@@ -170,7 +170,7 @@ pub mod test {
         }
     }
 
-    #[typetag::serde(name = "dynamic_test")]
+    #[cfg_attr(feature = "serialize", typetag::serde(name = "dynamic_test"))]
     impl super::Cart for DynamicCart {}
 
     impl AsRef<dyn mmu::MemoryMapped> for DynamicCart {

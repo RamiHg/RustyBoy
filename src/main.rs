@@ -27,6 +27,7 @@ struct Opt {
         parse(from_os_str),
         default_value = "./serialized.bincode"
     )]
+    #[cfg(feature = "serialize")]
     serialize_path: std::path::PathBuf,
 
     // Logging.
@@ -212,12 +213,14 @@ fn main() {
     // }
 }
 
+#[cfg(feature = "serialize")]
 fn serialize(system: &system::System, args: &Opt) {
     use std::fs::File;
     let file = File::create(&args.serialize_path).unwrap();
     bincode::serialize_into(file, system).unwrap();
 }
 
+#[cfg(feature = "serialize")]
 fn deserialize(system: &mut system::System, args: &Opt) {
     use std::fs::File;
     let file = File::open(&args.serialize_path).unwrap();

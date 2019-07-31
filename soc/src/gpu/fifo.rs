@@ -58,7 +58,8 @@ impl FifoEntry {
 }
 
 // A sad attempt to make a copyable fifo.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct PixelFifo {
     pub is_suspended: bool,
 

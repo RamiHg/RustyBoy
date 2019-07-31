@@ -10,13 +10,18 @@ version = "1.1.0"
 authors = ["Ramy"]
 edition = "2018"
 
+[features]
+default = []
+serialize = ["soc/serialize", "bincode"]
+
 [dependencies]
-bincode = "1.1.4"
 gl = "0.13.0"
 glutin = "0.22.0-alpha1"
 structopt = {version = "0.2.18", default-features = false}
 # Workspace dependencies.
 soc = { path = "soc" }
+# Serialize dependencies.
+bincode = { version = "1.1.4", optional = true }
 
 # Since the system is unusable in debug, debug defaults to fairly optimized settings, but with
 # options for faster building. If you want a true debug build, uncomment the section below.

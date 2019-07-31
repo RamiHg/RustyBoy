@@ -22,7 +22,8 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum TState {
     T1,
     T2,
@@ -42,7 +43,7 @@ impl cpu::TState {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct System {
     cpu: cpu::Cpu,
     gpu: gpu::Gpu,
@@ -53,11 +54,11 @@ pub struct System {
     dma: dma::Dma,
     joypad: joypad::Joypad,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg(feature = "audio")]
     apu: Option<crate::apu::Apu>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     screen: Vec<Color>,
     pub cart: Option<Box<dyn Cart>>,
 }
@@ -84,7 +85,7 @@ impl Default for System {
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
-            joypad: joypad::Joypad::new(),
+            joypad: joypad::Joypad::default(),
             screen: vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
             #[cfg(feature = "audio")]

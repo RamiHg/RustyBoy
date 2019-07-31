@@ -69,7 +69,8 @@ impl Pixel {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 enum DrawingMode {
     /// Regular drawing mode. I.e., just drawing background.
     Bg,
@@ -77,7 +78,7 @@ enum DrawingMode {
     FetchingSprite,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Gpu {
     // Registers.
     bg_palette: i32,
@@ -97,9 +98,9 @@ pub struct Gpu {
     fetched_sprites: [bool; 10],
 
     // VRAM.
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serialize", serde(with = "serde_bytes"))]
     vram: Vec<u8>,
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serialize", serde(with = "serde_bytes"))]
     oam: Vec<u8>,
 
     pub options: Options,
@@ -107,7 +108,8 @@ pub struct Gpu {
     state: InternalState,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 struct InternalState {
     // Registers.
     pub lcd_control: LcdControl,

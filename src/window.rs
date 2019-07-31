@@ -3,7 +3,6 @@ use gl::types::GLuint;
 use crate::gpu;
 
 type EventLoop = glutin::event_loop::EventLoop<()>;
-type Event = glutin::event::Event<()>;
 
 #[macro_export]
 macro_rules! GL {

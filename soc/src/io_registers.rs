@@ -100,6 +100,7 @@ macro_rules! impl_bitfield_helpful_traits {
 /// ```
 macro_rules! serialize_as {
     ($scope:ident, $Type:ty, $Proxy:ty) => {
+        #[cfg(feature = "serialize")]
         mod $scope {
             use super::*;
             use serde::de::{Deserialize, Deserializer};
@@ -125,6 +126,7 @@ macro_rules! serialize_as {
 
 macro_rules! impl_serde_bitfield_traits {
     ($Type:ident) => {
+        #[cfg(feature = "serialize")]
         impl serde::ser::Serialize for $Type {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
@@ -134,6 +136,7 @@ macro_rules! impl_serde_bitfield_traits {
             }
         }
 
+        #[cfg(feature = "serialize")]
         impl<'de> serde::de::Deserialize<'de> for $Type {
             fn deserialize<D>(deserializer: D) -> Result<$Type, D::Error>
             where
@@ -195,7 +198,8 @@ macro_rules! define_int_register {
         // //#[shrinkwrap(mutable)]
         // pub struct $Type(pub i32);
 
-        #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
+        #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+        #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
         pub struct $Type(pub i32);
 
         define_common_register!($Type, $address);

@@ -15,7 +15,8 @@ pub mod register;
 #[cfg(test)]
 mod test;
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum DecodeMode {
     Fetch,
     Decode,
@@ -28,7 +29,8 @@ impl Default for DecodeMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct State {
     pub decode_mode: DecodeMode,
     in_cb_mode: bool,
@@ -41,7 +43,8 @@ pub struct State {
     exit_halt: bool,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct TState(i32);
 
 impl TState {
@@ -56,15 +59,15 @@ impl TState {
 
 serialize_as!(deque_serialize, ArrayDeque<[MicroCode; 24]>, Vec<MicroCode>);
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 // This needs to get heavily refactored, with the control unit
 // code being migrated here, and state made private.
 pub struct Cpu {
     pub state: State,
     pub registers: register::File,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     pub decoder: decoder::Decoder,
-    #[serde(with = "deque_serialize")]
+    #[cfg_attr(feature = "serialize", serde(with = "deque_serialize"))]
     pub micro_code_stack: ArrayDeque<[MicroCode; 24]>,
 
     pub t_state: TState,

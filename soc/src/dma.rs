@@ -8,7 +8,8 @@ pub struct DmaRequest {
 
 define_int_register!(Control, Addresses::Dma);
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Dma {
     // The DMA control register.
     control: Control,
@@ -20,7 +21,7 @@ impl Dma {
         Dma { control: Control(0), byte_index: 0 }
     }
 
-    pub fn is_active(self) -> bool {
+    pub fn is_active(&self) -> bool {
         self.byte_index > 0 && self.byte_index <= 160
     }
 

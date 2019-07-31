@@ -18,7 +18,8 @@ pub enum Key {
     NumKeys,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Joypad {
     keys_pressed: [bool; Key::NumKeys as usize],
     ctrl: PadControl,
@@ -40,10 +41,6 @@ bitfield! {
 define_typed_register!(PadControl, Addresses::Joypad);
 
 impl Joypad {
-    pub fn new() -> Joypad {
-        Joypad::default()
-    }
-
     pub fn execute_tcycle(&mut self) -> Interrupts {
         // let new_reg_value = self.reg_value();
         // let current = self.reg_value;

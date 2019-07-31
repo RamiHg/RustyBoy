@@ -122,11 +122,11 @@ impl System {
     pub fn gpu(&self) -> &gpu::Gpu {
         &self.gpu
     }
-    pub fn get_screen(&self) -> &[Color] {
+    pub fn screen(&self) -> &[Color] {
         &self.screen
     }
 
-    pub fn get_joypad_mut(&mut self) -> &mut joypad::Joypad {
+    pub fn joypad_mut(&mut self) -> &mut joypad::Joypad {
         &mut self.joypad
     }
 

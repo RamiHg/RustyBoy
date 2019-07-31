@@ -11,9 +11,9 @@ authors = ["Ramy"]
 edition = "2018"
 
 [dependencies]
-gl = "0.13.0"
-glutin = "0.21.0"
 bincode = "1.1.4"
+gl = "0.13.0"
+glutin = "0.22.0-alpha1"
 structopt = {version = "0.2.18", default-features = false}
 # Workspace dependencies.
 soc = { path = "soc" }

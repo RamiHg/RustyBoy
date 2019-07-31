@@ -2,6 +2,9 @@ use gl::types::GLuint;
 
 use crate::gpu;
 
+type EventLoop = glutin::event_loop::EventLoop<()>;
+type Event = glutin::event::Event<()>;
+
 #[macro_export]
 macro_rules! GL {
     ($x:stmt) => {
@@ -97,28 +100,18 @@ fn load_all_shaders() -> GLuint {
 }
 
 pub struct Window {
-    context: glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::Window>,
-    events_loop: glutin::EventsLoop,
+    context: glutin::WindowedContext<glutin::PossiblyCurrent>,
     shader: GLuint,
 }
 
 impl Window {
-    pub fn init(fixed_window: bool) -> Window {
-        let events_loop = glutin::EventsLoop::new();
-        let mut window = glutin::WindowBuilder::new();
-
-        if fixed_window {
-            window = window.with_dimensions(glutin::dpi::LogicalSize::new(
-                gpu::LCD_WIDTH as f64 * 2.0,
-                gpu::LCD_HEIGHT as f64 * 2.0,
-            ));
-        }
-
+    pub fn with_event_loop(event_loop: &EventLoop) -> Window {
+        let window = glutin::window::WindowBuilder::new().with_title("RustyBoy");
         let context = glutin::ContextBuilder::new()
-            .with_vsync(true)
-            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
+            .with_vsync(false)
+            .with_gl(glutin::GlRequest::Latest) //glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
             .with_gl_profile(glutin::GlProfile::Core)
-            .build_windowed(window, &events_loop)
+            .build_windowed(window, event_loop)
             .unwrap();
 
         let context = unsafe { context.make_current().unwrap() };
@@ -156,8 +149,7 @@ impl Window {
             GL!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32));
             GL!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter as i32));
         }
-
-        Window { context, events_loop, shader: fs_copy }
+        Window { context, shader: fs_copy }
     }
 
     pub fn update_screen(&self, screen: &[gpu::Color]) {
@@ -184,23 +176,11 @@ impl Window {
         }
     }
 
-    pub fn swap_buffers(&self) {
-        self.context.swap_buffers().unwrap();
+    pub fn request_redraw(&self) {
+        self.context.window().request_redraw();
     }
 
-    pub fn get_events(&mut self) -> Vec<glutin::WindowEvent> {
-        let mut events = Vec::new();
-        self.events_loop.poll_events(|event| {
-            use glutin::WindowEvent;
-            if let glutin::Event::WindowEvent { event, .. } = event {
-                match event {
-                    WindowEvent::CloseRequested | WindowEvent::KeyboardInput { .. } => {
-                        events.push(event)
-                    }
-                    _ => (),
-                }
-            }
-        });
-        events
+    pub fn swap_buffers(&self) {
+        self.context.swap_buffers().unwrap();
     }
 }

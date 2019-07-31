@@ -133,7 +133,9 @@ fn main() {
                 }
                 // Redraw the window.
                 WindowEvent::RedrawRequested => {
-                    window.update_screen(&last_screen);
+                    if !last_screen.is_empty() {
+                        window.update_screen(&last_screen);
+                    }
                     window.swap_buffers();
 
                     fps_counter += 1;

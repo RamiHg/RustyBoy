@@ -109,7 +109,7 @@ impl Window {
         let window = glutin::window::WindowBuilder::new().with_title("RustyBoy");
         let context = glutin::ContextBuilder::new()
             .with_vsync(false)
-            .with_gl(glutin::GlRequest::Latest) //glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 2)))
+            .with_gl(glutin::GlRequest::Latest)
             .with_gl_profile(glutin::GlProfile::Core)
             .build_windowed(window, event_loop)
             .unwrap();

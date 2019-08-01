@@ -1,6 +1,6 @@
-use super::{Arg, Command, MaybeArg, Op};
-use crate::cpu::alu;
-use crate::cpu::register::Register;
+use crate::asm::{Arg, Command, MaybeArg, Op};
+use crate::micro_code;
+use crate::register::Register;
 
 pub fn parse_op(op: &str) -> Op {
     let mut parts = op.splitn(2, char::is_whitespace);
@@ -19,10 +19,10 @@ pub fn parse_op(op: &str) -> Op {
         "MOV" => MOV,
         "LD" => LD,
         "ALU" => AluPlaceholder,
-        "ADD" => AluOp(alu::Op::Add),
-        "ADC" => AluOp(alu::Op::Adc),
-        "SUB" => AluOp(alu::Op::Sub),
-        "AND" => AluOp(alu::Op::And),
+        "ADD" => AluOp(micro_code::AluOp::Add),
+        "ADC" => AluOp(micro_code::AluOp::Adc),
+        "SUB" => AluOp(micro_code::AluOp::Sub),
+        "AND" => AluOp(micro_code::AluOp::And),
         "BIT" => BIT,
         "FMSK" => FMSK,
         "FZ" => FZ,

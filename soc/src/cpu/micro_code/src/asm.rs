@@ -1,13 +1,8 @@
-/// This library handles the parsing and compilation of the high-level assembly down to CPU
-/// micro- codes.
-mod compiler;
-pub mod csv_loader;
-pub mod op_map;
-mod parser;
+//! This library handles the parsing and compilation of the high-level assembly down to CPU
+//! micro- codes.
 
-use crate::cpu::alu;
-use crate::cpu::micro_code;
-use crate::cpu::register::Register;
+use crate::micro_code::{AluOp, Condition};
+use crate::register::Register;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,7 +15,7 @@ pub enum Command {
     MOV,
     LD,
     AluPlaceholder,
-    AluOp(alu::Op),
+    AluOp(AluOp),
     BIT,
     FMSK,
     FZ,
@@ -39,7 +34,7 @@ pub enum Command {
 #[derive(Clone, Debug)]
 pub enum Arg {
     Register(Register),
-    CC(micro_code::Condition),
+    CC(Condition),
     Integer(i32),
     Rhs,
     RhsLow,

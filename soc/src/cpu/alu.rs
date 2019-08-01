@@ -11,46 +11,6 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-pub enum Op {
-    Invalid,
-    // Binary ops.
-    Add,
-    Adc,
-    Sub,
-    Sbc,
-    And,
-    Xor,
-    Or,
-    Cp,
-    // Shifts and rotates.
-    Rlc,
-    Rl,
-    Rrc,
-    Rr,
-    Sla,
-    Sra,
-    Srl,
-    // Unary ops.
-    Mov,
-    Cpl,
-    Scf,
-    Ccf,
-    Swap,
-    Daa,
-    // Bit ops.
-    Bit,
-    Res,
-    Set,
-}
-
-impl Default for Op {
-    fn default() -> Self {
-        Op::Invalid
-    }
-}
-
 impl Op {
     pub fn execute(self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
         debug_assert!(util::is_8bit(lhs));

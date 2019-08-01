@@ -1,0 +1,22 @@
+[package]
+name = "micro_code_gen"
+version = "0.1.0"
+authors = ["Ramy"]
+edition = "2018"
+
+[[bin]]
+name = "mytest"
+path = "build.rs"
+
+[build-dependencies]
+micro_code = { path = "../micro_code", features = ["build"] }
+unescape = "0.1.0"
+
+proc-quote = "0.2.2"
+
+
+[dependencies]
+micro_code = { path = "../micro_code", features = ["build"] }
+unescape = "0.1.0"
+
+proc-quote = "0.2.2"

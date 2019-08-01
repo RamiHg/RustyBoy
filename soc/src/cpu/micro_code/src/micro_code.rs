@@ -1,7 +1,46 @@
 use num_derive::FromPrimitive;
 
-use crate::cpu::alu;
-use crate::cpu::register::Register;
+use crate::register::Register;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+pub enum AluOp {
+    Invalid,
+    // Binary ops.
+    Add,
+    Adc,
+    Sub,
+    Sbc,
+    And,
+    Xor,
+    Or,
+    Cp,
+    // Shifts and rotates.
+    Rlc,
+    Rl,
+    Rrc,
+    Rr,
+    Sla,
+    Sra,
+    Srl,
+    // Unary ops.
+    Mov,
+    Cpl,
+    Scf,
+    Ccf,
+    Swap,
+    Daa,
+    // Bit ops.
+    Bit,
+    Res,
+    Set,
+}
+
+impl Default for AluOp {
+    fn default() -> Self {
+        AluOp::Invalid
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -50,7 +89,7 @@ impl Default for AluOutSelect {
 
 /// This microcode format is nowhere near size-optimized. There are tons of mutually exclusive bits,
 /// and it could probably be cut down in half.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
@@ -78,7 +117,7 @@ pub struct MicroCode {
     pub inc_to_addr_bus: bool,
 
     // Alu control.
-    pub alu_op: alu::Op,
+    pub alu_op: AluOp,
     pub alu_out_select: AluOutSelect,
     pub alu_to_data: bool,
     /// Overwrites the selected ALU register with the value in the data bus (or a constant).

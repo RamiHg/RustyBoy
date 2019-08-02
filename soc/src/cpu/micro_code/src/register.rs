@@ -1,7 +1,7 @@
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive as _;
 
-#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq)]
+#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 #[allow(non_camel_case_types)]
 pub enum Register {

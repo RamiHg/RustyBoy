@@ -2,7 +2,7 @@ use num_derive::FromPrimitive;
 
 use crate::register::Register;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum AluOp {
     Invalid,
@@ -42,7 +42,7 @@ impl Default for AluOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum IncOp {
     Mov = 0b00,
@@ -56,7 +56,7 @@ impl Default for IncOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum AluOutSelect {
     Result,
@@ -66,7 +66,7 @@ pub enum AluOutSelect {
     F,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, FromPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Condition {
     NZ,
@@ -89,8 +89,9 @@ impl Default for AluOutSelect {
 
 /// This microcode format is nowhere near size-optimized. There are tons of mutually exclusive bits,
 /// and it could probably be cut down in half.
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[repr(C)]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
     //  do much other than signal to the memory controller intent.

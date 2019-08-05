@@ -1,10 +1,8 @@
-use std::convert::From;
+use num_traits::FromPrimitive as _;
 
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-
-// use super::alu;
 use crate::util::{is_16bit, is_8bit};
+
+pub use micro_code::register::Register;
 
 /// Abstracts the various registers of the Z80.
 /// The 16 and 8-bit registers are: AF, BC, DE, HL, SP, PC for 12 8-bit registers in total.
@@ -12,48 +10,6 @@ use crate::util::{is_16bit, is_8bit};
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize), serde(transparent))]
 pub struct File([i32; Register::NumRegisters as usize]);
-
-/// The logical list of possible registers and register combination.
-#[derive(FromPrimitive, Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-#[allow(non_camel_case_types)]
-pub enum Register {
-    B,
-    C,
-    D,
-    E,
-    H,
-    L,
-    A,
-    F,
-    INSTR,
-    ACT,
-    ALU_TMP,
-    ALU_TMP_F,
-    // TEMP_LOW/HIGH are "temporary" registers that store intermediate microcode results.
-    TEMP_LOW,
-    TEMP_HIGH,
-    SP_LOW,
-    SP_HIGH,
-    PC_LOW,
-    PC_HIGH,
-    NumRegisters,
-    // "Virtual" registers.
-    SP,
-    PC,
-    BC,
-    DE,
-    HL,
-    AF,
-    TEMP,
-    INVALID = -1,
-}
-
-impl Default for Register {
-    fn default() -> Self {
-        Register::INVALID
-    }
-}
 
 impl Default for File {
     fn default() -> File {

@@ -5,8 +5,6 @@ use crate::micro_code::{AluOp, Condition, MicroCode};
 use crate::register::Register;
 use crate::{csv_loader, op_map::MCycleMap};
 
-const MAX_NUM_CODES: usize = 24;
-
 #[derive(FromPrimitive)]
 enum AluOpTable {
     AddA,
@@ -87,13 +85,15 @@ pub struct DecoderBuilder {
     pla: MCycleMap,
 }
 
-impl DecoderBuilder {
-    pub fn new() -> DecoderBuilder {
+impl Default for DecoderBuilder {
+    fn default() -> DecoderBuilder {
         DecoderBuilder {
             pla: csv_loader::parse_csv(include_bytes!("../../../../instructions.csv")),
         }
     }
+}
 
+impl DecoderBuilder {
     pub fn decode(&self, op: i32, in_cb_mode: bool) -> Vec<MicroCode> {
         if in_cb_mode {
             self.decode_cb_op(op)
@@ -105,7 +105,6 @@ impl DecoderBuilder {
     pub fn interrupt_handler(&self) -> Vec<MicroCode> {
         let handler = self.pla["INTERRUPT"].clone().compile();
         debug_assert_eq!(handler.len(), 2 + 4 * 4);
-        debug_assert_lt!(handler.len(), MAX_NUM_CODES);
         handler
     }
 
@@ -310,9 +309,7 @@ impl DecoderBuilder {
         };
 
         // Compile the MCyle assembly.
-        let micro_codes = mcycle_list.compile();
-        debug_assert_lt!(micro_codes.len(), MAX_NUM_CODES);
-        micro_codes
+        mcycle_list.compile()
     }
 
     fn decode_cb_op(&self, opcode: i32) -> Vec<MicroCode> {
@@ -340,7 +337,7 @@ impl DecoderBuilder {
             "alur(CB)"
         };
 
-        let micro_codes = match op_x {
+        match op_x {
             0 => self.pla[alu_key]
                 .remap_alu_placeholder(alu_op)
                 .remap_lhs_reg(Register::from_single_table(op_z))
@@ -350,8 +347,6 @@ impl DecoderBuilder {
                 .remap_lhs_reg(Register::from_single_table(op_z))
                 .remap_i32_placeholder(op_y),
         }
-        .compile();
-        debug_assert_lt!(micro_codes.len(), MAX_NUM_CODES);
-        micro_codes
+        .compile()
     }
 }

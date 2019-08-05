@@ -1,8 +1,10 @@
 use crate::cart;
-use crate::cpu::{alu::Flags, register::Register};
+use crate::cpu::alu::Flags;
 use crate::io_registers;
 use crate::system;
 use crate::timer;
+
+use micro_code::register::Register;
 
 #[allow(dead_code)]
 pub mod instructions {

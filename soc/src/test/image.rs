@@ -4,12 +4,6 @@ use super::base_path_to;
 use crate::gpu::{self, LCD_HEIGHT, LCD_WIDTH};
 use crate::system::System;
 
-// impl From<bmp::Pixel> for gpu::Pixel {
-//     fn from(pixel: bmp::Pixel) -> gpu::Pixel {
-//         gpu::Pixel { r: pixel.r, g: pixel.g, b: pixel.b, a: 255 }
-//     }
-// }
-
 impl Into<bmp::Pixel> for gpu::Pixel {
     fn into(self) -> bmp::Pixel {
         use bmp::{px, Pixel};
@@ -18,7 +12,7 @@ impl Into<bmp::Pixel> for gpu::Pixel {
 }
 
 pub fn dump_system_image(sub_dir: &Path, test_name: &str, system: &System) {
-    dump_image(sub_dir, test_name, system.get_screen());
+    dump_image(sub_dir, test_name, system.screen());
 }
 
 pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Color]) {

@@ -1,15 +1,12 @@
-use arraydeque::ArrayDeque;
-
 use crate::error::{self, Result};
 use crate::io_registers;
 use crate::mmu::Memory;
-use micro_code::MicroCode;
+use micro_code_gen::MicroCodeList;
 
 pub mod alu;
-mod asm;
 mod control_unit;
 mod decoder;
-mod micro_code;
+// TODO: Expose a way to clear registers in order to make this private.
 pub mod register;
 
 #[cfg(test)]
@@ -57,7 +54,7 @@ impl TState {
     }
 }
 
-serialize_as!(deque_serialize, ArrayDeque<[MicroCode; 24]>, Vec<MicroCode>);
+serialize_as!(deque_serialize, MicroCodeList, Vec<MicroCode>);
 
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 // This needs to get heavily refactored, with the control unit
@@ -68,7 +65,7 @@ pub struct Cpu {
     #[cfg_attr(feature = "serialize", serde(skip))]
     pub decoder: decoder::Decoder,
     #[cfg_attr(feature = "serialize", serde(with = "deque_serialize"))]
-    pub micro_code_stack: ArrayDeque<[MicroCode; 24]>,
+    pub micro_code_stack: MicroCodeList,
 
     pub t_state: TState,
 
@@ -85,7 +82,7 @@ impl Default for Cpu {
             state: State::default(),
             registers: register::File::default(),
             decoder: Default::default(),
-            micro_code_stack: ArrayDeque::new(),
+            micro_code_stack: MicroCodeList::new(),
             t_state: TState::default(),
             interrupts_enabled: false,
             is_handling_interrupt: false,

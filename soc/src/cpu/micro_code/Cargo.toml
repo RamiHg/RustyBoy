@@ -5,12 +5,11 @@ authors = ["Ramy"]
 edition = "2018"
 
 [features]
-build = ["csv", "more-asserts"]
-
+default = []
+build = ["csv"]
 
 [dependencies]
 num-derive = "0.2.5"
 num-traits = { version = "0.2.8", default-features = false }
 
 csv = { version = "1.1.1", optional = true }
-more-asserts = { version = "0.2.1", optional = true }

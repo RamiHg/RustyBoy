@@ -16,7 +16,3 @@ mod compiler;
 mod op_map;
 #[cfg(feature = "build")]
 mod parser;
-
-#[cfg(feature = "build")]
-#[macro_use]
-extern crate more_asserts;

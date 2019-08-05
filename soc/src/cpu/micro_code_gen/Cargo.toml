@@ -4,18 +4,9 @@ version = "0.1.0"
 authors = ["Ramy"]
 edition = "2018"
 
-[[bin]]
-name = "mytest"
-path = "buildha.rs"
+[dependencies]
+micro_code = { path = "../micro_code" }
+arraydeque = "0.4.5"
 
 [build-dependencies]
 micro_code = { path = "../micro_code", features = ["build"] }
-unescape = "0.1.0"
-
-proc-quote = "0.2.2"
-
-
-[dependencies]
-micro_code = { path = "../micro_code", features = ["build"] }
-serde = "1.0.98"
-serde_json = "1.0.40"

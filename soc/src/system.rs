@@ -65,7 +65,7 @@ pub struct System {
 
 impl Default for System {
     fn default() -> System {
-        use cpu::register::Register;
+        use micro_code::register::Register;
         let mut cpu = cpu::Cpu::default();
         // Set the initial register values.
         cpu.registers.set(Register::A, 0x01);

@@ -1,12 +1,10 @@
 use crate::cpu;
 use crate::util;
 
-use cpu::alu;
-use cpu::alu::Flags;
+use cpu::alu::{self, Flags};
 use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
-
-use super::micro_code::{AluOutSelect, Condition, IncOp, MicroCode};
+use micro_code::micro_code::{AluOp, AluOutSelect, Condition, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
     MicroCode {
@@ -117,10 +115,10 @@ fn alu_logic(
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
-        alu::Op::Bit | alu::Op::Res | alu::Op::Set => {
-            code.alu_op.execute(act, i32::from(code.alu_bit_select), current_flags)
+        AluOp::Bit | AluOp::Res | AluOp::Set => {
+            alu::execute(code.alu_op, act, i32::from(code.alu_bit_select), current_flags)
         }
-        _ => code.alu_op.execute(act, tmp, current_flags),
+        _ => alu::execute(code.alu_op, act, tmp, current_flags),
     };
     if code.alu_cse_to_tmp {
         let is_negative = (tmp & 0x80) != 0;

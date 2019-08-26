@@ -207,6 +207,14 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         }
     }
 
+    let addr_bus_value =
+        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
+
+    if code.addr_write_enable {
+        new_regs.set(code.addr_select, addr_bus_value);
+    }
+
+    // Data-bus related operations.
     let data_bus_value = if code.alu_to_data {
         alu_logic(code, cpu.state.data_latch, &current_regs, &mut new_regs)
     } else if code.reg_to_data {
@@ -215,13 +223,6 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     } else {
         cpu.state.data_latch
     };
-
-    let addr_bus_value =
-        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
-
-    if code.addr_write_enable {
-        new_regs.set(code.addr_select, addr_bus_value);
-    }
 
     if code.reg_write_enable {
         new_regs.set(code.reg_select, data_bus_value);

@@ -1,4 +1,5 @@
 use num_derive::FromPrimitive;
+use std::fmt::{self, Debug, Formatter};
 
 use crate::register::Register;
 
@@ -42,12 +43,24 @@ impl Default for AluOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum IncOp {
     Mov = 0b00,
     Inc = 0b01,
     Dec = 0b10,
+}
+
+
+impl Debug for IncOp {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        use IncOp::*;
+        match self {
+            Mov => write!(f, "IncOpMov"),
+            Inc => write!(f, "IncOpInc"),
+            Dec => write!(f, "IncOpDec"),
+        }
+    }
 }
 
 impl Default for IncOp {
@@ -56,7 +69,7 @@ impl Default for IncOp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum AluOutSelect {
     Result,
@@ -66,13 +79,38 @@ pub enum AluOutSelect {
     F,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, FromPrimitive, Hash)]
+impl Debug for AluOutSelect {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        use AluOutSelect::*;
+        match self {
+            Result => write!(f, "AluOutResult"),
+            Tmp => write!(f, "AluOutTmp"),
+            A => write!(f, "AluOutA"),
+            ACT => write!(f, "AluOutACT"),
+            F => write!(f, "AluOutF"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, FromPrimitive, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Condition {
     NZ,
     Z,
     NC,
     C,
+}
+
+impl Debug for Condition {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        use Condition::*;
+        match self {
+            NZ => write!(f, "ConditionNZ"),
+            Z => write!(f, "ConditionZ"),
+            NC => write!(f, "ConditionNC"),
+            C => write!(f, "ConditionC"),
+        }
+    }
 }
 
 impl Default for Condition {
@@ -91,7 +129,7 @@ impl Default for AluOutSelect {
 /// and it could probably be cut down in half.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-#[repr(C)]
+#[repr(packed)]
 pub struct MicroCode {
     // These two flags control the RD and WR signal registers on the memory bus. Alone, they do not
     //  do much other than signal to the memory controller intent.

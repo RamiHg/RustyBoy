@@ -187,7 +187,7 @@ impl System {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
-            if t_state >= 3 {
+            if t_state >= 2 {
                 // During DMA, reads return 0xFF.
                 let maybe_data = if self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch)

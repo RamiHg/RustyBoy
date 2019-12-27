@@ -8,8 +8,6 @@ use std::path::Path;
 use micro_code::micro_code::MicroCode;
 use micro_code::pla::DecoderBuilder;
 
-use static_assertions::const_assert_eq;
-
 fn main() {
     let decode_builder = DecoderBuilder::default();
 
@@ -57,6 +55,7 @@ fn main() {
     }
     .to_vec();
     
+    /*
     let mut mc_file = File::create("/tmp/ramy/mc_array.svh").unwrap();
     for (i, code) in microcode_array.iter().enumerate() {
         write!(mc_file, "{}",
@@ -89,6 +88,8 @@ fn main() {
     }
 
     // cp /tmp/mc_array.svh ~/repos/GitHub/RamyBoy/src/cpu/mc_array.svh
+
+    */
 
     assert_eq!(std::mem::size_of::<micro_code::register::Register>(), 1);
     assert_eq!(std::mem::size_of::<MicroCode>(), 33);

@@ -9,7 +9,7 @@ default = ["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque"]
 disas = ["gb_disas"]
-serialize = ["serde", "typetag", "serde_bytes", "arrayvec/serde-1"]
+serialize = ["serde", "typetag", "serde_bytes"]
 # Enable for strict asserts that check for conditions that, while valid, are considered "bad" (e.g.
 # writing to RAM when RAM is disabled, etc..).
 strict_assert = []
@@ -17,36 +17,36 @@ strict_assert = []
 serialize_tests = []
 
 [dependencies]
-arrayvec = {version = "0.4.11"}
-bitflags = "1.1.0"
+arrayvec = {version = "0.5.1"}
+bitflags = "1.2.1"
 bitfield = "0.13.2"
-fern = "0.5.8"
+fern = "0.5.9"
 log = {version = "0.4.8", features = ["max_level_trace", "release_max_level_error"]}
 more-asserts = "0.2.1"
-num-derive = "0.2.5"
-spin = "0.5.0"
+num-derive = "0.3.0"
+spin = "0.5.2"
 
 micro_code = { path = "./src/cpu/micro_code" }
 micro_code_gen = { path = "./src/cpu/micro_code_gen" }
 gb_disas = { path = "../gb_disas", optional = true}
 
 # Serialize dependencies.
-serde = {version = "1.0.98", features = ["derive", "rc"], optional = true }
-typetag = { version = "0.1.3", optional = true }
-serde_bytes = { version = "0.11.1", optional = true }
+serde = {version = "1.0.104", features = ["derive", "rc"], optional = true }
+typetag = { version = "0.1.4", optional = true }
+serde_bytes = { version = "0.11.3", optional = true }
 
 # Audio dependencies.
 sample = { version = "0.10.0", optional = true }
 libsamplerate = {version = "0.1.0", optional = true }
 libsoundio-sys = { git = "https://github.com/Timmmm/soundio-rs.git", rev = "8944aadd2fd722d609d2c115de1073d1a4b72f52", optional = true }
 simple-error = { version = "0.2.1", optional = true }
-ringbuf = { version = "0.1.4", optional = true }
-slice-deque = { version = "0.2.4", optional = true }
+ringbuf = { version = "0.2.1", optional = true }
+slice-deque = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
-backtrace = "0.3.34"
-bmp = "0.4.0"
+backtrace = "0.3.40"
+bmp = "0.5.0"
 
 [dependencies.num-traits]
-version = "0.2.8"
+version = "0.2.10"
 default-features = false

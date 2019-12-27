@@ -7,7 +7,7 @@ type EventLoop = glutin::event_loop::EventLoop<()>;
 #[macro_export]
 macro_rules! GL {
     ($x:stmt) => {
-        $x;
+        $x
         let error = gl::GetError();
         assert!(error == 0, "GL error in: {:?}", error);
     };

@@ -10,4 +10,3 @@ arraydeque = "0.4.5"
 
 [build-dependencies]
 micro_code = { path = "../micro_code", features = ["build"] }
-static_assertions = "*"

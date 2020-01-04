@@ -408,18 +408,26 @@ impl System {
     }
 
     pub fn memory_read(&self, raw_address: i32) -> i32 {
+        use mmu::Address;
         use num_traits::FromPrimitive;
-        if let Some(address) = io_registers::Addresses::from_i32(raw_address) {
-            use io_registers::Addresses::*;
-            match address {
-                LcdControl => return self.gpu.ctrl(),
-                LcdStatus => return self.gpu.stat(),
-                LcdY => return self.gpu.y(),
-                LcdYCompare => return self.gpu.lyc(),
-                _ => (),
-            };
+        match Address::from_raw(raw_address) {
+            Ok(Address(mmu::Location::Registers, _)) => {
+                use io_registers::Addresses::*;
+                match io_registers::Addresses::from_i32(raw_address).unwrap() {
+                    LcdControl => Some(self.gpu.ctrl()),
+                    LcdStatus => Some(self.gpu.stat()),
+                    LcdY => Some(self.gpu.y()),
+                    LcdYCompare => Some(self.gpu.lyc()),
+                    _ => None,
+                }
+            }
+            Ok(Address(mmu::Location::OAM, _)) => {
+                println!("Reading it from {}", raw_address);
+                Some(self.gpu.oam(raw_address) as i32)
+            }
+            _ => None,
         }
-        self.read_request(raw_address).unwrap()
+        .unwrap_or_else(|| self.read_request(raw_address).unwrap())
     }
 
     pub fn memory_write(&mut self, raw_address: i32, value: i32) {

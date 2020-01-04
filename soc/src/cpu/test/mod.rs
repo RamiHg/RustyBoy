@@ -1,7 +1,6 @@
 mod test_16bit_alu;
 mod test_8bit_alu;
 mod test_cb_alu;
-mod test_dma;
 mod test_flow;
 mod test_interrupts;
 mod test_load;

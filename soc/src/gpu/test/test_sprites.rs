@@ -15,7 +15,7 @@ fn composite_sprite(img_i: usize, img_j: usize, color: &mut Color, builder: Spri
 }
 
 fn composite_image(
-    image_fn: &'static impl Fn(usize, usize) -> Color,
+    _image_fn: &'static impl Fn(usize, usize) -> Color,
     builder: SpriteBuilder,
 ) -> ImageFn {
     Box::new(move |i, j| {

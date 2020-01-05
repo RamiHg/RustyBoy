@@ -11,12 +11,14 @@ use crate::system::System;
 use crate::test::image::*;
 use crate::test::*;
 
-pub type ImageFn = Box<Fn(usize, usize) -> Color>;
+pub type ImageFn = Box<dyn Fn(usize, usize) -> Color>;
 
+#[allow(non_snake_case)]
 pub fn IDENTITY_TRANSFORM(i: usize, j: usize) -> (usize, usize) {
     (i, j)
 }
 
+#[allow(non_snake_case)]
 pub fn WHITE_BG_IMAGE(_: usize, _: usize) -> Color {
     Color::White
 }
@@ -225,10 +227,6 @@ impl SpriteBuilder {
         SpriteBuilder::new().pos(x, y)
     }
 
-    pub fn get(self) -> SpriteEntry {
-        self.sprite
-    }
-
     pub fn pos(mut self, x: i32, y: i32) -> SpriteBuilder {
         self.sprite.set_pos_x(x as u8 + 8);
         self.sprite.set_pos_y(y as u8 + 16);
@@ -255,14 +253,12 @@ pub fn build_golden(
     image_fn: &ImageFn,
     transform_fn: &impl Fn(usize, usize) -> (usize, usize),
 ) -> Vec<gpu::Color> {
-    use gpu::{LCD_HEIGHT, LCD_WIDTH};
-
     let mut result = Vec::with_capacity(LCD_WIDTH * LCD_HEIGHT);
     for j in 0..LCD_HEIGHT {
         for i in 0..LCD_WIDTH {
             // First, transform the coordinates.
             let (new_i, new_j) = transform_fn(i, j);
-            use Color::*;
+
             result.push(image_fn(new_i % 256, new_j % 256));
         }
     }

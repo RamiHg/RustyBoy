@@ -159,7 +159,7 @@ test_target!(
 );
 
 pub fn run_target(target: &str) -> bool {
-    static INIT: std::sync::Once = std::sync::ONCE_INIT;
+    static INIT: std::sync::Once = std::sync::Once::new();
     INIT.call_once(|| {
         log::setup_logging(log::LogSettings { ..Default::default() }).unwrap();
     });
@@ -177,7 +177,7 @@ pub fn run_target(target: &str) -> bool {
         system.execute_machine_cycle().unwrap();
         let op = system.cpu().registers.get(cpu::register::Register::INSTR);
         if op == break_opcode {
-            break;
+        break;
         }
     }
 

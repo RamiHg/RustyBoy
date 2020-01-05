@@ -229,12 +229,12 @@ mod test {
     fn stress_test_device_create_destroy() {
         for _ in 0..10 {
             let audio_regs = SharedAudioRegs::default();
-            let device = Device::try_new(audio_regs).unwrap();
+            let _device = Device::try_new(audio_regs).unwrap();
         }
         // Do it while sleeping in between.
         for _ in 0..10 {
             let audio_regs = SharedAudioRegs::default();
-            let device = Device::try_new(audio_regs).unwrap();
+            let _device = Device::try_new(audio_regs).unwrap();
             // Sleep for a bit.
             std::thread::sleep(std::time::Duration::from_millis(100));
         }

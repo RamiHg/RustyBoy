@@ -4,8 +4,11 @@ version = "0.6.0"
 authors = ["Ramy"]
 edition = "2018"
 
+[lib]
+crate-type = ["lib", "cdylib"]
+
 [features]
-default = ["audio"]
+default = []#["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque"]
 disas = ["gb_disas"]

@@ -111,7 +111,20 @@ fn main() {
         *control_flow = ControlFlow::WaitUntil(sim_timer + std::time::Duration::from_millis(1));
 
         // Handle any window event now.
-        if let Event::WindowEvent { event, .. } = event {
+        if let Event::RedrawRequested(..) = event {
+            if !last_screen.is_empty() {
+                window.update_screen(&last_screen);
+            }
+            window.swap_buffers();
+
+            fps_counter += 1;
+            let elapsed = fps_timer.elapsed();
+            if elapsed.as_secs() > 0 {
+                fps_timer += elapsed;
+                println!("Avg FPS: {}", fps_counter / elapsed.as_secs());
+                fps_counter = 0;
+            }
+        } else if let Event::WindowEvent { event, .. } = event {
             match event {
                 // CloseRequested. End the loop.
                 WindowEvent::CloseRequested => {
@@ -129,21 +142,6 @@ fn main() {
                         } else {
                             simulator.release_key(key);
                         }
-                    }
-                }
-                // Redraw the window.
-                WindowEvent::RedrawRequested => {
-                    if !last_screen.is_empty() {
-                        window.update_screen(&last_screen);
-                    }
-                    window.swap_buffers();
-
-                    fps_counter += 1;
-                    let elapsed = fps_timer.elapsed();
-                    if elapsed.as_secs() > 0 {
-                        fps_timer += elapsed;
-                        println!("Avg FPS: {}", fps_counter / elapsed.as_secs());
-                        fps_counter = 0;
                     }
                 }
                 _ => (),

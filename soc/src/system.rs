@@ -22,7 +22,8 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum TState {
     T1,
     T2,
@@ -42,7 +43,7 @@ impl cpu::TState {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct System {
     cpu: cpu::Cpu,
     gpu: gpu::Gpu,
@@ -53,18 +54,18 @@ pub struct System {
     dma: dma::Dma,
     joypad: joypad::Joypad,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     #[cfg(feature = "audio")]
     apu: Option<crate::apu::Apu>,
 
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     screen: Vec<Color>,
     pub cart: Option<Box<dyn Cart>>,
 }
 
 impl Default for System {
     fn default() -> System {
-        use cpu::register::Register;
+        use micro_code::register::Register;
         let mut cpu = cpu::Cpu::default();
         // Set the initial register values.
         cpu.registers.set(Register::A, 0x01);
@@ -84,7 +85,7 @@ impl Default for System {
             timer: timer::Timer::new(),
             serial: serial::Controller::new(),
             dma: dma::Dma::new(),
-            joypad: joypad::Joypad::new(),
+            joypad: joypad::Joypad::default(),
             screen: vec![Color::Black; (gpu::LCD_WIDTH * gpu::LCD_HEIGHT) as usize],
             cart: None,
             #[cfg(feature = "audio")]
@@ -122,11 +123,11 @@ impl System {
     pub fn gpu(&self) -> &gpu::Gpu {
         &self.gpu
     }
-    pub fn get_screen(&self) -> &[Color] {
+    pub fn screen(&self) -> &[Color] {
         &self.screen
     }
 
-    pub fn get_joypad_mut(&mut self) -> &mut joypad::Joypad {
+    pub fn joypad_mut(&mut self) -> &mut joypad::Joypad {
         &mut self.joypad
     }
 
@@ -186,7 +187,7 @@ impl System {
         debug_assert!(!(self.cpu.state.read_latch && self.cpu.state.write_latch));
         let t_state = self.cpu.t_state.get();
         if self.cpu.state.read_latch {
-            if t_state >= 3 {
+            if t_state >= 2 {
                 // During DMA, reads return 0xFF.
                 let maybe_data = if self.dma.is_active()
                     && System::is_invalid_source_address(self.cpu.state.address_latch)

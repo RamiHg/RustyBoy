@@ -3,11 +3,11 @@
 use crate::cart;
 use crate::mmu;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Cart {
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serialize", serde(with = "serde_bytes"))]
     mem: Vec<u8>,
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serialize", serde(with = "serde_bytes"))]
     ram: Vec<u8>,
     enable_ram: bool,
     rom_bank: i32,
@@ -122,7 +122,7 @@ impl mmu::MemoryMapped for Cart {
     }
 }
 
-#[typetag::serde(name = "mbc3")]
+#[cfg_attr(feature = "serialize", typetag::serde(name = "mbc3"))]
 impl super::Cart for Cart {}
 impl AsRef<dyn mmu::MemoryMapped> for Cart {
     fn as_ref(&self) -> &(dyn mmu::MemoryMapped + 'static) {

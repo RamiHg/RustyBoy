@@ -1,7 +1,6 @@
-use super::micro_code::{AluOutSelect, IncOp, MicroCode};
-use super::{Arg, Command, Op};
-use crate::cpu::alu;
-use crate::cpu::register::Register;
+use crate::asm::{Arg, Command, Op};
+use crate::micro_code::{AluOp, AluOutSelect, IncOp, MicroCode};
+use crate::register::Register;
 
 impl AluOutSelect {
     fn from_register(register: Register) -> Option<AluOutSelect> {
@@ -180,17 +179,17 @@ fn compile_ld(op: &Op) -> MicroCode {
 fn compile_alu(op: &Op) -> MicroCode {
     let alu_op = match &op.cmd {
         &Command::AluOp(alu_op) => alu_op,
-        Command::MOV => alu::Op::Mov,
+        Command::MOV => AluOp::Mov,
         _ => panic!(),
     };
     if op.lhs.0.is_none() {
         // We could very well want to throw away our results (e.g. in the case of BIT).
-        if let alu::Op::Bit = alu_op {
+        if let AluOp::Bit = alu_op {
             return MicroCode { alu_op, alu_to_data: true, ..Default::default() };
         }
     }
     let dst = op.lhs.expect_as_register();
-    if alu_op == alu::Op::Mov && dst.is_pair() {
+    if alu_op == AluOp::Mov && dst.is_pair() {
         // This is actually an incrementer operation!
         return compile_incdec(op);
     }

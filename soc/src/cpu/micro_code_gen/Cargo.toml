@@ -1,0 +1,12 @@
+[package]
+name = "micro_code_gen"
+version = "0.1.0"
+authors = ["Ramy"]
+edition = "2018"
+
+[dependencies]
+micro_code = { path = "../micro_code" }
+arraydeque = "0.4.5"
+
+[build-dependencies]
+micro_code = { path = "../micro_code", features = ["build"] }

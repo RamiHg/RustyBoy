@@ -94,8 +94,7 @@ impl MemoryBus {
 
 /// Holds the internal RAM, as well as register values that don't need to be managed by their
 /// components directly.
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize), serde(transparent))]
 pub struct Memory {
     mem: Vec<u8>,
 }

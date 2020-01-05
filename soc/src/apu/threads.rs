@@ -71,8 +71,7 @@ impl Resampler {
         }
         let num_available_samples = self
             .sample_receiver
-            .pop_slice(&mut self.sample_src_buffer[prev_size..mcycles_to_sample])
-            .unwrap_or_default();
+            .pop_slice(&mut self.sample_src_buffer[prev_size..mcycles_to_sample]);
         debug_assert_ge!(self.sample_src_buffer.capacity(), num_available_samples);
         if self.sample_src_buffer.len() < mcycles_to_sample {
             trace!(target: "audio", "Sample buffer underrun. Got {} out of {} needed samples. Skipping frame.",
@@ -191,8 +190,7 @@ impl SamplerThread {
             while remainder > 0 {
                 let num_written = self
                     .sample_producer
-                    .push_slice(&self.scratch[total_written..])
-                    .unwrap_or_default();
+                    .push_slice(&self.scratch[total_written..]);
                 total_written += num_written;
                 remainder = remainder.checked_sub(num_written).unwrap();
                 if remainder > 0 {

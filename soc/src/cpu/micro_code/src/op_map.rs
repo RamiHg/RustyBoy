@@ -1,9 +1,8 @@
-use crate::cpu::alu;
-use crate::cpu::micro_code::{Condition, MicroCode};
-use crate::cpu::register::Register;
+use crate::micro_code::{AluOp, Condition, MicroCode};
+use crate::register::Register;
 
-use super::compiler;
-use super::{Arg, Command, MaybeArg, Op};
+use crate::asm::{Arg, Command, MaybeArg, Op};
+use crate::compiler;
 
 #[derive(Clone, Debug)]
 pub struct MCycleList(pub Vec<MCycle>);
@@ -72,7 +71,7 @@ impl MCycleList {
         self.map_args(mapper)
     }
 
-    pub fn remap_alu_placeholder(&self, with: alu::Op) -> MCycleList {
+    pub fn remap_alu_placeholder(&self, with: AluOp) -> MCycleList {
         let mapper = |cmd: &Command| {
             if let Command::AluPlaceholder = cmd {
                 Command::AluOp(with)

@@ -79,7 +79,8 @@ bitfield! {
 }
 
 /// LCD Status Register (STAT). 0xFF41.
-#[derive(Clone, Copy, FromPrimitive, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, FromPrimitive, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum LcdMode {
     HBlank,
     VBlank,
@@ -96,7 +97,7 @@ pub enum InterruptType {
 }
 
 bitflags! {
-    #[derive(Serialize, Deserialize)]
+    #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
     pub struct Interrupts: i32 {
         const HBLANK = 0b0000_1000;
         const VBLANK = 0b0001_0000;

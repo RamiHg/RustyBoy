@@ -62,7 +62,7 @@ mod soundio_backend {
     }
 
     impl Device {
-        pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, Box<std::error::Error>> {
+        pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, Box<dyn std::error::Error>> {
             let ctx = unsafe {
                 let ctx = soundio_create();
                 if ctx.is_null() {
@@ -133,7 +133,7 @@ mod soundio_backend {
         fn create_output_stream(
             device: *mut SoundIoDevice,
             resampler: &mut Resampler,
-        ) -> Result<*mut SoundIoOutStream, Box<Error>> {
+        ) -> Result<*mut SoundIoOutStream, Box<dyn Error>> {
             let out_stream = unsafe { soundio_outstream_create(device) };
             if out_stream.is_null() {
                 bail!("Could not allocate memory for SoundIoOutStream.");

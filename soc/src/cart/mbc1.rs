@@ -1,6 +1,6 @@
 use crate::mmu;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Cart {
     mem: Vec<u8>,
     ram: Vec<u8>,
@@ -122,7 +122,7 @@ impl mmu::MemoryMapped for Cart {
     }
 }
 
-#[typetag::serde(name = "mbc1")]
+#[cfg_attr(feature = "serialize", typetag::serde(name = "mbc1"))]
 impl super::Cart for Cart {}
 impl AsRef<dyn mmu::MemoryMapped> for Cart {
     fn as_ref(&self) -> &(dyn mmu::MemoryMapped + 'static) {

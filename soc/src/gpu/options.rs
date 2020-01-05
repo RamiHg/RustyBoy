@@ -1,6 +1,7 @@
 // TODO: Delete this whole file.
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Options {
     pub use_fetcher_initial_fetch: bool,
 

@@ -1,12 +1,10 @@
 use crate::cpu;
 use crate::util;
 
-use cpu::alu;
-use cpu::alu::Flags;
+use cpu::alu::{self, Flags};
 use cpu::register::{self, Register};
 use cpu::{Cpu, DecodeMode};
-
-use super::micro_code::{AluOutSelect, Condition, IncOp, MicroCode};
+use micro_code::micro_code::{AluOp, AluOutSelect, Condition, IncOp, MicroCode};
 
 fn fetch_t1() -> MicroCode {
     MicroCode {
@@ -117,10 +115,10 @@ fn alu_logic(
     let tmp = current_regs.get(Register::ALU_TMP);
     let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
-        alu::Op::Bit | alu::Op::Res | alu::Op::Set => {
-            code.alu_op.execute(act, i32::from(code.alu_bit_select), current_flags)
+        AluOp::Bit | AluOp::Res | AluOp::Set => {
+            alu::execute(code.alu_op, act, i32::from(code.alu_bit_select), current_flags)
         }
-        _ => code.alu_op.execute(act, tmp, current_flags),
+        _ => alu::execute(code.alu_op, act, tmp, current_flags),
     };
     if code.alu_cse_to_tmp {
         let is_negative = (tmp & 0x80) != 0;
@@ -209,6 +207,14 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         }
     }
 
+    let addr_bus_value =
+        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
+
+    if code.addr_write_enable {
+        new_regs.set(code.addr_select, addr_bus_value);
+    }
+
+    // Data-bus related operations.
     let data_bus_value = if code.alu_to_data {
         alu_logic(code, cpu.state.data_latch, &current_regs, &mut new_regs)
     } else if code.reg_to_data {
@@ -217,13 +223,6 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     } else {
         cpu.state.data_latch
     };
-
-    let addr_bus_value =
-        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
-
-    if code.addr_write_enable {
-        new_regs.set(code.addr_select, addr_bus_value);
-    }
 
     if code.reg_write_enable {
         new_regs.set(code.reg_select, data_bus_value);

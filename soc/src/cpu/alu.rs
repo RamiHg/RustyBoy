@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 
 use crate::util;
+use micro_code::micro_code::AluOp;
 
 bitflags! {
     pub struct Flags: i32 {
@@ -11,118 +12,77 @@ bitflags! {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Op {
-    Invalid,
-    // Binary ops.
-    Add,
-    Adc,
-    Sub,
-    Sbc,
-    And,
-    Xor,
-    Or,
-    Cp,
-    // Shifts and rotates.
-    Rlc,
-    Rl,
-    Rrc,
-    Rr,
-    Sla,
-    Sra,
-    Srl,
-    // Unary ops.
-    Mov,
-    Cpl,
-    Scf,
-    Ccf,
-    Swap,
-    Daa,
-    // Bit ops.
-    Bit,
-    Res,
-    Set,
-}
+pub fn execute(op: AluOp, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
+    debug_assert!(util::is_8bit(lhs));
 
-impl Default for Op {
-    fn default() -> Self {
-        Op::Invalid
-    }
-}
+    let has_carry: i32 = flags.intersects(Flags::CARRY).into();
 
-impl Op {
-    pub fn execute(self, lhs: i32, rhs: i32, flags: Flags) -> (i32, Flags) {
-        debug_assert!(util::is_8bit(lhs));
+    let adder = |x, y| x + y;
+    let subber = |x, y| x - y;
+    let rlcer = |x| (x << 1) | (x >> 7);
+    let rrcer = |x| (x >> 1) | ((x & 1) << 7);
+    let rler = |x| (x << 1) | has_carry;
+    let rrer = |x| (x >> 1) | (has_carry << 7);
+    let sler = |x| x << 1;
+    let sraer = |x| (x >> 1) | (x & 0x80);
+    let srler = |x| x >> 1;
+    let swapper = |x| (x << 4) | ((x >> 4) & 0xF);
 
-        let has_carry: i32 = flags.intersects(Flags::CARRY).into();
+    let last_bitter = |x| x & 0x80;
+    let first_bitter = |x| x & 0x01;
+    let zeroer = |_| 0;
 
-        let adder = |x, y| x + y;
-        let subber = |x, y| x - y;
-        let rlcer = |x| (x << 1) | (x >> 7);
-        let rrcer = |x| (x >> 1) | ((x & 1) << 7);
-        let rler = |x| (x << 1) | has_carry;
-        let rrer = |x| (x >> 1) | (has_carry << 7);
-        let sler = |x| x << 1;
-        let sraer = |x| (x >> 1) | (x & 0x80);
-        let srler = |x| x >> 1;
-        let swapper = |x| (x << 4) | ((x >> 4) & 0xF);
-
-        let last_bitter = |x| x & 0x80;
-        let first_bitter = |x| x & 0x01;
-        let zeroer = |_| 0;
-
-        use Op::*;
-        match self {
-            Invalid => panic!("Attempting to execute invalid ALU op."),
-            Mov => (lhs, flags),
-            Add => generic_8bit_math_op(lhs, rhs, 0, adder),
-            Adc => generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), adder),
-            Sub => {
-                let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
-                flags |= Flags::SUB;
-                (result, flags)
-            }
-            Sbc => {
-                let (result, mut flags) =
-                    generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), subber);
-                flags |= Flags::SUB;
-                (result, flags)
-            }
-            Cp => {
-                // CP is basically a subtract with the results being ignored.
-                let (_, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
-                flags |= Flags::SUB;
-                (lhs, flags)
-            }
-            And => generic_8bit_logical_op(lhs, rhs, true, |x, y| x & y),
-            Xor => generic_8bit_logical_op(lhs, rhs, false, |x, y| x ^ y),
-            Or => generic_8bit_logical_op(lhs, rhs, false, |x, y| x | y),
-            Rlc => generic_unary_op(lhs, rlcer, last_bitter),
-            Rl => generic_unary_op(lhs, rler, last_bitter),
-            Rrc => generic_unary_op(lhs, rrcer, first_bitter),
-            Rr => generic_unary_op(lhs, rrer, first_bitter),
-            Sla => generic_unary_op(lhs, sler, last_bitter),
-            Sra => generic_unary_op(lhs, sraer, first_bitter),
-            Srl => generic_unary_op(lhs, srler, first_bitter),
-            Cpl => {
-                let (result, _) = generic_unary_op(lhs, |x| !x, zeroer);
-                (result, flags | (Flags::SUB | Flags::HCARRY))
-            }
-            Scf => (lhs, (flags & Flags::ZERO) | Flags::CARRY),
-            Ccf => (lhs, (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY)),
-            Daa => daa(lhs, flags),
-            Swap => {
-                let (result, flags) = generic_unary_op(lhs, swapper, zeroer);
-                (result, flags & Flags::ZERO)
-            }
-            Bit => {
-                let mut flags = (flags & Flags::CARRY) | Flags::HCARRY;
-                flags.set(Flags::ZERO, (lhs & (1 << rhs)) == 0);
-                (lhs, flags)
-            }
-            Res => (lhs & !(1 << rhs), flags),
-            Set => (lhs | (1 << rhs), flags),
+    use AluOp::*;
+    match op {
+        Invalid => panic!("Attempting to execute invalid ALU op."),
+        Mov => (lhs, flags),
+        Add => generic_8bit_math_op(lhs, rhs, 0, adder),
+        Adc => generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), adder),
+        Sub => {
+            let (result, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
+            flags |= Flags::SUB;
+            (result, flags)
         }
+        Sbc => {
+            let (result, mut flags) =
+                generic_8bit_math_op(lhs, rhs, flags.intersects(Flags::CARRY).into(), subber);
+            flags |= Flags::SUB;
+            (result, flags)
+        }
+        Cp => {
+            // CP is basically a subtract with the results being ignored.
+            let (_, mut flags) = generic_8bit_math_op(lhs, rhs, 0, subber);
+            flags |= Flags::SUB;
+            (lhs, flags)
+        }
+        And => generic_8bit_logical_op(lhs, rhs, true, |x, y| x & y),
+        Xor => generic_8bit_logical_op(lhs, rhs, false, |x, y| x ^ y),
+        Or => generic_8bit_logical_op(lhs, rhs, false, |x, y| x | y),
+        Rlc => generic_unary_op(lhs, rlcer, last_bitter),
+        Rl => generic_unary_op(lhs, rler, last_bitter),
+        Rrc => generic_unary_op(lhs, rrcer, first_bitter),
+        Rr => generic_unary_op(lhs, rrer, first_bitter),
+        Sla => generic_unary_op(lhs, sler, last_bitter),
+        Sra => generic_unary_op(lhs, sraer, first_bitter),
+        Srl => generic_unary_op(lhs, srler, first_bitter),
+        Cpl => {
+            let (result, _) = generic_unary_op(lhs, |x| !x, zeroer);
+            (result, flags | (Flags::SUB | Flags::HCARRY))
+        }
+        Scf => (lhs, (flags & Flags::ZERO) | Flags::CARRY),
+        Ccf => (lhs, (flags & Flags::ZERO) | ((flags ^ Flags::CARRY) & Flags::CARRY)),
+        Daa => daa(lhs, flags),
+        Swap => {
+            let (result, flags) = generic_unary_op(lhs, swapper, zeroer);
+            (result, flags & Flags::ZERO)
+        }
+        Bit => {
+            let mut flags = (flags & Flags::CARRY) | Flags::HCARRY;
+            flags.set(Flags::ZERO, (lhs & (1 << rhs)) == 0);
+            (lhs, flags)
+        }
+        Res => (lhs & !(1 << rhs), flags),
+        Set => (lhs | (1 << rhs), flags),
     }
 }
 

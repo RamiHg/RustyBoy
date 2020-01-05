@@ -5,7 +5,9 @@ use crate::system;
 use num_traits::FromPrimitive;
 use system::Interrupts;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[allow(unused)]
 pub struct Controller {
     control: io_registers::SerialControl,
     data: i32,
@@ -29,7 +31,7 @@ impl Controller {
 
     pub fn execute_tcycle(&self) -> (Controller, Interrupts) {
         #[allow(unused_mut)]
-        let mut next_state = self.clone();
+        let mut next_state = *self;
         #[allow(unused_mut)]
         let mut fire_interrupt = Interrupts::empty();
         // next_state.counter = self.counter.wrapping_add(1);

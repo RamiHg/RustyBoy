@@ -1,0 +1,15 @@
+[package]
+name = "micro_code"
+version = "0.1.0"
+authors = ["Ramy"]
+edition = "2018"
+
+[features]
+default = []
+build = ["csv"]
+
+[dependencies]
+num-derive = "0.2.5"
+num-traits = { version = "0.2.8", default-features = false }
+
+csv = { version = "1.1.1", optional = true }

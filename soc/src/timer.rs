@@ -30,7 +30,8 @@ bitfield! {
 
 from_u8!(TimerFrequency);
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Timer {
     // DIV.
     div: TimerDiv,

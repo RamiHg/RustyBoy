@@ -106,7 +106,6 @@ impl ImageBuilder {
     }
 
     pub fn as_test(self) -> TestContext {
-        use crate::gpu::registers::LcdControl;
         let mut lcdc = LcdControl(0);
         lcdc.set_enable_bg(true);
         lcdc.set_enable_sprites(self.sprites_enabled);
@@ -272,7 +271,7 @@ pub fn build_golden(
 
 /// Tests the current system screen vs a golden image.
 pub fn compare_with_golden(test_name: &str, system: &System, golden: &[gpu::Color]) {
-    if system.get_screen() != golden {
+    if system.screen() != golden {
         dump_system_image(Path::new("./failed_tests/gpu"), test_name, system);
         dump_image(
             Path::new("./failed_tests/gpu"),

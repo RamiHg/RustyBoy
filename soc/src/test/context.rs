@@ -141,7 +141,7 @@ impl TestContext {
             .nth(0)
             .unwrap()
             .to_string();
-        static INIT: std::sync::Once = std::sync::ONCE_INIT;
+        static INIT: std::sync::Once = std::sync::Once::new();
         INIT.call_once(|| {
             crate::log::setup_logging(crate::log::LogSettings { ..Default::default() }).unwrap();
         });
@@ -195,6 +195,7 @@ impl TestContext {
         ctrl.set_enabled(true);
         ctrl.set_frequency(freq as u8);
         self.set_mem_8bit(io_registers::Addresses::TimerControl as i32, ctrl.0 as i32)
+            .set_mem_8bit(io_registers::Addresses::TimerDiv as i32, 0)
     }
 
     /// Brings up a System instance, sets it up, runs the given instructions, and returns the
@@ -268,7 +269,7 @@ impl TestContext {
     pub fn assert_reg_eq(mut self, register: Register, value: i32) -> TestContext {
         self.desc.assertions.push(Assertion::RegEq(register, value));
         let reg_value = self.system.cpu_mut().registers.get(register);
-        assert_eq!(reg_value, value, "{:X?} != {:X?}", reg_value, value);
+        assert_eq!(reg_value, value, "{:X?} ({:?}) != {:X?}", reg_value, register, value);
         self
     }
 

@@ -5,7 +5,7 @@ authors = ["Ramy"]
 edition = "2018"
 
 [features]
-default = ["audio"]
+default = [] #["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque"]
 disas = ["gb_disas"]

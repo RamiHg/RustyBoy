@@ -9,7 +9,7 @@ default = []
 build = ["csv"]
 
 [dependencies]
-num-derive = "0.2.5"
-num-traits = { version = "0.2.8", default-features = false }
+num-derive = "0.3.0"
+num-traits = { version = "0.2.10", default-features = false }
 
 csv = { version = "1.1.1", optional = true }

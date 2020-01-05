@@ -14,7 +14,7 @@ fn simple_checkerboard(mut i: usize, mut j: usize) -> Color {
     Color::from_usize(color).unwrap()
 }
 
-fn composite_window(image_fn: &'static Fn(usize, usize) -> Color, wx: usize, wy: usize) -> ImageFn {
+fn composite_window(image_fn: &'static dyn Fn(usize, usize) -> Color, wx: usize, wy: usize) -> ImageFn {
     Box::new(move |i, j| {
         let mut color = image_fn(i, j);
         let left = wx as i32 - 7;

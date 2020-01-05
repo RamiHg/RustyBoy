@@ -145,7 +145,7 @@ fn test_halt_with_ints_enabled() {
         .set_reg(SP, 0xFFFF)
         .setup_timer(timer::TimerFrequency::Every16)
         .set_reg(A, 0)
-        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4) + 1 + 1)
+        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4) - 1)
         .assert_reg_eq(A, 0);
     // Then go the whole way.
     with_default()
@@ -153,6 +153,6 @@ fn test_halt_with_ints_enabled() {
         .set_reg(SP, 0xFFFF)
         .setup_timer(timer::TimerFrequency::Every16)
         .set_reg(A, 0)
-        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4) + 1 + 2)
+        .execute_instructions_for_mcycles(&ops, 256 * (16 / 4))
         .assert_reg_eq(A, 1);
 }

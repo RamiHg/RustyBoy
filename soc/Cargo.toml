@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = []#["audio"]
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
-audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque"]
+audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque", "spin"]
 disas = ["gb_disas"]
 serialize = ["serde", "typetag", "serde_bytes"]
 # Enable for strict asserts that check for conditions that, while valid, are considered "bad" (e.g.
@@ -28,7 +28,6 @@ log = {version = "0.4.8", features = ["max_level_trace", "release_max_level_erro
 more-asserts = "0.2.1"
 num-derive = "0.3.0"
 num-traits = {version = "0.2.11", default-features = false}
-spin = "0.5.2"
 
 micro_code = { path = "./src/cpu/micro_code" }
 micro_code_gen = { path = "./src/cpu/micro_code_gen" }
@@ -46,6 +45,7 @@ libsoundio-sys = { git = "https://github.com/Timmmm/soundio-rs.git", rev = "8944
 simple-error = { version = "0.2.1", optional = true }
 ringbuf = { version = "0.2.1", optional = true }
 slice-deque = { version = "0.3.0", optional = true }
+spin = {version = "0.5.2", optional = true}
 
 [dev-dependencies]
 backtrace = "0.3.40"

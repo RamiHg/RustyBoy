@@ -85,12 +85,11 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
 
 /// Incrementer module.
 
-fn incrementer_logic(code: &MicroCode, cpu: &Cpu, _current_regs: &register::File) -> i32 {
-    let source_value = cpu.state.address_latch;
+fn incrementer_logic(code: &MicroCode, address_latch: i32) -> i32 {
     match code.inc_op {
-        IncOp::Mov => source_value,
-        IncOp::Inc => (source_value + 1) & 0xFFFF,
-        IncOp::Dec => (source_value - 1) & 0xFFFF,
+        IncOp::Mov => address_latch,
+        IncOp::Inc => (address_latch + 1) & 0xFFFF,
+        IncOp::Dec => (address_latch - 1) & 0xFFFF,
     }
 }
 
@@ -103,20 +102,15 @@ fn condition_check_passes(flags: alu::Flags, cond: Condition) -> bool {
     }
 }
 
-fn alu_logic(
-    code: &MicroCode,
-    data_bus: i32,
-    current_regs: &register::File,
-    new_regs: &mut register::File,
-) -> i32 {
+fn alu_logic(code: &MicroCode, data_bus: i32, new_regs: &mut register::File) -> i32 {
     let act = if code.alu_mem_as_act {
         debug_assert!(util::is_8bit(data_bus));
         data_bus
     } else {
-        current_regs.get(Register::ACT)
+        new_regs.get(Register::ACT)
     };
-    let tmp = current_regs.get(Register::ALU_TMP);
-    let current_flags = Flags::from_bits(current_regs.get(Register::F)).unwrap();
+    let tmp = new_regs.get(Register::ALU_TMP);
+    let current_flags = Flags::from_bits(new_regs.get(Register::F)).unwrap();
     let (result, mut flags) = match code.alu_op {
         AluOp::Bit | AluOp::Res | AluOp::Set => {
             alu::execute(code.alu_op, act, i32::from(code.alu_bit_select), current_flags)
@@ -147,7 +141,7 @@ fn alu_logic(
     match code.alu_out_select {
         AluOutSelect::Result => result,
         AluOutSelect::Tmp => tmp,
-        AluOutSelect::A => current_regs.get(Register::A),
+        AluOutSelect::A => new_regs.get(Register::A),
         AluOutSelect::ACT => act,
         AluOutSelect::F => current_flags.bits(),
     }
@@ -186,8 +180,8 @@ fn interrupt_logic(code: &MicroCode, cpu: &mut Cpu, next_state: &mut cpu::State)
 }
 
 fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
-    let current_regs = cpu.registers;
-    let mut new_regs = current_regs;
+    // let current_regs = cpu.registers;
+    let mut new_regs = &mut cpu.registers;
 
     let mut next_state = cpu.state;
 
@@ -204,14 +198,14 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     if code.reg_to_addr_buffer {
         debug_assert!(!code.inc_to_addr_bus);
         debug_assert!(!code.addr_write_enable);
-        next_state.address_latch = current_regs.get(code.addr_select);
+        next_state.address_latch = new_regs.get(code.addr_select);
         if code.ff_to_addr_hi {
             next_state.address_latch |= 0xFF00;
         }
     }
 
     let addr_bus_value =
-        if code.inc_to_addr_bus { incrementer_logic(code, cpu, &current_regs) } else { -1 };
+        if code.inc_to_addr_bus { incrementer_logic(code, cpu.state.address_latch) } else { -1 };
 
     if code.addr_write_enable {
         new_regs.set(code.addr_select, addr_bus_value);
@@ -219,10 +213,10 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
 
     // Data-bus related operations.
     let data_bus_value = if code.alu_to_data {
-        alu_logic(code, cpu.state.data_latch, &current_regs, &mut new_regs)
+        alu_logic(code, cpu.state.data_latch, &mut new_regs)
     } else if code.reg_to_data {
         debug_assert!(!code.reg_write_enable);
-        current_regs.get(code.reg_select)
+        new_regs.get(code.reg_select)
     } else {
         cpu.state.data_latch
     };
@@ -231,19 +225,21 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
         new_regs.set(code.reg_select, data_bus_value);
     }
 
+    if code.alu_a_to_act {
+        debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::ACT));
+        new_regs.set(Register::ACT, new_regs.get(Register::A));
+    }
     if code.alu_reg_write_enable {
         alu_reg_write(code, data_bus_value, &mut new_regs);
     }
-    if code.alu_a_to_act {
-        debug_assert!(!(code.alu_reg_write_enable && code.alu_out_select == AluOutSelect::ACT));
-        new_regs.set(Register::ACT, current_regs.get(Register::A));
-    }
+
     if code.alu_opymul8_to_act {
-        let op_y = (current_regs.get(Register::INSTR) & 0b0011_1000) >> 3;
+        let op_y = (new_regs.get(Register::INSTR) & 0b0011_1000) >> 3;
         new_regs.set(Register::ACT, op_y * 8);
     }
     if code.alu_a_to_tmp {
-        new_regs.set(Register::ALU_TMP, current_regs.get(Register::A));
+        debug_assert!(!code.alu_reg_write_enable);
+        new_regs.set(Register::ALU_TMP, new_regs.get(Register::A));
     }
     if code.alu_one_to_tmp {
         new_regs.set(Register::ALU_TMP, 1);
@@ -260,6 +256,5 @@ fn execute(code: &MicroCode, cpu: &mut Cpu) -> cpu::State {
     if code.mem_write_enable {
         next_state.data_latch = data_bus_value;
     }
-    cpu.registers = new_regs;
     next_state
 }

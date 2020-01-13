@@ -4,8 +4,8 @@ use num_traits::FromPrimitive;
 use crate::io_registers::Addresses;
 use crate::mmu;
 use crate::system::Interrupts;
-//use crate::util::is_bit_set;
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen)]
 pub enum Key {
     Right,
     Left,

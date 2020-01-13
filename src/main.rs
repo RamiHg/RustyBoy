@@ -3,9 +3,6 @@
 
 #[macro_use]
 mod window;
-mod sim;
-
-use structopt::StructOpt;
 
 use window::*;
 
@@ -13,26 +10,30 @@ use soc::cart;
 use soc::gpu;
 use soc::joypad;
 use soc::log;
+use soc::sim;
 use soc::system;
 
-#[derive(StructOpt)]
-#[structopt(name = "rusty_boy")]
 struct Opt {
-    #[structopt(parse(from_os_str))]
     cart_path: std::path::PathBuf,
-
-    #[structopt(
-        long = "serialize_path",
-        short = "sp",
-        parse(from_os_str),
-        default_value = "./serialized.bincode"
-    )]
     #[cfg(feature = "serialize")]
     serialize_path: std::path::PathBuf,
-
     // Logging.
-    #[structopt(long)]
     log_audio: bool,
+}
+
+impl Opt {
+    fn from_args(mut args: pico_args::Arguments) -> Result<Opt, pico_args::Error> {
+        Ok(Opt {
+            #[cfg(feature = "serialize")]
+            serialize_path: args
+                .opt_value_from_str(["--serialize_path", "-sp"])?
+                .unwrap_or("./serialized.bincode"),
+            log_audio: args.contains("--log_audio"),
+            cart_path: args.free_from_str()?.ok_or(pico_args::Error::ArgumentParsingFailed {
+                cause: "Must specify cart path.".to_string(),
+            })?,
+        })
+    }
 }
 
 // Helpful links:
@@ -71,7 +72,13 @@ fn main() {
     use glutin::event_loop::ControlFlow;
     use std::time::Instant;
 
-    let args = Opt::from_args();
+    let args = match Opt::from_args(pico_args::Arguments::from_env()) {
+        Ok(args) => args,
+        Err(err) => {
+            eprintln!("Error while parsing arguments: {:?}.", err);
+            return;
+        }
+    };
 
     log::setup_logging(log::LogSettings {
         interrupts: false,
@@ -96,7 +103,7 @@ fn main() {
     let event_loop = glutin::event_loop::EventLoop::new();
     let window = Window::with_event_loop(&event_loop);
 
-    let mut last_screen = Vec::new();
+    let mut last_screen: Option<Box<[u8]>> = None;
 
     // And just run!
     let mut sim_timer = Instant::now();
@@ -112,8 +119,9 @@ fn main() {
 
         // Handle any window event now.
         if let Event::RedrawRequested(..) = event {
-            if !last_screen.is_empty() {
-                window.update_screen(&last_screen);
+            if let Some(screen) = &last_screen {
+                window.update_screen(screen.as_ref());
+                last_screen = None;
             }
             window.swap_buffers();
 
@@ -151,7 +159,7 @@ fn main() {
         // Run the simulation!
         if let Some(screen) = simulator.update(elapsed.as_micros() as f32 * 1e-6) {
             window.request_redraw();
-            last_screen = screen;
+            last_screen = Some(screen);
         }
     });
 

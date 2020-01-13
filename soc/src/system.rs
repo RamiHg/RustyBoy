@@ -238,9 +238,9 @@ impl System {
     }
 
     fn maybe_fire_interrupt(&mut self, maybe_fire: Interrupts) {
-        let mut current_if = self.memory.read(io_registers::Addresses::InterruptFired as i32);
+        let mut current_if = self.memory.read(io_registers::Addresses::InterruptFired);
         current_if |= maybe_fire.bits();
-        self.memory.store(io_registers::Addresses::InterruptFired as i32, current_if);
+        self.memory.store(io_registers::Addresses::InterruptFired, current_if);
     }
 
     fn temp_hack_get_bus(&self) -> mmu::MemoryBus {

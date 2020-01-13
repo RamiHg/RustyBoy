@@ -151,10 +151,8 @@ impl Window {
         Window { context, shader: fs_copy }
     }
 
-    pub fn update_screen(&self, screen: &[gpu::Color]) {
-        // Create pixels!
-        let pixels = screen.iter().map(|x| gpu::Pixel::from(*x)).collect::<Vec<gpu::Pixel>>();
-
+    pub fn update_screen(&self, pixels: &[u8]) {
+        assert_eq!(pixels.len(), gpu::LCD_WIDTH * gpu::LCD_HEIGHT * 4);
         unsafe {
             GL!(gl::TexSubImage2D(
                 gl::TEXTURE_2D,

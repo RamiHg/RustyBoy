@@ -47,14 +47,20 @@ pub struct Pixel {
     pub a: u8,
 }
 
-impl From<Color> for Pixel {
-    fn from(color: Color) -> Pixel {
+impl From<&Color> for Pixel {
+    fn from(color: &Color) -> Pixel {
         match color {
             Color::White => Pixel::new(255u8, 255u8, 255u8),
             Color::LightGray => Pixel::new(192u8, 192u8, 192u8),
             Color::DarkGray => Pixel::new(96u8, 96u8, 96u8),
             Color::Black => Pixel::new(0u8, 0u8, 0u8),
         }
+    }
+}
+
+impl Into<u32> for Pixel {
+    fn into(self) -> u32 {
+        (self.b as u32) | ((self.g as u32) << 8) | ((self.r as u32) << 16) | ((self.a as u32) << 24)
     }
 }
 

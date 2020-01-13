@@ -1,8 +1,14 @@
-use soc::gpu::Color;
-use soc::joypad::Key;
-use soc::system::System;
+use crate::gpu::Pixel;
+use crate::gpu::{LCD_HEIGHT, LCD_WIDTH};
+use crate::joypad::Key;
+use crate::system::System;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct Simulator {
+    // #[wasm_bindgen(skip)]
     system: System,
 
     time_accum: f32,
@@ -10,13 +16,23 @@ pub struct Simulator {
 
 impl Simulator {
     pub fn with_system(system: System) -> Simulator {
+        Simulator { system, time_accum: 0.0 }
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+impl Simulator {
+    pub fn new_hack() -> Simulator {
+        let cart = crate::cart::from_file_contents(include_bytes!("../../pk.gb"));
+        let mut system = System::new_complete();
+        system.set_cart(cart);
         Simulator { system, time_accum: 0. }
     }
 
     /// Updates the internal simulator state by dt seconds. The state is updated in chunks of
     /// simulated "frames", i.e. one simulated 16.66ms block. Will therefore produce 0 or more of
     /// those chunks. If at least one frame was simulated, will return the latest system screen.
-    pub fn update(&mut self, dt: f32) -> Option<Vec<Color>> {
+    pub fn update(&mut self, dt: f32) -> Option<Box<[u8]>> {
         // Accumulate passed time. Make sure not to fall back behind by more than one second.
         self.time_accum += dt.min(1.);
         // Simulate the system in discrete 16.66ms chunks.
@@ -28,7 +44,22 @@ impl Simulator {
                 self.simulate_frame();
                 self.time_accum -= STEP_SIZE;
             }
-            Some(Vec::from(self.system.screen()))
+            let mut arr = [0; LCD_WIDTH * LCD_HEIGHT * 4];
+
+            for (i, pixel) in self.system.screen().iter().map(Pixel::from).enumerate() {
+                if cfg!(target_arch = "wasm32") {
+                    arr[i * 4] = pixel.r;
+                    arr[i * 4 + 1] = pixel.g;
+                    arr[i * 4 + 2] = pixel.b;
+                    arr[i * 4 + 3] = pixel.a;
+                } else {
+                    arr[i * 4] = pixel.b;
+                    arr[i * 4 + 1] = pixel.g;
+                    arr[i * 4 + 2] = pixel.r;
+                    arr[i * 4 + 3] = pixel.a;
+                }
+            }
+            Some(Box::from(arr))
         } else {
             None
         }

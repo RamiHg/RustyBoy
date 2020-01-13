@@ -18,6 +18,7 @@ pub mod error;
 pub mod gpu;
 pub mod joypad;
 pub mod log;
+pub mod sim;
 pub mod system;
 
 #[cfg(feature = "audio")]

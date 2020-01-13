@@ -168,7 +168,7 @@ impl Cpu {
             warn!("It aint good");
             interrupt_fired_flag = self.state.data_latch;
         }
-        let ie_flag = memory.read(0xFFFF) & 0x1F;
+        let ie_flag = memory.read(io_registers::Addresses::InterruptEnable) & 0x1F;
         let interrupt_fired_mask = interrupt_fired_flag & ie_flag;
         if self.is_halted && interrupt_fired_mask.trailing_zeros() == 1 && !hack {
             return Ok(false);
@@ -189,7 +189,7 @@ impl Cpu {
         debug_assert_eq!(self.interrupt_handle_mcycle, 3);
         debug_assert_eq!(self.t_state.get(), 3);
         let interrupt_fired_flag = self.interrupt_fired_flag(memory)?;
-        let ie_flag = memory.read(io_registers::Addresses::InterruptEnable as i32) & 0x1F;
+        let ie_flag = memory.read(io_registers::Addresses::InterruptEnable) & 0x1F;
         let fired_interrupts = interrupt_fired_flag & ie_flag;
         if fired_interrupts == 0 {
             return Err(error::Type::InvalidOperation(
@@ -203,13 +203,12 @@ impl Cpu {
         self.registers.set(register::Register::TEMP_LOW, interrupt_index * 8);
         // Finally, issue a write to clear the fired bit.
         let new_fired_interrupts = interrupt_fired_flag & !(1 << interrupt_index);
-        memory.store(io_registers::Addresses::InterruptFired as i32, new_fired_interrupts);
+        memory.store(io_registers::Addresses::InterruptFired, new_fired_interrupts);
         Ok(())
     }
 
     fn interrupt_fired_flag(&mut self, memory: &Memory) -> Result<i32> {
-        let interrupt_fired_flag =
-            memory.read(io_registers::Addresses::InterruptFired as i32) & 0x1F;
+        let interrupt_fired_flag = memory.read(io_registers::Addresses::InterruptFired) & 0x1F;
         if (interrupt_fired_flag & !0x1F) != 0 {
             Err(error::Type::InvalidOperation(format!(
                 "Interrupt flag register is corrupt: {:X?}",

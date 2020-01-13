@@ -16,8 +16,8 @@ serialize = ["soc/serialize", "bincode"]
 
 [dependencies]
 gl = "0.14.0"
-glutin = "0.22.0-alpha5"
-structopt = {version = "0.3.7", default-features = false}
+glutin = "0.22"
+pico-args = "0.3.1"
 # Workspace dependencies.
 soc = { path = "soc" }
 # Serialize dependencies.
@@ -26,7 +26,7 @@ bincode = { version = "1.2.1", optional = true }
 # Since the system is unusable in debug, debug defaults to fairly optimized settings, but with
 # options for faster building. If you want a true debug build, uncomment the section below.
 [profile.dev]
-opt-level = 3
+opt-level = 2
 debug = false
 # Similar settings for test profile.
 [profile.test]
@@ -36,7 +36,7 @@ debug = false
 # Release settings are left for fully optimized builds.
 [profile.release]
 codegen-units = 1
-lto = true
+lto = "fat"
 debug = true
 
 # Keep overflow checks and debug assertions on for test --release.

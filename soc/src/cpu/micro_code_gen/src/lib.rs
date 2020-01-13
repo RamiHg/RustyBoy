@@ -1,9 +1,9 @@
-use arraydeque::ArrayDeque;
+use arrayvec::ArrayVec;
 
 use micro_code::micro_code::MicroCode;
 
 pub const MAX_MICROCODES_PER_OP: usize = 22;
-pub type MicroCodeList = ArrayDeque<[MicroCode; MAX_MICROCODES_PER_OP]>;
+pub type MicroCodeList = ArrayVec<[MicroCode; MAX_MICROCODES_PER_OP]>;
 
 pub struct Pla {
     microcode_array: Vec<MicroCode>,
@@ -34,7 +34,9 @@ impl Default for Pla {
                 num_indices,
                 MAX_MICROCODES_PER_OP
             );
-            pla.push(Vec::from(&pla_bytes[i + 1..i + 1 + num_indices]));
+            let mut vec = Vec::from(&pla_bytes[i + 1..i + 1 + num_indices]);
+            vec.reverse();
+            pla.push(vec);
             i += 1 + num_indices;
         }
         assert_eq!(i, pla_bytes.len());

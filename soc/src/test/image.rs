@@ -25,7 +25,7 @@ pub fn dump_image(sub_dir: &Path, test_name: &str, screen: &[gpu::Color]) {
     let mut img = Image::new(LCD_WIDTH as u32, LCD_HEIGHT as u32);
     for j in 0..LCD_HEIGHT as usize {
         for i in 0..LCD_WIDTH as usize {
-            let pixel: gpu::Pixel = screen[i + j * LCD_WIDTH as usize].into();
+            let pixel: gpu::Pixel = gpu::Pixel::from(&screen[i + j * LCD_WIDTH as usize]);
             img.set_pixel(i as u32, j as u32, pixel.into());
         }
     }

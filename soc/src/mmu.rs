@@ -104,10 +104,6 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
-            Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
-                let flag = i32::from(self.mem[raw as usize]);
-                Some((flag & 0x1F) | 0xE0)
-            }
             Registers
                 if raw == io_registers::Addresses::LcdControl as i32
                     || raw == io_registers::Addresses::LcdStatus as i32
@@ -128,6 +124,10 @@ impl MemoryMapped for Memory {
         let Address(location, raw) = address;
         use Location::*;
         match location {
+            Registers if raw == io_registers::Addresses::InterruptFired as i32 => {
+                self.mem[raw as usize] = ((value as u8) & 0x1F) | 0xE0;
+                Some(())
+            }
             Registers if raw == io_registers::Addresses::InterruptEnable as i32 => {
                 self.mem[raw as usize] = value as u8;
                 Some(())
@@ -157,13 +157,23 @@ impl Default for Memory {
 }
 
 impl Memory {
-    /// Temporary while the entire system moves away form direct memory access.
-    pub fn read(&self, raw_address: i32) -> i32 {
-        let address = Address::from_raw(raw_address).unwrap();
-        MemoryMapped::read(self, address).unwrap()
+    // Fast-path reads for registers (used in interrupt handling and special-purpose CPU code).
+    pub fn read(&self, address: io_registers::Addresses) -> i32 {
+        i32::from(match address {
+            io_registers::Addresses::InterruptFired | io_registers::Addresses::InterruptEnable => unsafe {
+                *self.mem.get_unchecked(address as usize)
+            },
+            _ => panic!("Unexpected direct read of {:X?}.", address as i32),
+        })
     }
-    pub fn store(&mut self, raw_address: i32, value: i32) {
-        let address = Address::from_raw(raw_address).unwrap();
-        MemoryMapped::write(self, address, value).unwrap();
+
+    pub fn store(&mut self, address: io_registers::Addresses, value: i32) {
+        match address {
+            io_registers::Addresses::InterruptFired => {
+                // TODO: Duplicate with write above.
+                self.mem[address as usize] = ((value as u8) & 0x1F) | 0xE0;
+            }
+            _ => panic!("Unexpected direct write of {:X?}.", address as i32),
+        }
     }
 }

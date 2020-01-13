@@ -42,18 +42,17 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
                 if cpu.is_halted {
                     debug_assert!(cpu.micro_code_stack.is_empty());
                     cpu.micro_code_stack.clear();
-                    cpu.micro_code_stack.push_back(true_nop()).unwrap();
-                    cpu.micro_code_stack.push_back(nop_end()).unwrap();
+                    cpu.micro_code_stack.try_extend_from_slice(&[nop_end(), true_nop()]).unwrap();
                 } else if !cpu.is_handling_interrupt {
                     debug_assert!(cpu.micro_code_stack.is_empty());
                     cpu.registers.set(Register::INSTR, opcode);
                     cpu.micro_code_stack = cpu.decoder.decode(opcode, cpu.state.in_cb_mode);
                 }
-                (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute)
+                (cpu.micro_code_stack.pop().unwrap(), DecodeMode::Execute)
             }
             _ => panic!("Invalid decode t-state"),
         },
-        DecodeMode::Execute => (cpu.micro_code_stack.pop_front().unwrap(), DecodeMode::Execute),
+        DecodeMode::Execute => (cpu.micro_code_stack.pop().unwrap(), DecodeMode::Execute),
     };
     // Execute the micro-code.
     let mut next_state = execute(&micro_code, cpu);
@@ -61,7 +60,11 @@ pub fn cycle(cpu: &mut Cpu) -> (cpu::State, bool) {
         let flags = alu::Flags::from_bits(cpu.registers.get(Register::F)).unwrap();
         let end = !condition_check_passes(flags, micro_code.cond);
         if end {
-            cpu.micro_code_stack.clear();
+            // Set len instead of clearing for performance reasons. A lot of time is spent dropping
+            // elements.
+            unsafe {
+                cpu.micro_code_stack.set_len(0);
+            }
         };
         end
     } else {

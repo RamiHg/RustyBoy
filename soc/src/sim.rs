@@ -22,15 +22,6 @@ impl Simulator {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl Simulator {
-    // TODO: Fix this hack.
-    #[cfg(target_arch = "wasm32")]
-    pub fn new_hack() -> Simulator {
-        let cart = crate::cart::from_file_contents(include_bytes!("../../cart.gb"));
-        let mut system = System::new_complete();
-        system.set_cart(cart);
-        Simulator { system, time_accum: 0. }
-    }
-
     /// Updates the internal simulator state by dt seconds. The state is updated in chunks of
     /// simulated "frames", i.e. one simulated 16.66ms block. Will therefore produce 0 or more of
     /// those chunks. If at least one frame was simulated, will return the latest system screen.

@@ -1,8 +1,0 @@
-{
-  "debug.allowBreakpointsEverywhere": true,
-  "editor.tabSize": 4,
-  "editor.rulers": [
-    100
-  ],
-  "rust-analyzer.enableCargoWatchOnStartup": "enabled"
-}

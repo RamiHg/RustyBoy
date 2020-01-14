@@ -4,12 +4,13 @@ version = "0.1.0"
 authors = ["Ramy"]
 edition = "2018"
 
+# TODO: Refactor this entire library. It's really hacky to have "build" feature set.
 [features]
 default = []
-build = ["csv"]
+build = ["csv", "num-derive", "num-traits"]
 
 [dependencies]
-num-derive = "0.3.0"
-num-traits = { version = "0.2.11", default-features = false }
+num-derive = { version = "0.3.0", optional = true }
+num-traits = { version = "0.2.11", default-features = false, optional = true }
 
 csv = { version = "1.1.2", optional = true }

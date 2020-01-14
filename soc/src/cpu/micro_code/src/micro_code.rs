@@ -1,4 +1,3 @@
-use num_derive::FromPrimitive;
 use std::fmt::{self, Debug, Formatter};
 
 use crate::register::Register;
@@ -51,7 +50,6 @@ pub enum IncOp {
     Dec = 0b10,
 }
 
-
 impl Debug for IncOp {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         use IncOp::*;
@@ -92,7 +90,7 @@ impl Debug for AluOutSelect {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, FromPrimitive, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum Condition {
     NZ,

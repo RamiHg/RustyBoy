@@ -22,8 +22,10 @@ impl Simulator {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl Simulator {
+    // TODO: Fix this hack.
+    #[cfg(target_arch = "wasm32")]
     pub fn new_hack() -> Simulator {
-        let cart = crate::cart::from_file_contents(include_bytes!("../../pk.gb"));
+        let cart = crate::cart::from_file_contents(include_bytes!("../../cart.gb"));
         let mut system = System::new_complete();
         system.set_cart(cart);
         Simulator { system, time_accum: 0. }

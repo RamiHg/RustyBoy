@@ -1,4 +1,7 @@
 .DS_STORE
+.vscode/
 
 target
 Cargo.lock
+
+/*.gb

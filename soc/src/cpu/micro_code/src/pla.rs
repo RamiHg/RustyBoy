@@ -81,6 +81,19 @@ impl Into<Register> for AFPairTable {
     }
 }
 
+impl From<i32> for Condition {
+    fn from(i: i32) -> Condition {
+        use Condition::*;
+        match i {
+            0 => NZ,
+            1 => Z,
+            2 => NC,
+            3 => C,
+            _ => panic!("Unexpected condition: {}.", i),
+        }
+    }
+}
+
 pub struct DecoderBuilder {
     pla: MCycleMap,
 }
@@ -132,9 +145,7 @@ impl DecoderBuilder {
                     1 => self.pla["LD(i16),SP"].clone(),
                     2 => nop, // TODO: IMPLEMENT STOP
                     3 => self.pla["JR[cc],i8"].prune_ccend(),
-                    4..=7 | _ => {
-                        self.pla["JR[cc],i8"].remap_cond(Condition::from_i32(op_y - 4).unwrap())
-                    }
+                    4..=7 | _ => self.pla["JR[cc],i8"].remap_cond(Condition::from(op_y - 4)),
                 },
                 // z = 1
                 1 => match op_q {
@@ -256,7 +267,7 @@ impl DecoderBuilder {
                     5 => self.pla["ADDSP,i8"].clone(),
                     6 => self.pla["LDA,(FF00+i8)"].clone(),
                     7 => self.pla["LDHL,SP+i8"].clone(),
-                    _ => self.pla["RETcc"].remap_cond(Condition::from_i32(op_y).unwrap()),
+                    _ => self.pla["RETcc"].remap_cond(Condition::from(op_y)),
                 },
                 // z = 1
                 1 => match op_q {
@@ -278,7 +289,7 @@ impl DecoderBuilder {
                     5 => self.pla["LD(i16),A"].clone(),
                     6 => self.pla["LDA,(FF00+C)"].clone(),
                     7 => self.pla["LDA,(i16)"].clone(),
-                    _ => self.pla["JP[cc],i16"].remap_cond(Condition::from_i32(op_y).unwrap()),
+                    _ => self.pla["JP[cc],i16"].remap_cond(Condition::from(op_y)),
                 },
                 // z = 3
                 3 => match op_y {
@@ -290,9 +301,7 @@ impl DecoderBuilder {
                 },
                 // z = 4. CALL [cc], nn
                 4 => match op_y {
-                    0..=3 => {
-                        self.pla["CALL[cc],i16"].remap_cond(Condition::from_i32(op_y).unwrap())
-                    }
+                    0..=3 => self.pla["CALL[cc],i16"].remap_cond(Condition::from(op_y)),
                     _ => nop,
                 },
                 // z = 5.

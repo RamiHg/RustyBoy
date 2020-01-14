@@ -14,4 +14,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.github/actions/test
+      
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          profile: minimal
+          override: true
+
+      - name: Run tests (debug)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --workspace
+
+      - name: Run tests (release)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
+
+      - name: Build wasm32 target
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release -p soc --target wasm32-unknown-unknown
+  

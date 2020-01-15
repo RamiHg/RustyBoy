@@ -25,6 +25,7 @@ impl Simulator {
     // TODO: Fix this hack.
     #[cfg(target_arch = "wasm32")]
     pub fn new_hack() -> Simulator {
+        console_error_panic_hook::set_once();
         let cart = crate::cart::from_file_contents(include_bytes!("../../cart.gb"));
         let mut system = System::new_complete();
         system.set_cart(cart);

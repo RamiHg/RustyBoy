@@ -149,10 +149,7 @@ impl System {
                 return Ok(result);
             }
         }
-        Err(error::Type::InvalidOperation(format!(
-            "Could not find any memory module accepting {:X?}",
-            raw_address
-        )))
+        Err(error::Type::TODOMemoryBus)
     }
 
     fn write_request(&mut self, raw_address: i32, value: i32) -> Result<()> {
@@ -173,10 +170,7 @@ impl System {
                 return Ok(());
             }
         }
-        Err(error::Type::InvalidOperation(format!(
-            "Could not find any memory module accepting {:X?}",
-            raw_address
-        )))
+        Err(error::Type::TODOMemoryBus)
     }
 
     fn is_invalid_source_address(address: i32) -> bool {
@@ -202,8 +196,13 @@ impl System {
                     self.cpu.state.data_latch = value;
                 } else {
                     match self.cpu.state.address_latch {
+                        // TODO: Cleanup. These registers are provided from the MemoryBus hacky
+                        // system.
                         0xFF41 | 0xFF40 | 0xFF45 | 0xFF44 => (),
-                        _ => panic!("No! {:X}", self.cpu.state.address_latch),
+                        _ => panic!(
+                            "Could not find any memory module accepting {:X}",
+                            self.cpu.state.address_latch
+                        ),
                     }
                 }
             } else if false {

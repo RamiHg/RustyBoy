@@ -199,10 +199,14 @@ impl System {
                         // TODO: Cleanup. These registers are provided from the MemoryBus hacky
                         // system.
                         0xFF41 | 0xFF40 | 0xFF45 | 0xFF44 => (),
-                        _ => panic!(
-                            "Could not find any memory module accepting {:X}",
-                            self.cpu.state.address_latch
-                        ),
+                        _ => {
+                            #[cfg(debug_assertions)]
+                            eprintln!(
+                                "Could not find any memory module accepting {:X}.",
+                                self.cpu.state.address_latch
+                            );
+                            panic!()
+                        }
                     }
                 }
             } else if false {

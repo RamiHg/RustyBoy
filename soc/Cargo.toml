@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []#["audio"]
+default = []
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque", "spin"]
 disas = ["gb_disas"]

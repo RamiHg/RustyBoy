@@ -22,6 +22,7 @@ impl Simulator {
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl Simulator {
+
     /// Updates the internal simulator state by dt seconds. The state is updated in chunks of
     /// simulated "frames", i.e. one simulated 16.66ms block. Will therefore produce 0 or more of
     /// those chunks. If at least one frame was simulated, will return the latest system screen.

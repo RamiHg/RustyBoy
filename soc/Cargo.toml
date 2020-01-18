@@ -8,7 +8,7 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []#["audio"]
+default = []
 # Audio support. Disable this feature if you are having any audio problems (crashes, etc.).
 audio = ["sample", "libsamplerate", "libsoundio-sys", "simple-error", "ringbuf", "slice-deque", "spin"]
 disas = ["gb_disas"]
@@ -48,12 +48,13 @@ slice-deque = { version = "0.3.0", optional = true }
 spin = {version = "0.5.2", optional = true}
 
 [dev-dependencies]
-backtrace = "0.3.40"
+backtrace = "0.3.41"
 bmp = "0.5.0"
 
 # WASM dependencies.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "*"
+console_error_panic_hook = "*"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O4", "-g"]

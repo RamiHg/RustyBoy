@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Georiga;
+      font-size: x-large;
+      text-align: justify;
+
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    article {
+      width: 10em;
+      height: 100%;
+    }
+
+
+    #backing_image {
+      width: 100%;
+      -ms-interpolation-mode: nearest-neighbor;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -o-pixelated;
+      image-rendering: pixelated;
+    }
+
+    .emulator_screen {
+      display: grid;
+    }
+
+    .emulator_screen>* {
+      grid-area: 1 / 1 / 2 / 2;
+    }
+
+    .emulator_screen {
+      padding: 5%;
+      border: 1px solid black;
+    }
+  </style>
+
+  <script type="module" src="./web_demo.js"></script>
+</head>
+
+<body>
+  <!-- Create a hidden backing canvas to hold the screen's pixels. -->
+
+  <article>
+    <div class="main_canvas_container">
+      <div class="emulator_screen">
+
+        <svg viewBox="0 0 10 9"></svg>
+        <canvas id="backing_image" width="160" height="144"></canvas>
+      </div>
+      <div>
+        <input type="file" id="rom" />
+      </div>
+    </div>
+  </article>
+
+</body>
+
+</html>

@@ -11,7 +11,7 @@ authors = ["Ramy"]
 edition = "2018"
 
 [features]
-default = []
+default = ["soc/audio"]
 serialize = ["soc/serialize", "bincode"]
 
 [dependencies]

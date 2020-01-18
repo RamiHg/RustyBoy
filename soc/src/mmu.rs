@@ -46,7 +46,7 @@ impl Address {
             (0xFF00..=0xFF4B) | 0xFFFF => Ok(Address(Registers, raw)),
             0xFF4C..=0xFF7F => Ok(Address(UnknownRegisters, raw)),
             0xFF80..=0xFFFE => Ok(Address(HighRam, raw)),
-            _ => Err(error::Type::InvalidOperation(format!("Address {:X?} is invalid.", raw))),
+            _ => Err(error::Type::InvalidAddress(raw)),
         }
     }
 }

@@ -23,7 +23,9 @@ impl Simulator {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl Simulator {
     pub fn from_cart_bytes(cart_bytes: &[u8]) -> Simulator {
+        #[cfg(target_arch = "wasm32")]
         console_error_panic_hook::set_once();
+
         let cart = crate::cart::from_file_contents(cart_bytes);
         let mut system = System::new_complete();
         system.set_cart(cart);

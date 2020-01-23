@@ -2,9 +2,6 @@ edition = "2018"
 #version = "two"
 #unstable_features = false
 
-max_width = 100
-tab_spaces = 4
-
 use_small_heuristics = "Max"
 use_field_init_shorthand = true
 

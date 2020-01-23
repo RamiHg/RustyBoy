@@ -2,26 +2,14 @@
 <html>
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: Georiga;
-      font-size: x-large;
-      text-align: justify;
-
-    }
-
-    html,
-    body {
-      height: 100%;
-    }
-
     article {
       width: 10em;
       height: 100%;
     }
-
 
     #backing_image {
       width: 100%;
@@ -52,19 +40,29 @@
 <body>
   <!-- Create a hidden backing canvas to hold the screen's pixels. -->
 
-  <article>
+  <div class="container">
     <div class="main_canvas_container">
       <div class="emulator_screen">
-
         <svg viewBox="0 0 10 9"></svg>
         <canvas id="backing_image" width="160" height="144"></canvas>
       </div>
-      <div>
-        <input type="file" id="rom" />
-      </div>
-    </div>
-  </article>
 
+
+      <div class="file-field input-field">
+        <div class="btn">
+          <span id="file_button">File</span>
+          <input type="file" id="cart_file">
+        </div>
+        <div class="file-path-wrapper">
+          <input class="file-path validate" type="text">
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+  <img id="haha">nothing yet</img>
+  <script src=" https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"> </script>
 </body>
 
 </html>

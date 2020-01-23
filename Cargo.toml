@@ -15,13 +15,13 @@ default = ["soc/audio"]
 serialize = ["soc/serialize", "bincode"]
 
 [dependencies]
-gl = "0.14.0"
+gl = "0.14"
 glutin = "0.22"
-pico-args = "0.3.1"
+pico-args = "0.3"
 # Workspace dependencies.
 soc = { path = "soc" }
 # Serialize dependencies.
-bincode = { version = "1.2.1", optional = true }
+bincode = { version = "~1.2", optional = true }
 
 # Since the system is unusable in debug, debug defaults to fairly optimized settings, but with
 # options for faster building. If you want a true debug build, uncomment the section below.

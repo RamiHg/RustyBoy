@@ -227,6 +227,12 @@ mod test {
     /// Make sure we're properly cleaning up after destroying the devices.
     #[test]
     fn stress_test_device_create_destroy() {
+        // TODO: Cleanup. If no audio devices, don't bother with stress test.
+        {
+            if Device::try_new(SharedAudioRegs::default()).is_err() {
+                return;
+            }
+        }
         for _ in 0..10 {
             let audio_regs = SharedAudioRegs::default();
             let _device = Device::try_new(audio_regs).unwrap();

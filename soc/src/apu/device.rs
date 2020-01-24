@@ -112,7 +112,6 @@ mod soundio_backend {
         fn get_device_if_supported(ctx: *mut SoundIo, idx: i32) -> Option<*mut SoundIoDevice> {
             unsafe {
                 let device = soundio_get_output_device(ctx, idx);
-                assert!(!device.is_null());
                 if !device.is_null()
                     && soundio_device_supports_format(device, SAMPLE_FORMAT) != 0
                     && soundio_device_supports_layout(

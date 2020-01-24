@@ -1,9 +1,8 @@
-name: dev
+name: Latest Release (v1.1.0)
 
 on:
-  push:
-    branches:
-      - dev
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   build:
@@ -15,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: dev
+          ref: v1.1.0
 
       - name: Install latest stable
         uses: actions-rs/toolchain@v1
@@ -37,8 +36,9 @@ jobs:
           command: test
           args: --workspace
 
-      - name: Build wasm32 target
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release -p soc --target wasm32-unknown-unknown
+      # TODO: Enable once release supporting wasm32 is cut.
+      # - name: Build wasm32 target
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: build
+      #     args: --release -p soc --target wasm32-unknown-unknown

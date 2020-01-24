@@ -113,7 +113,8 @@ mod soundio_backend {
             unsafe {
                 let device = soundio_get_output_device(ctx, idx);
                 assert!(!device.is_null());
-                if soundio_device_supports_format(device, SAMPLE_FORMAT) != 0
+                if !device.is_null()
+                    && soundio_device_supports_format(device, SAMPLE_FORMAT) != 0
                     && soundio_device_supports_layout(
                         device,
                         soundio_channel_layout_get_builtin(
@@ -124,7 +125,9 @@ mod soundio_backend {
                 {
                     Some(device)
                 } else {
-                    soundio_device_unref(device);
+                    if !device.is_null() {
+                        soundio_device_unref(device);
+                    }
                     None
                 }
             }

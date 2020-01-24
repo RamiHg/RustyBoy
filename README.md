@@ -1,7 +1,7 @@
 # RustyBoy
 
-![](https://github.com/RamiHg/RustyBoy/workflows/master/badge.svg "Master Branch Status")
-![](https://github.com/RamiHg/RustyBoy/workflows/dev/badge.svg "Dev Branch Status")
+![](https://github.com/RamiHg/RustyBoy/workflows/master%20(unstable)/badge.svg "Master Branch Status")
+![](https://github.com/RamiHg/RustyBoy/workflows/Latest%20Release%20(v1.1.0)/badge.svg "Latest Release Status")
 
 RustyBoy is a cycle-accurate Gameboy emulator written to be as close to the real hardware as
 possible.

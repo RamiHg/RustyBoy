@@ -39,3 +39,7 @@ codegen-units = 1
 lto = "fat"
 debug = true
 
+# Turn off optimization for build scripts, since release build script times are dominated
+# by syn.
+#[profile.release.build-override]
+#opt-level = 0

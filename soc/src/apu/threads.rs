@@ -58,7 +58,7 @@ impl Resampler {
         }
     }
 
-    pub fn stream_callback(&mut self, buffer: &mut [f32]) {
+    pub fn stream_callback(&mut self, buffer: &mut [[f32; 2]]) {
         let _now = std::time::Instant::now();
         let buffer: &mut [StereoFrame] = sample::slice::to_frame_slice_mut(buffer)
             .expect("Couldn't convert output buffer to stereo.");
@@ -188,9 +188,7 @@ impl SamplerThread {
             let mut total_written = 0;
             let mut remainder = self.scratch.len();
             while remainder > 0 {
-                let num_written = self
-                    .sample_producer
-                    .push_slice(&self.scratch[total_written..]);
+                let num_written = self.sample_producer.push_slice(&self.scratch[total_written..]);
                 total_written += num_written;
                 remainder = remainder.checked_sub(num_written).unwrap();
                 if remainder > 0 {

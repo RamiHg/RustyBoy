@@ -122,6 +122,8 @@ impl Drop for Resampler {
     }
 }
 
+unsafe impl Send for Resampler {}
+
 /// Sampler thread that periodically polls the system to check for updates to audio registers, and
 /// to produce samples that will be used by the callback thread.
 struct SamplerThread {

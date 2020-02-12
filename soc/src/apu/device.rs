@@ -12,19 +12,15 @@ pub const FRAMES_PER_BUFFER: usize = 2048;
 #[cfg(not(target_os = "windows"))]
 pub const FRAMES_PER_BUFFER: usize = 256;
 
-pub use soundio2_backend::*;
+pub use audiohal_backend::*;
 
-mod soundio2_backend {
-    extern crate soundio;
-
-    use std::rc::Rc;
+mod audiohal_backend {
+    extern crate audiohal;
 
     use super::*;
 
-    trait DeviceTrait {}
-
     pub struct Device {
-        outstream: Option<Rc<soundio::OutStream<[f32; 2]>>>,
+        outstream: Option<audiohal::Stream<[f32; 2]>>,
         sampler_thread_kill: Arc<AtomicBool>,
     }
 
@@ -38,19 +34,16 @@ mod soundio2_backend {
 
     impl Device {
         pub fn try_new(global_regs: SharedAudioRegs) -> Result<Device, Box<dyn std::error::Error>> {
-            let context = soundio::Context::new()?;
-            let device = context.default_output_device()?;
-
             let (mut resampler, sampler_thread_kill) = threads::make_audio_threads(global_regs);
 
-            let stream = device.open_outstream(
-                soundio::StreamOptions::<[f32; 2]> {
-                    sample_rate: soundio::SampleRate::NearestTo(DEVICE_RATE as i32),
-                    desired_frames_per_buffer: Some(FRAMES_PER_BUFFER as i32),
+            let mut stream = audiohal::Host::with_default_backend()?
+                .default_output_device()?
+                .open_outstream(audiohal::StreamOptions {
+                    sample_rate: audiohal::SampleRate::Exact(DEVICE_RATE as i32),
+                    frames_per_buffer: Some(FRAMES_PER_BUFFER as i32),
+                    callback: Box::new(move |x| resampler.stream_callback(x)),
                     ..Default::default()
-                },
-                Box::new(move |x| resampler.stream_callback(x)),
-            )?;
+                })?;
             stream.start()?;
 
             return Ok(Device { outstream: Some(stream), sampler_thread_kill });
